@@ -5,13 +5,17 @@
   "type": "module",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "server": "nodemon src/server.js"
+    "server": "nodemon src/server.js",
+    "dev": "nodemon src/server.js"
   },
   "keywords": [],
-  "author": "Osman Bin Nasir",
+  "author": "Osman Bin Nasir, Abdul Razzaq",
   "license": "ISC",
   "description": "",
   "dependencies": {
-    "express": "^5.1.0"
+    "dotenv": "^17.2.3",
+    "express": "^5.1.0",
+    "mongodb": "^6.20.0",
+    "mongoose": "^8.19.1"
   }
 }
