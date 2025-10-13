@@ -23,6 +23,6 @@ app.get('/', (req, res) => {
 app.use('/api/auth', authRouter);
 app.use('/api/user', userRouter)
 
-app.listen(3000, () => {
-    console.log("App is listening")
+app.listen(process.env.PORT || 3000, () => {
+    console.log("App is listening on port: 3000")
 })

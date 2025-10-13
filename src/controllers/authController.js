@@ -114,7 +114,6 @@ export const logout = async (req, res) => {
             secure: process.env.NODE_ENV === 'production',
             sameSite: process.env.NODE_ENV === 'production' ?
                 'none' : 'strict',
-            maxAge: 7 * 24 * 60 * 60 * 1000
         })
         res.json({ success: true, message: "Logged out successfully" });
     } catch (error) {
@@ -204,12 +203,22 @@ export const verifyEmail = async (req, res) => {
 
 export const isAuthenticated = async (req, res) => {
     try {
-        res.json({ success: true });
+        if (!req.user) {
+            return res.status(401).json({ success: false, message: "Not logged in" });
+        }
+
+        res.json({
+            success: true,
+            user: {
+                id: req.user._id,
+                name: req.user.name,
+                email: req.user.email,
+            }
+        });
+    } catch (err) {
+        res.status(500).json({ success: false, message: err.message });
     }
-    catch (err) {
-        res.json({ success: false, message: err.message })
-    }
-}
+};
 
 // Reset OTP
 
