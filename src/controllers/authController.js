@@ -140,6 +140,12 @@ export const isAuthenticated = asyncHandler(async (req, res) => {
             id: req.user._id,
             name: req.user.name,
             email: req.user.email,
+            role: req.user.role,
+            branchId: req.user.branchId,
+            branchId: req.user.branchId,
+            employeeId: req.user.employeeId,
+            shift: req.user.shift,
+            attendance: req.user.attendance,
         },
     });
 });

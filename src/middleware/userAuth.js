@@ -1,35 +1,31 @@
 import jwt from "jsonwebtoken";
 import userModel from "../models/User.js";
+import CustomError from "../utils/customError.js";
 
 const userAuth = async (req, res, next) => {
+  const { token } = req.cookies;
+
+  if (!token) {
+    return next(new CustomError("Not Logged In", 401));
+  }
+
   try {
-    const { token } = req.cookies;
-
-    if (!token) {
-      const error = new Error("Not Logged In");
-      error.statusCode = 401; // Unauthorized
-      return next(error);
-    }
-
     const decodedToken = jwt.verify(token, process.env.JWT_SECRET);
-    const user = await userModel.findById(decodedToken.id).select("-password");
+
+    // Populate role
+    const user = await userModel
+      .findById(decodedToken.id)
+      .select("-password")
+      .populate("role", "name permissions"); // populate name & permissions
 
     if (!user) {
-      const error = new Error("User not found");
-      error.statusCode = 404;
-      return next(error);
+      return next(new CustomError("User not found", 404));
     }
 
-    req.user = user;
+    req.user = user; // user.role is now populated
     next();
-
   } catch (error) {
-    // If JWT verification fails, handle it gracefully
-    if (error.name === "JsonWebTokenError") {
-      error.message = "Invalid or expired token";
-      error.statusCode = 401;
-    }
-    next(error); // Pass to centralized error handler
+    next(new CustomError(error.message, 401));
   }
 };
 

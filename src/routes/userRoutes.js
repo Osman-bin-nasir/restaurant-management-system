@@ -1,9 +1,14 @@
-import express from 'express';
-import userAuth from '../middleware/userAuth.js';
-import { getUserData } from '../controllers/userController.js';
+import express from "express";
+import { getAllUsers, getUserById, updateUser, deleteUser } from "../controllers/userController.js";
+import userAuth from "../middleware/userAuth.js";
+import { authorizeRoles } from "../middleware/authorize.js";
 
-const userRouter = express.Router();
+const router = express.Router();
 
-userRouter.get('/data', userAuth, getUserData);
+// 👑 Admin routes
+router.get("/", userAuth, authorizeRoles("admin"), getAllUsers);
+router.get("/:id", userAuth, getUserById);
+router.put("/:id", userAuth, updateUser);
+router.delete("/:id", userAuth, authorizeRoles("admin"), deleteUser);
 
-export default userRouter;
+export default router;

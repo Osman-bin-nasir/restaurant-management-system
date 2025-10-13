@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
+import Role from "./Role.js";
 
-const userSchema = new mongoose.Schema( {
+const userSchema = new mongoose.Schema({
     name: {
         type: String,
         required: true,
@@ -14,6 +15,17 @@ const userSchema = new mongoose.Schema( {
         type: String,
         required: true,
     },
+    role: { type: mongoose.Schema.Types.ObjectId, ref: 'Role', required: true },
+    branchId: { type: mongoose.Schema.Types.ObjectId, ref: 'Branch' },
+    employeeId: { type: String },
+    shift: { type: String, enum: ['morning', 'evening', 'night'] },
+    attendance: [
+        {
+            date: { type: Date, default: Date.now },
+            status: { type: String, enum: ['present', 'absent', 'leave'], default: 'present' }
+        }
+    ],
+    isActive: { type: Boolean, default: true },
     verifyOtp: {
         type: String,
         default: '',
