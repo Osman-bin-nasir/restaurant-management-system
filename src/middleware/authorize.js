@@ -8,7 +8,7 @@ export const authorizeRoles = (...allowedRoles) => {
 
     // Compare role.name instead of ObjectId
     if (!allowedRoles.includes(req.user.role.name)) {
-      throw new CustomError("Access denied: insufficient permissions", 403);
+      throw new CustomError("Access denied: Accessible to ADMINS ONLY!", 403);
     }
 
     next();

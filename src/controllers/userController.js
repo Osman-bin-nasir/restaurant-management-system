@@ -2,20 +2,20 @@ import userModel from "../models/User.js";
 import { asyncHandler } from "../middleware/asyncHandler.js";
 import CustomError from "../utils/customError.js";
 
-// 🧩 Get all users (Admin only)
+// Get all users (Admin only)
 export const getAllUsers = asyncHandler(async (req, res) => {
   const users = await userModel.find().select("-password");
   res.status(200).json({ success: true, users });
 });
 
-// 🧩 Get single user by ID
+// Get single user by ID
 export const getUserById = asyncHandler(async (req, res) => {
   const user = await userModel.findById(req.params.id).select("-password");
   if (!user) throw new CustomError("User not found", 404);
   res.status(200).json({ success: true, user });
 });
 
-// 🧩 Update user (Admin can update role or user can update self)
+// Update user (Admin can update role or user can update self)
 export const updateUser = asyncHandler(async (req, res) => {
   const { name, email, role } = req.body;
   const user = await userModel.findById(req.params.id);
@@ -35,11 +35,11 @@ export const updateUser = asyncHandler(async (req, res) => {
   res.status(200).json({ success: true, message: "User updated successfully" });
 });
 
-// 🧩 Delete user (Admin only)
+// Delete user (Admin only)
 export const deleteUser = asyncHandler(async (req, res) => {
   const user = await userModel.findById(req.params.id);
   if (!user) throw new CustomError("User not found", 404);
 
+  res.status(200).json({ success: true, message: "User deleted successfully", user });
   await user.deleteOne();
-  res.status(200).json({ success: true, message: "User deleted successfully" });
 });
