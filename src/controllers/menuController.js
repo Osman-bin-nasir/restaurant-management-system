@@ -15,7 +15,7 @@ export const createMenuItem = async (req, res, next) => {
 export const getAllMenuItems = async (req, res, next) => {
   try {
     const menu = await Menu.find().populate("branchId", "name location");
-    res.json({ success: true, data: menu });
+    res.json({ success: true, MenuItems: menu });
   } catch (error) {
     next(error);
   }
@@ -25,7 +25,7 @@ export const getMenuById = async (req, res, next) => {
   try {
     const menu = await Menu.findById(req.params.id).populate("branchId", "name location");
     if (!menu) return next(new CustomError("Menu item not found", 404));
-    res.json({ success: true, data: menu });
+    res.json({ success: true, MenuItem: menu });
   } catch (error) {
     next(error);
   }

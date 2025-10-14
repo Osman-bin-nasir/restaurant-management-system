@@ -9,6 +9,7 @@ import menuRouter from './routes/menuRoutes.js'
 import errorHandler from './middleware/errorHandler.js';
 import roleRoutes from "./routes/roleRoutes.js";
 import permissionRoutes from "./routes/permissionRoutes.js";
+import orderRoutes from "./routes/orderRoutes.js";
 
 // Import all models to ensure they are registered with Mongoose
 import './models/Branch.js';
@@ -43,6 +44,8 @@ app.get('/', (req, res) => {
 app.use('/api/auth', authRouter);
 app.use('/api/users', userRouter);
 app.use('/api/menu',menuRouter);
+app.use('/api/orders',orderRoutes);
+
 app.use("/api/roles", roleRoutes);
 
 app.use("/api/permissions", permissionRoutes);
