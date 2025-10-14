@@ -1,6 +1,7 @@
 import userModel from "../models/User.js";
 import { asyncHandler } from "../middleware/asyncHandler.js";
 import CustomError from "../utils/customError.js";
+import Role from "../models/Role.js";
 
 // Get all users (Admin only)
 export const getAllUsers = asyncHandler(async (req, res) => {
@@ -42,4 +43,32 @@ export const deleteUser = asyncHandler(async (req, res) => {
 
   res.status(200).json({ success: true, message: "User deleted successfully", user });
   await user.deleteOne();
+});
+
+// Assign Role
+
+export const assignRole = asyncHandler(async (req, res) => {
+  const { roleName } = req.body;
+  const { id: userId } = req.params;
+
+  const user = await userModel.findById(userId);
+  if (!user) {
+    res.status(404);
+    throw new CustomError('User not found');
+  }
+
+  const role = await Role.findOne({ name: roleName });
+  if (!role) {
+    res.status(404);
+    throw new CustomError('Role not found');
+  }
+
+  user.role = role._id;
+  await user.save();
+
+  res.status(200).json({
+    success: true,
+    message: `Role '${roleName}' assigned successfully`,
+    user
+  });
 });

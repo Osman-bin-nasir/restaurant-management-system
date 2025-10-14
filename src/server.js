@@ -7,6 +7,8 @@ import authRouter from './routes/authRoutes.js';
 import userRouter from './routes/userRoutes.js';
 import errorHandler from './middleware/errorHandler.js';
 import roleRoutes from "./routes/roleRoutes.js";
+import permissionRoutes from "./routes/permissionRoutes.js";
+
 
 const app = express();
 connectDB();
@@ -30,6 +32,7 @@ app.use('/api/users', userRouter);
 
 app.use("/api/roles", roleRoutes);
 
+app.use("/api/permissions", permissionRoutes);
 
 app.use(errorHandler);
 

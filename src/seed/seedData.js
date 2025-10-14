@@ -4,6 +4,7 @@ import bcrypt from 'bcryptjs';
 import Role from '../models/Role.js';
 import Branch from '../models/Branch.js';
 import User from '../models/User.js';
+import Permission from '../models/Permissions.js';
 
 dotenv.config();
 
@@ -12,88 +13,112 @@ const seedData = async () => {
     await mongoose.connect(process.env.MONGO_URI);
     console.log('✅ Connected to MongoDB');
 
-    // 1️⃣ Create Roles
-    const roles = [
+    // 1️⃣ Define Roles + Permissions
+    const roleDefinitions = [
       { name: 'admin', permissions: ['*'] },
-      { name: 'manager', permissions: ['branch:*', 'reports:view', 'employees:manage'] },
+      {
+        name: 'manager',
+        permissions: ['branch:*', 'reports:view', 'employees:manage'],
+      },
       { name: 'cashier', permissions: ['orders:create', 'billing:*'] },
       { name: 'waiter', permissions: ['orders:create', 'tables:manage'] },
-      { name: 'chef', permissions: ['orders:view', 'orders:update'] }
+      { name: 'chef', permissions: ['orders:view', 'orders:update'] },
     ];
 
-    await Role.deleteMany({});
-    const createdRoles = await Role.insertMany(roles);
+    // 2️⃣ Clear existing data
+    await Promise.all([
+      Role.deleteMany({}),
+      Permission.deleteMany({}),
+      Branch.deleteMany({}),
+      User.deleteMany({}),
+    ]);
+    console.log('🧹 Cleared existing data');
+
+    // 3️⃣ Extract unique permissions
+    const allPermissions = [
+      ...new Set(roleDefinitions.flatMap(r => r.permissions)),
+    ];
+
+    // 4️⃣ Create Permission documents
+    const createdPermissions = await Permission.insertMany(
+      allPermissions.map(p => ({ name: p }))
+    );
+
+    const permissionMap = {};
+    createdPermissions.forEach(p => (permissionMap[p.name] = p._id));
+    console.log('✅ Permissions seeded');
+
+    // 5️⃣ Create Roles referencing Permission IDs
+    const createdRoles = await Role.insertMany(
+      roleDefinitions.map(role => ({
+        name: role.name,
+        permissions:
+          role.permissions.includes('*')
+            ? createdPermissions.map(p => p._id) // admin gets all
+            : role.permissions.map(p => permissionMap[p]),
+      }))
+    );
     console.log('✅ Roles seeded');
 
-    // Get role IDs
     const roleMap = {};
     createdRoles.forEach(r => (roleMap[r.name] = r._id));
 
-    // 2️⃣ Create a default Branch
-    await Branch.deleteMany({});
+    // 6️⃣ Create default Branch
     const mainBranch = await Branch.create({
       name: 'Main Branch',
       location: 'Downtown',
       contact: '+91-9876543210',
       operatingHours: { open: '9:00 AM', close: '11:00 PM' },
-      status: 'active'
+      status: 'active',
     });
     console.log('✅ Branch seeded');
 
-    // 3️⃣ Create Users
-    await User.deleteMany({});
+    // 7️⃣ Create one User per Role
     const users = [
       {
         name: 'Super Admin',
         email: 'admin@restaurant.com',
-        password: 'admin123',
+        password: await bcrypt.hash('admin123', 10),
         role: roleMap['admin'],
-        shift: 'morning'
+        shift: 'morning',
+        branchId: mainBranch._id,
       },
       {
         name: 'John Manager',
         email: 'manager@restaurant.com',
-        password: 'manager123',
+        password: await bcrypt.hash('manager123', 10),
         role: roleMap['manager'],
-        shift: 'morning'
+        shift: 'morning',
+        branchId: mainBranch._id,
       },
       {
         name: 'Priya Cashier',
         email: 'cashier@restaurant.com',
-        password: 'cashier123',
+        password: await bcrypt.hash('cashier123', 10),
         role: roleMap['cashier'],
-        shift: 'evening'
+        shift: 'evening',
+        branchId: mainBranch._id,
       },
       {
-        name: 'Amit Waiter',
+        name: 'Ravi Waiter',
         email: 'waiter@restaurant.com',
-        password: 'waiter123',
+        password: await bcrypt.hash('waiter123', 10),
         role: roleMap['waiter'],
-        shift: 'morning'
+        shift: 'evening',
+        branchId: mainBranch._id,
       },
       {
-        name: 'Chef Ramesh',
+        name: 'Chef Arjun',
         email: 'chef@restaurant.com',
-        password: 'chef123',
+        password: await bcrypt.hash('chef123', 10),
         role: roleMap['chef'],
-        shift: 'evening'
-      }
+        shift: 'morning',
+        branchId: mainBranch._id,
+      },
     ];
 
-    // Hash passwords
-    const userDocs = await Promise.all(
-      users.map(async u => ({
-        ...u,
-        password: await bcrypt.hash(u.password, 10),
-        branchId: mainBranch._id
-      }))
-    );
-
-    await User.insertMany(userDocs);
-    console.log('✅ Users created:');
-    users.forEach(u =>
-      console.log(`→ ${u.name} | ${u.email} | pass: ${u.password}`)
-    );
+    await User.insertMany(users);
+    console.log('✅ Users seeded successfully');
 
     console.log('\n🌱 Seeding Completed Successfully!');
     process.exit(0);
