@@ -5,12 +5,20 @@ import {
   updateUser,
   deleteUser,
   assignRole,
-  updateOwnProfile
+  updateOwnProfile,
+  createUser
 } from "../controllers/userController.js";
 import userAuth from "../middleware/userAuth.js";
 import { authorizePermissions } from "../middleware/authorize.js";
 
 const router = express.Router();
+
+router.post(
+  "/",
+  userAuth,
+  authorizePermissions("users:create"),
+  createUser
+);
 
 // ✅ Self-service routes (no special permissions needed)
 router.get("/me", userAuth, (req, res) => {

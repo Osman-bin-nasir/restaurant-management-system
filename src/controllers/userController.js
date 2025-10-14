@@ -4,6 +4,102 @@ import CustomError from "../utils/customError.js";
 import Role from "../models/Role.js";
 import bcrypt from 'bcryptjs';
 
+// ➕ Create new user (Admin only)
+export const createUser = asyncHandler(async (req, res) => {
+  const { name, email, password, roleName, branchId, shift, employeeId } = req.body;
+
+  // ✅ Validation
+  if (!name || !email || !password || !roleName) {
+    throw new CustomError("Name, email, password, and roleName are required", 400);
+  }
+
+  // ✅ Email format validation
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email)) {
+    throw new CustomError("Invalid email format", 400);
+  }
+
+  // ✅ Password strength validation (minimum 6 chars)
+  if (password.length < 6) {
+    throw new CustomError("Password must be at least 6 characters long", 400);
+  }
+
+  // ✅ Check if user already exists
+  const existingUser = await userModel.findOne({ email });
+  if (existingUser) {
+    throw new CustomError("User with this email already exists", 409);
+  }
+
+  // ✅ Validate role exists
+  const role = await Role.findOne({ name: roleName });
+  if (!role) {
+    throw new CustomError(`Role '${roleName}' not found. Available roles: admin, manager, cashier, waiter, chef`, 404);
+  }
+
+  // ✅ Validate branch if provided
+  if (branchId) {
+    const Branch = (await import('../models/Branch.js')).default;
+    const branchExists = await Branch.findById(branchId);
+    if (!branchExists) {
+      throw new CustomError("Branch not found", 404);
+    }
+  }
+
+  // ✅ Validate shift if provided
+  const validShifts = ['morning', 'evening', 'night'];
+  if (shift && !validShifts.includes(shift)) {
+    throw new CustomError("Shift must be one of: morning, evening, night", 400);
+  }
+
+  // ✅ Hash password
+  const hashedPassword = await bcrypt.hash(password, 10);
+
+  // ✅ Create user
+  const newUser = await userModel.create({
+    name,
+    email,
+    password: hashedPassword,
+    role: role._id,
+    branchId: branchId || null,
+    shift: shift || null,
+    employeeId: employeeId || null,
+    isActive: true,
+    isAccountVerified: false // Requires email verification
+  });
+
+  // ✅ Send welcome email
+  // await transporter.sendMail({
+  //   from: process.env.SENDER_EMAIL,
+  //   to: email,
+  //   subject: "Welcome to Restaurant Management System",
+  //   html: `
+  //     <h2>Welcome ${name}!</h2>
+  //     <p>Your account has been created with the following details:</p>
+  //     <ul>
+  //       <li><strong>Email:</strong> ${email}</li>
+  //       <li><strong>Role:</strong> ${roleName}</li>
+  //       <li><strong>Temporary Password:</strong> ${password}</li>
+  //     </ul>
+  //     <p><strong>⚠️ Important:</strong> Please change your password after first login.</p>
+  //     <p>Login at: <a href="${process.env.FRONTEND_URL}/login">Restaurant Management System</a></p>
+  //   `
+  // });
+
+  // ✅ Populate role and return
+  const populatedUser = await userModel
+    .findById(newUser._id)
+    .select('-password')
+    .populate('role', 'name')
+    .populate('branchId', 'name location');
+
+  res.status(201).json({
+    success: true,
+    message: "User created successfully. Welcome email sent.",
+    user: populatedUser
+  });
+});
+
+
 // Get all users (Admin only)
 export const getAllUsers = asyncHandler(async (req, res) => {
   const users = await userModel

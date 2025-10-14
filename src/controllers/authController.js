@@ -8,48 +8,130 @@ import { asyncHandler } from '../middleware/asyncHandler.js';
 import CustomError from '../utils/customError.js';
 
 // ====================== REGISTER ======================
+// export const register = asyncHandler(async (req, res) => {
+//     const { name, email, password, roleName = 'waiter' } = req.body; // Allow optional role
+
+//     if (!name || !email || !password) {
+//         throw new CustomError("Missing details!!", 400);
+//     }
+
+//     const existingUser = await userModel.findOne({ email });
+//     if (existingUser) throw new CustomError("User already exists", 409);
+
+//     // Get the role (default to 'waiter' if not specified)
+//     const role = await Role.findOne({ name: roleName });
+//     if (!role) throw new CustomError("Role not found", 404);
+
+//     const hashedPassword = await bcrypt.hash(password, 9);
+
+//     const User = await userModel.create({
+//         name,
+//         email,
+//         password: hashedPassword,
+//         role: role._id, // ✅ Assign role
+//     });
+
+//     const token = jwt.sign({ id: User._id }, process.env.JWT_SECRET, { expiresIn: '1d' });
+
+//     res.cookie('token', token, {
+//         httpOnly: true,
+//         secure: process.env.NODE_ENV === 'production',
+//         sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'strict',
+//         maxAge: 7 * 24 * 60 * 60 * 1000,
+//     });
+
+//     await transporter.sendMail({
+//         from: process.env.SENDER_EMAIL,
+//         to: email,
+//         subject: "Welcome to Restaurant Management System",
+//         text: `Welcome ${name}, your account has been created with email ${email}.`,
+//     });
+
+//     res.json({ success: true, message: "Registered successfully" });
+// });
+
+// ====================== REGISTER ======================
 export const register = asyncHandler(async (req, res) => {
-    const { name, email, password, roleName = 'waiter' } = req.body; // Allow optional role
+  const { name, email, password, roleName = 'waiter' } = req.body;
 
-    if (!name || !email || !password) {
-        throw new CustomError("Missing details!!", 400);
+  // ✅ Validation
+  if (!name || !email || !password) {
+    throw new CustomError("Name, email, and password are required", 400);
+  }
+
+  // ✅ Email format validation
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email)) {
+    throw new CustomError("Invalid email format", 400);
+  }
+
+  // ✅ Password strength validation
+  if (password.length < 6) {
+    throw new CustomError("Password must be at least 6 characters long", 400);
+  }
+
+  // ✅ Check if user already exists
+  const existingUser = await userModel.findOne({ email });
+  if (existingUser) {
+    throw new CustomError("User with this email already exists", 409);
+  }
+
+  // ✅ Get role (default to 'waiter' if not specified)
+  const role = await Role.findOne({ name: roleName });
+  if (!role) {
+    throw new CustomError("Role not found", 404);
+  }
+
+  // ✅ Hash password
+  const hashedPassword = await bcrypt.hash(password, 10);
+
+  // ✅ Create user
+  const newUser = await userModel.create({
+    name,
+    email,
+    password: hashedPassword,
+    role: role._id,
+    isAccountVerified: false
+  });
+
+  // ✅ Create JWT token
+  const token = jwt.sign(
+    { id: newUser._id },
+    process.env.JWT_SECRET,
+    { expiresIn: '1d' }
+  );
+
+  // ✅ Set cookie
+  res.cookie('token', token, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'strict',
+    maxAge: 7 * 24 * 60 * 60 * 1000,
+  });
+
+  // ✅ Send welcome email
+  await transporter.sendMail({
+    from: process.env.SENDER_EMAIL,
+    to: email,
+    subject: "Welcome to Restaurant Management System",
+    html: `
+      <h2>Welcome ${name}!</h2>
+      <p>Your account has been created successfully.</p>
+      <p>Please verify your email to complete the setup.</p>
+    `
+  });
+
+  res.status(201).json({
+    success: true,
+    message: "Registered successfully. Please verify your email.",
+    user: {
+      id: newUser._id,
+      name: newUser.name,
+      email: newUser.email,
+      role: roleName
     }
-
-    const existingUser = await userModel.findOne({ email });
-    if (existingUser) throw new CustomError("User already exists", 409);
-
-    // Get the role (default to 'waiter' if not specified)
-    const role = await Role.findOne({ name: roleName });
-    if (!role) throw new CustomError("Role not found", 404);
-
-    const hashedPassword = await bcrypt.hash(password, 9);
-
-    const User = await userModel.create({
-        name,
-        email,
-        password: hashedPassword,
-        role: role._id, // ✅ Assign role
-    });
-
-    const token = jwt.sign({ id: User._id }, process.env.JWT_SECRET, { expiresIn: '1d' });
-
-    res.cookie('token', token, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'strict',
-        maxAge: 7 * 24 * 60 * 60 * 1000,
-    });
-
-    await transporter.sendMail({
-        from: process.env.SENDER_EMAIL,
-        to: email,
-        subject: "Welcome to Restaurant Management System",
-        text: `Welcome ${name}, your account has been created with email ${email}.`,
-    });
-
-    res.json({ success: true, message: "Registered successfully" });
+  });
 });
-
 
 // ====================== LOGIN ======================
 export const login = asyncHandler(async (req, res) => {
