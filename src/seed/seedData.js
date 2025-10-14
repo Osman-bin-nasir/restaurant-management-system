@@ -13,16 +13,73 @@ const seedData = async () => {
     await mongoose.connect(process.env.MONGO_URI);
     console.log('✅ Connected to MongoDB');
 
-    // 1️⃣ Define Roles + Permissions
-    const roleDefinitions = [
-      { name: 'admin', permissions: ['*'] },
-      {
-        name: 'manager',
-        permissions: ['branch:*', 'reports:view', 'employees:manage'],
-      },
-      { name: 'cashier', permissions: ['orders:create', 'billing:*'] },
-      { name: 'waiter', permissions: ['orders:create', 'tables:manage'] },
-      { name: 'chef', permissions: ['orders:view', 'orders:update'] },
+    // 1️⃣ Define ALL Permissions
+    const permissionsList = [
+      // Users
+      { name: 'users:view', description: 'View users' },
+      { name: 'users:create', description: 'Create new users' },
+      { name: 'users:update', description: 'Update user details' },
+      { name: 'users:delete', description: 'Delete users' },
+      
+      // Roles & Permissions
+      { name: 'roles:view', description: 'View roles' },
+      { name: 'roles:create', description: 'Create roles' },
+      { name: 'roles:update', description: 'Update roles' },
+      { name: 'roles:delete', description: 'Delete roles' },
+      
+      // Branches
+      { name: 'branches:view', description: 'View branches' },
+      { name: 'branches:create', description: 'Create branches' },
+      { name: 'branches:update', description: 'Update branches' },
+      { name: 'branches:delete', description: 'Delete branches' },
+      
+      // Orders
+      { name: 'orders:view', description: 'View orders' },
+      { name: 'orders:create', description: 'Create orders' },
+      { name: 'orders:update', description: 'Update order status' },
+      { name: 'orders:delete', description: 'Delete/cancel orders' },
+      
+      // Menu
+      { name: 'menu:view', description: 'View menu items' },
+      { name: 'menu:create', description: 'Add menu items' },
+      { name: 'menu:update', description: 'Update menu items' },
+      { name: 'menu:delete', description: 'Delete menu items' },
+      
+      // Inventory
+      { name: 'inventory:view', description: 'View inventory' },
+      { name: 'inventory:create', description: 'Add inventory items' },
+      { name: 'inventory:update', description: 'Update inventory' },
+      { name: 'inventory:delete', description: 'Delete inventory items' },
+      
+      // Tables
+      { name: 'tables:view', description: 'View table status' },
+      { name: 'tables:create', description: 'Create tables' },
+      { name: 'tables:update', description: 'Update table status' },
+      { name: 'tables:manage', description: 'Merge/split tables' },
+      
+      // Billing
+      { name: 'billing:view', description: 'View bills' },
+      { name: 'billing:create', description: 'Generate bills' },
+      { name: 'billing:process', description: 'Process payments' },
+      { name: 'billing:discount', description: 'Apply discounts' },
+      
+      // Reports
+      { name: 'reports:view', description: 'View reports' },
+      { name: 'reports:generate', description: 'Generate reports' },
+      { name: 'reports:export', description: 'Export reports' },
+      
+      // Kitchen
+      { name: 'kitchen:view', description: 'View kitchen orders' },
+      { name: 'kitchen:update', description: 'Update order cooking status' },
+      
+      // Expenses
+      { name: 'expenses:view', description: 'View expenses' },
+      { name: 'expenses:create', description: 'Add expenses' },
+      { name: 'expenses:approve', description: 'Approve expenses' },
+      
+      // Attendance
+      { name: 'attendance:view', description: 'View attendance' },
+      { name: 'attendance:mark', description: 'Mark attendance' }
     ];
 
     // 2️⃣ Clear existing data
@@ -34,30 +91,61 @@ const seedData = async () => {
     ]);
     console.log('🧹 Cleared existing data');
 
-    // 3️⃣ Extract unique permissions
-    const allPermissions = [
-      ...new Set(roleDefinitions.flatMap(r => r.permissions)),
-    ];
-
-    // 4️⃣ Create Permission documents
-    const createdPermissions = await Permission.insertMany(
-      allPermissions.map(p => ({ name: p }))
-    );
-
+    // 3️⃣ Create Permission documents
+    const createdPermissions = await Permission.insertMany(permissionsList);
     const permissionMap = {};
     createdPermissions.forEach(p => (permissionMap[p.name] = p._id));
     console.log('✅ Permissions seeded');
 
-    // 5️⃣ Create Roles referencing Permission IDs
-    const createdRoles = await Role.insertMany(
-      roleDefinitions.map(role => ({
-        name: role.name,
-        permissions:
-          role.permissions.includes('*')
-            ? createdPermissions.map(p => p._id) // admin gets all
-            : role.permissions.map(p => permissionMap[p]),
-      }))
-    );
+    // 4️⃣ Define Roles with EXPLICIT Permissions
+    const roleDefinitions = [
+      {
+        name: 'admin',
+        permissions: Object.values(permissionMap) // All permissions
+      },
+      {
+        name: 'manager',
+        permissions: [
+          'branches:view', 'branches:update',
+          'users:view', 'users:create', 'users:update',
+          'orders:view', 'orders:update', 'orders:delete',
+          'menu:view', 'menu:create', 'menu:update', 'menu:delete',
+          'inventory:view', 'inventory:update',
+          'tables:view', 'tables:update', 'tables:manage',
+          'reports:view', 'reports:generate', 'reports:export',
+          'expenses:view', 'expenses:create', 'expenses:approve',
+          'attendance:view', 'attendance:mark'
+        ].map(p => permissionMap[p])
+      },
+      {
+        name: 'cashier',
+        permissions: [
+          'orders:view', 'orders:create', 'orders:update',
+          'billing:view', 'billing:create', 'billing:process', 'billing:discount',
+          'menu:view',
+          'tables:view'
+        ].map(p => permissionMap[p])
+      },
+      {
+        name: 'waiter',
+        permissions: [
+          'orders:view', 'orders:create', 'orders:update',
+          'tables:view', 'tables:update', 'tables:manage',
+          'menu:view'
+        ].map(p => permissionMap[p])
+      },
+      {
+        name: 'chef',
+        permissions: [
+          'kitchen:view', 'kitchen:update',
+          'orders:view',
+          'inventory:view'
+        ].map(p => permissionMap[p])
+      }
+    ];
+
+    // 5️⃣ Create Roles
+    const createdRoles = await Role.insertMany(roleDefinitions);
     console.log('✅ Roles seeded');
 
     const roleMap = {};
@@ -73,7 +161,7 @@ const seedData = async () => {
     });
     console.log('✅ Branch seeded');
 
-    // 7️⃣ Create one User per Role
+    // 7️⃣ Create Users
     const users = [
       {
         name: 'Super Admin',
@@ -82,6 +170,7 @@ const seedData = async () => {
         role: roleMap['admin'],
         shift: 'morning',
         branchId: mainBranch._id,
+        isAccountVerified: true
       },
       {
         name: 'John Manager',
@@ -90,6 +179,7 @@ const seedData = async () => {
         role: roleMap['manager'],
         shift: 'morning',
         branchId: mainBranch._id,
+        isAccountVerified: true
       },
       {
         name: 'Priya Cashier',
@@ -98,6 +188,7 @@ const seedData = async () => {
         role: roleMap['cashier'],
         shift: 'evening',
         branchId: mainBranch._id,
+        isAccountVerified: true
       },
       {
         name: 'Ravi Waiter',
@@ -106,6 +197,7 @@ const seedData = async () => {
         role: roleMap['waiter'],
         shift: 'evening',
         branchId: mainBranch._id,
+        isAccountVerified: true
       },
       {
         name: 'Chef Arjun',
@@ -114,6 +206,7 @@ const seedData = async () => {
         role: roleMap['chef'],
         shift: 'morning',
         branchId: mainBranch._id,
+        isAccountVerified: true
       },
     ];
 
@@ -121,6 +214,13 @@ const seedData = async () => {
     console.log('✅ Users seeded successfully');
 
     console.log('\n🌱 Seeding Completed Successfully!');
+    console.log('\n📋 Test Credentials:');
+    console.log('Admin: admin@restaurant.com / admin123');
+    console.log('Manager: manager@restaurant.com / manager123');
+    console.log('Cashier: cashier@restaurant.com / cashier123');
+    console.log('Waiter: waiter@restaurant.com / waiter123');
+    console.log('Chef: chef@restaurant.com / chef123');
+    
     process.exit(0);
   } catch (err) {
     console.error('❌ Seeding Error:', err);
