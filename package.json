@@ -9,7 +9,8 @@
     "dev": "nodemon src/server.js",
     "seedMenu": "node src/seed/seedMenu.js",
     "seedData": "node src/seed/seedData.js",
-    "seedOrders": "node src/seed/seedOrders.js"
+    "seedOrders": "node src/seed/seedOrders.js",
+    "seedTable": "node src/seed/seedTable.js"
   },
   "keywords": [],
   "author": "Osman Bin Nasir, Abdul Razzaq",
