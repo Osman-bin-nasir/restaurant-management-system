@@ -22,10 +22,10 @@ const seedData = async () => {
       { name: 'users:delete', description: 'Delete users' },
       
       // Roles & Permissions
-      { name: 'roles:view', description: 'View roles' },
-      { name: 'roles:create', description: 'Create roles' },
-      { name: 'roles:update', description: 'Update roles' },
-      { name: 'roles:delete', description: 'Delete roles' },
+      { name: 'permissions:view', description: 'View roles' },
+      { name: 'permissions:create', description: 'Create roles' },
+      { name: 'permissions:update', description: 'Update roles' },
+      { name: 'permissions:delete', description: 'Delete roles' },
       
       // Branches
       { name: 'branches:view', description: 'View branches' },

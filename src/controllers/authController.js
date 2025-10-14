@@ -1,6 +1,7 @@
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import userModel from '../models/User.js';
+import Role from '../models/Role.js';
 import transporter from '../config/nodemailer.js';
 import { EMAIL_VERIFY_TEMPLATE, PASSWORD_RESET_TEMPLATE } from '../config/emailTemplates.js';
 import { asyncHandler } from '../middleware/asyncHandler.js';
@@ -8,7 +9,7 @@ import CustomError from '../utils/customError.js';
 
 // ====================== REGISTER ======================
 export const register = asyncHandler(async (req, res) => {
-    const { name, email, password } = req.body;
+    const { name, email, password, roleName = 'waiter' } = req.body; // Allow optional role
 
     if (!name || !email || !password) {
         throw new CustomError("Missing details!!", 400);
@@ -17,12 +18,17 @@ export const register = asyncHandler(async (req, res) => {
     const existingUser = await userModel.findOne({ email });
     if (existingUser) throw new CustomError("User already exists", 409);
 
+    // Get the role (default to 'waiter' if not specified)
+    const role = await Role.findOne({ name: roleName });
+    if (!role) throw new CustomError("Role not found", 404);
+
     const hashedPassword = await bcrypt.hash(password, 9);
 
     const User = await userModel.create({
         name,
         email,
         password: hashedPassword,
+        role: role._id, // ✅ Assign role
     });
 
     const token = jwt.sign({ id: User._id }, process.env.JWT_SECRET, { expiresIn: '1d' });
@@ -37,7 +43,7 @@ export const register = asyncHandler(async (req, res) => {
     await transporter.sendMail({
         from: process.env.SENDER_EMAIL,
         to: email,
-        subject: "Welcome to Learning Authentication",
+        subject: "Welcome to Restaurant Management System",
         text: `Welcome ${name}, your account has been created with email ${email}.`,
     });
 
@@ -48,26 +54,45 @@ export const register = asyncHandler(async (req, res) => {
 // ====================== LOGIN ======================
 export const login = asyncHandler(async (req, res) => {
     const { email, password } = req.body;
-
+  
     if (!email || !password) throw new CustomError("Missing email or password", 400);
-
-    const User = await userModel.findOne({ email });
+  
+    const User = await userModel.findOne({ email }).populate({
+        path: 'role',
+        populate: {
+            path: 'permissions',
+            select: 'name'
+        }
+    });
     if (!User) throw new CustomError("Invalid email or password", 401);
-
+  
     const isMatch = await bcrypt.compare(password, User.password);
     if (!isMatch) throw new CustomError("Invalid email or password", 401);
-
-    const token = jwt.sign({ id: User._id }, process.env.JWT_SECRET, { expiresIn: '1d' });
-
+  
+    // Sign JWT with role and permissions
+    const token = jwt.sign(
+      {
+        id: User._id,
+        role: User.role.name,
+        permissions: User.role.permissions.map(p => p.name),
+        branchId: User.branchId,
+        shift: User.shift,
+        isAccountVerified: User.isAccountVerified
+      },
+      process.env.JWT_SECRET,
+      { expiresIn: '7d' }
+    );
+  
     res.cookie('token', token, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'strict',
-        maxAge: 7 * 24 * 60 * 60 * 1000,
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'strict',
+      maxAge: 7 * 24 * 60 * 60 * 1000,
     });
-
+  
     res.json({ success: true, message: "Login successful" });
-});
+  });
+  
 
 
 // ====================== LOGOUT ======================
@@ -134,18 +159,32 @@ export const verifyEmail = asyncHandler(async (req, res) => {
 export const isAuthenticated = asyncHandler(async (req, res) => {
     if (!req.user) throw new CustomError("Not logged in", 401);
 
+    // ✅ Populate role with permissions for frontend
+    const user = await userModel
+        .findById(req.user.id)
+        .select('-password')
+        .populate({
+            path: 'role',
+            populate: {
+                path: 'permissions',
+                select: 'name description'
+            }
+        });
+
+    if (!user) throw new CustomError("User not found", 404);
+
     res.json({
         success: true,
         user: {
-            id: req.user._id,
-            name: req.user.name,
-            email: req.user.email,
-            role: req.user.role,
-            branchId: req.user.branchId,
-            branchId: req.user.branchId,
-            employeeId: req.user.employeeId,
-            shift: req.user.shift,
-            attendance: req.user.attendance,
+            id: user._id,
+            name: user.name,
+            email: user.email,
+            role: user.role.name,
+            permissions: user.role.permissions.map(p => p.name),
+            branchId: user.branchId,
+            employeeId: user.employeeId,
+            shift: user.shift,
+            isAccountVerified: user.isAccountVerified,
         },
     });
 });

@@ -11,10 +11,10 @@ import { authorizePermissions } from "../middleware/authorize.js";
 const router = express.Router();
 
 // only superadmin or admin can manage roles
-router.post("/", userAuth, authorizePermissions("roles:create"), createRole);
-router.get("/", userAuth, authorizePermissions("roles:view"), getAllRoles);
-router.put("/:id", userAuth, authorizePermissions("roles:update"), updateRole);
-router.delete("/:id", userAuth, authorizePermissions("roles:delete"), deleteRole);
+router.post("/", userAuth, authorizePermissions("permissions:create"), createRole);
+router.get("/", userAuth, authorizePermissions("permissions:view"), getAllRoles);
+router.put("/:id", userAuth, authorizePermissions("permissions:update"), updateRole);
+router.delete("/:id", userAuth, authorizePermissions("permissions:delete"), deleteRole);
 
 
 export default router;

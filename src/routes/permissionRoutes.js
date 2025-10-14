@@ -5,8 +5,8 @@ import { createPermission, getAllPermissions, deletePermission } from "../contro
 
 const router = express.Router();
 
-router.post("/", userAuth, authorizePermissions("roles:create"), createPermission);
-router.get("/", userAuth, authorizePermissions("roles:view"), getAllPermissions);
-router.delete("/:id", userAuth, authorizePermissions("roles:delete"), deletePermission);
+router.post("/", userAuth, authorizePermissions("permissions:create"), createPermission);
+router.get("/", userAuth, authorizePermissions("permissions:view"), getAllPermissions);
+router.delete("/:id", userAuth, authorizePermissions("permissions:delete"), deletePermission);
 
 export default router;

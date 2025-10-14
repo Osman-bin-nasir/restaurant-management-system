@@ -9,6 +9,18 @@ import errorHandler from './middleware/errorHandler.js';
 import roleRoutes from "./routes/roleRoutes.js";
 import permissionRoutes from "./routes/permissionRoutes.js";
 
+// Import all models to ensure they are registered with Mongoose
+import './models/Branch.js';
+import './models/Expense.js';
+import './models/Inventory.js';
+import './models/MenuItem.js';
+import './models/Order.js';
+import './models/Permissions.js';
+import './models/Report.js';
+import './models/Role.js';
+import './models/Table.js';
+import './models/User.js';
+
 
 const app = express();
 connectDB();

@@ -4,13 +4,13 @@ import {asyncHandler} from "../middleware/asyncHandler.js";
 
 // ➕ Add a new permission
 export const createPermission = asyncHandler(async (req, res) => {
-  const { key, description } = req.body;
-  if (!key || !description) throw new CustomError("Missing fields", 400);
+  const { name, description } = req.body;
+  if (!name || !description) throw new CustomError("Missing fields", 400);
 
-  const existing = await Permission.findOne({ key });
+  const existing = await Permission.findOne({ name });
   if (existing) throw new CustomError("Permission already exists", 400);
 
-  const permission = await Permission.create({ key, description });
+  const permission = await Permission.create({ name, description });
   res.status(201).json({ success: true, permission });
 });
 
