@@ -3,64 +3,74 @@ import User from "../models/User.js";
 import CustomError from "../utils/customError.js";
 import { asyncHandler } from "../middleware/asyncHandler.js";
 import mongoose from "mongoose";
+import Table from "../models/Table.js";
 
 // ====================== PROCESS PAYMENT ======================
 export const processPayment = asyncHandler(async (req, res) => {
-  const { orderId, paymentMethod, discount = 0, notes } = req.body;
-  const { id: cashierId } = req.user;
-
-  if (!orderId || !paymentMethod) {
-    throw new CustomError("Order ID and payment method are required", 400);
-  }
-
-  const validPaymentMethods = ["cash", "card", "upi", "cheque"];
-  if (!validPaymentMethods.includes(paymentMethod)) {
-    throw new CustomError(`Payment method must be one of: ${validPaymentMethods.join(", ")}`, 400);
-  }
-
-  const order = await Order.findById(orderId);
-  if (!order) throw new CustomError("Order not found", 404);
-
-  if (order.status === "paid") {
-    throw new CustomError("Order already paid", 400);
-  }
-
-  if (order.status !== "served" && order.status !== "ready") {
-    throw new CustomError("Order must be served or ready before payment", 400);
-  }
-
-  // Validate discount
-  if (discount < 0 || discount > order.totalAmount) {
-    throw new CustomError("Invalid discount amount", 400);
-  }
-
-  const finalAmount = order.totalAmount - discount;
-
-  order.status = "paid";
-  order.cashierId = cashierId;
-  order.payment = {
-    method: paymentMethod,
-    amount: finalAmount,
-    originalAmount: order.totalAmount,
-    discount: discount,
-    paidAt: new Date(),
-    notes: notes || ""
-  };
-
-  await order.save();
-
-  const populatedOrder = await Order.findById(orderId)
-    .populate("items.menuItem", "name price")
-    .populate("waiterId", "name")
-    .populate("cashierId", "name")
-    .populate("tableId", "tableNumber");
-
-  res.status(200).json({
-    success: true,
-    message: "Payment processed successfully",
-    order: populatedOrder
+    const { orderId, paymentMethod, discount = 0, notes } = req.body;
+    const { id: cashierId } = req.user;
+  
+    if (!orderId || !paymentMethod) {
+      throw new CustomError("Order ID and payment method are required", 400);
+    }
+  
+    const validPaymentMethods = ["cash", "card", "upi", "cheque"];
+    if (!validPaymentMethods.includes(paymentMethod)) {
+      throw new CustomError(`Payment method must be one of: ${validPaymentMethods.join(", ")}`, 400);
+    }
+  
+    const order = await Order.findById(orderId);
+    if (!order) throw new CustomError("Order not found", 404);
+  
+    if (order.status === "paid") {
+      throw new CustomError("Order already paid", 400);
+    }
+  
+    if (order.status !== "served" && order.status !== "ready") {
+      throw new CustomError("Order must be served or ready before payment", 400);
+    }
+  
+    // Validate discount
+    if (discount < 0 || discount > order.totalAmount) {
+      throw new CustomError("Invalid discount amount", 400);
+    }
+  
+    const finalAmount = order.totalAmount - discount;
+  
+    order.status = "paid";
+    order.cashierId = cashierId;
+    order.payment = {
+      method: paymentMethod,
+      amount: finalAmount,
+      originalAmount: order.totalAmount,
+      discount: discount,
+      paidAt: new Date(),
+      notes: notes || ""
+    };
+  
+    await order.save();
+  
+    // ✅ NEW: Automatically clear table if it's a dine-in order
+    if (order.tableId) {
+      await Table.findByIdAndUpdate(order.tableId, {
+        status: "available",
+        currentOrderId: null
+      });
+      console.log(`✅ Table cleared after payment for order ${order.orderNumber}`);
+    }
+  
+    const populatedOrder = await Order.findById(orderId)
+      .populate("items.menuItem", "name price")
+      .populate("waiterId", "name")
+      .populate("cashierId", "name")
+      .populate("tableId", "tableNumber");
+  
+    res.status(200).json({
+      success: true,
+      message: "Payment processed successfully. Table has been freed.",
+      order: populatedOrder
+    });
   });
-});
 
 // ====================== GENERATE BILL ======================
 export const generateBill = asyncHandler(async (req, res) => {
