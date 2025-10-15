@@ -1,0 +1,15 @@
+{
+    "name": "resto",
+    "private": true,
+    "version": "1.0.0",
+    "scripts": {
+        "server": "nodemon server/src/server.js",
+        "client": "npm --prefix client run dev",
+        "start": "concurrently \"npm run server\" \"npm run client\"",
+        "build": "npm --prefix client run build"
+    },
+    "devDependencies": {
+        "concurrently": "^9.2.0",
+        "nodemon": "^3.1.4"
+    }
+}
