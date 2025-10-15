@@ -10,6 +10,8 @@
     "seedMenu": "node src/seed/seedMenu.js",
     "seedData": "node src/seed/seedData.js",
     "seedOrders": "node src/seed/seedOrders.js",
+    "seedTablesWithOrders": "node src/seed/seedTablesWithOrders.js",
+    "seedKitchenPermissions": "node src/seed/seedKitchenPermissions.js",
     "seedTable": "node src/seed/seedTable.js"
   },
   "keywords": [],
