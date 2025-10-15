@@ -10,7 +10,7 @@ authRouter.post('/logout', logout);
 
 authRouter.post('/send-otp', userAuth, sendVerifyOtp);
 authRouter.post('/verify-account', userAuth, verifyEmail);
-authRouter.get('/is-logged-in', userAuth, isAuthenticated);
+authRouter.get('/isAuthenticated', userAuth, isAuthenticated);
 
 authRouter.post('/send-reset-otp', sendResetOtp);
 authRouter.post('/verify-reset-otp', verifyResetOtp);
