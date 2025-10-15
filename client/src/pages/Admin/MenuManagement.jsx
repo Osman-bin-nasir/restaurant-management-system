@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Search, Edit2, Trash2, Clock, Package } from 'lucide-react';
-import axios from '../api/axios.js';
+import axios from '../../api/axios.js';
 const MenuManagement = () => {
     const [menuItems, setMenuItems] = useState([]);
     const [filteredItems, setFilteredItems] = useState([]);
