@@ -31,12 +31,12 @@ import './models/User.js';
 const app = express();
 connectDB();
 
-// const allowedOrigins = ['http://localhost:5173']
+const allowedOrigins = ['http://localhost:5173']
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
-// app.use(cors({origin: allowedOrigins, credentials: true}))
+app.use(cors({origin: allowedOrigins, credentials: true}))
 
 // Error Handler
 
