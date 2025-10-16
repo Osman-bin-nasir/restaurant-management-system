@@ -7,8 +7,15 @@ const AppLayout = () => {
   const { loading } = useAuth();
 
   if (loading) {
-    return <div className="flex items-center justify-center h-screen text-gray-500">Loading...</div>;
-  }
+  return (
+    <div className="flex items-center justify-center h-screen">
+      <div className="flex flex-col items-center space-y-4">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-4 border-orange-500 border-opacity-75"></div>
+        <p className="text-orange-500 text-lg font-medium">Loading, please wait...</p>
+      </div>
+    </div>
+  );
+}
 
   return (
     <div className="flex h-screen">
