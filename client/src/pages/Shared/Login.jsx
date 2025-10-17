@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { Eye, EyeOff, Lock, Mail, ChefHat } from 'lucide-react';
-import axiosInstance from '../../api/axios.js';
+import { useAuth } from '../../contexts/AuthContext.jsx';
 
 const Login = () => {
+  const { login } = useAuth();
   const [formData, setFormData] = useState({
     email: '',
     password: ''
@@ -25,14 +26,7 @@ const Login = () => {
     setError('');
 
     try {
-      const response = await axiosInstance.post('/auth/login', formData);
-      const data = response.data;
-
-      if (data.success) {
-        window.location.href = '/menu';
-      } else {
-        setError(data.message || 'Login failed');
-      }
+      await login(formData.email, formData.password);
     } catch (err) {
       setError(err.response?.data?.message || 'An error occurred');
       console.error('Login error:', err);

@@ -2,7 +2,7 @@ import React from 'react';
 import { Outlet } from 'react-router-dom';
 import Sidebar from '../components/Sidebar';
 
-const CashierLayout = () => {
+const ManagerLayout = () => {
   return (
     <div className="flex h-screen">
       <Sidebar />
@@ -13,4 +13,4 @@ const CashierLayout = () => {
   );
 };
 
-export default CashierLayout;
+export default ManagerLayout;

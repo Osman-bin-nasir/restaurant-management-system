@@ -26,7 +26,7 @@ const ProtectedRoute = ({ children, allowedRoles = [] }) => {
     // Redirect to appropriate dashboard based on role
     const roleDashboards = {
       admin: '/admin/dashboard',
-      manager: '/admin/dashboard',
+      manager: '/manager/dashboard',
       waiter: '/waiter/dashboard',
       cashier: '/cashier/dashboard',
       chef: '/kitchen/dashboard'
