@@ -1,16 +1,16 @@
 import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext.jsx';
-import { 
-  LayoutDashboard, 
-  UtensilsCrossed, 
-  Users, 
-  ShoppingBag, 
-  Receipt, 
-  ChefHat, 
-  DollarSign, 
-  Settings, 
-  LogOut, 
-  ChevronDown, 
+import {
+  LayoutDashboard,
+  UtensilsCrossed,
+  Users,
+  ShoppingBag,
+  Receipt,
+  ChefHat,
+  DollarSign,
+  Settings,
+  LogOut,
+  ChevronDown,
   ChevronRight,
   Building2,
   Shield,
@@ -27,7 +27,7 @@ const Sidebar = () => {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [openMenus, setOpenMenus] = useState({});
   const [activeItem, setActiveItem] = useState('dashboard');
-  
+
   const { user, logout } = useAuth();
   console.log(user)
   const userRole = user?.role || 'guest';
@@ -193,28 +193,30 @@ const Sidebar = () => {
               toggleSubmenu(item.id);
             } else {
               setActiveItem(item.id);
+              // Navigate to the path
+              window.location.href = item.path;
             }
           }}
           className={`
             w-full flex items-center justify-between px-4 py-3 rounded-lg
             transition-all duration-200 group
-            ${isActive 
-              ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/30' 
+            ${isActive
+              ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/30'
               : 'text-gray-700 hover:bg-orange-50 hover:text-orange-600'
             }
             ${level > 0 ? 'pl-12' : ''}
           `}
         >
           <div className="flex items-center gap-3">
-            <item.icon 
-              size={20} 
+            <item.icon
+              size={20}
               className={`${isActive ? 'text-white' : 'text-gray-500 group-hover:text-orange-600'}`}
             />
             {!isCollapsed && (
               <span className="font-medium">{item.label}</span>
             )}
           </div>
-          
+
           {!isCollapsed && hasSubmenu && (
             <div className="transition-transform duration-200">
               {isOpen ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
@@ -247,7 +249,7 @@ const Sidebar = () => {
     );
   };
 
-  
+
   return (
     <div className="flex h-screen bg-gray-50">
       <aside
