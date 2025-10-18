@@ -37,6 +37,7 @@ import CashierDashboard from '../pages/Cashier/CashierDashboard.jsx';
 import Billing from '../pages/Cashier/Billing.jsx';
 import PendingBills from '../pages/Cashier/PendingBills.jsx';
 import DailySummary from '../pages/Cashier/DailySummary.jsx';
+import CashierCreateOrder from '../pages/Cashier/CashierCreateOrder.jsx';
 
 // Kitchen Pages
 import KitchenDashboard from '../pages/Kitchen/KitchenDashboard.jsx';
@@ -135,6 +136,7 @@ const AppRouter = () => {
             <Route path="billing" element={<Billing />} />
             <Route path="pending-bills" element={<PendingBills />} />
             <Route path="daily-summary" element={<DailySummary />} />
+            <Route path="create-order" element={<CashierCreateOrder />} />
           </Route>
 
           {/* Kitchen Routes */}

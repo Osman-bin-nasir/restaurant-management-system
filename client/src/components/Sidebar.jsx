@@ -137,6 +137,12 @@ const Sidebar = () => {
         path: '/cashier/dashboard'
       },
       {
+        id: 'create-order',
+        label: 'Create Order',
+        icon: Utensils,
+        path: '/cashier/create-order'
+      },
+      {
         id: 'billing',
         label: 'Billing',
         icon: Receipt,
