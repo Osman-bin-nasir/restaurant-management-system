@@ -141,7 +141,7 @@ const WaiterDashboard = () => {
         </button>
 
         <button
-          onClick={() => navigate('/orders/create')}
+          onClick={() => navigate('/waiter/orders/create')}
           className="bg-gradient-to-r from-blue-500 to-purple-500 text-white p-6 rounded-2xl shadow-lg hover:shadow-xl transition-all flex items-center justify-between group"
         >
           <div className="flex items-center gap-4">
