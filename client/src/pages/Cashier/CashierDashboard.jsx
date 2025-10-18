@@ -228,7 +228,7 @@ const CashierDashboard = () => {
         </button>
 
         <button
-          onClick={() => navigate('/cashier/pending')}
+          onClick={() => navigate('/cashier/pending-bills')}
           className="bg-gradient-to-r from-orange-500 to-red-500 text-white p-6 rounded-2xl shadow-lg hover:shadow-xl transition-all"
         >
           <div className="flex items-center justify-between">
