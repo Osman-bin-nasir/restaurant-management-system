@@ -200,7 +200,20 @@ const CashierDashboard = () => {
       </div>
 
       {/* Quick Actions */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-8">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-8">
+        <button
+          onClick={() => navigate('/cashier/create-order')}
+          className="bg-gradient-to-r from-green-500 to-teal-500 text-white p-6 rounded-2xl shadow-lg hover:shadow-xl transition-all"
+        >
+          <div className="flex items-center justify-between">
+            <div className="text-left">
+              <p className="text-xl font-bold mb-2">Create Order</p>
+              <p className="text-white/80 text-sm">Create a new order</p>
+            </div>
+            <Receipt size={32} />
+          </div>
+        </button>
+
         <button
           onClick={() => navigate('/cashier/summary')}
           className="bg-gradient-to-r from-blue-500 to-purple-500 text-white p-6 rounded-2xl shadow-lg hover:shadow-xl transition-all"
