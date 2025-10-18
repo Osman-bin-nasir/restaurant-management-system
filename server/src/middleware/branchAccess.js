@@ -8,8 +8,15 @@ import CustomError from "../utils/customError.js";
  * Other users can only access their assigned branch
  */
 export const checkBranchAccess = asyncHandler(async (req, res, next) => {
+  if (!req.user) {
+    throw new CustomError("Unauthorized: req.user is undefined", 401);
+  }
+
   // Get branchId from params, body, or query
-  const branchId = req.params.branchId || req.body.branchId || req.query.branchId;
+  const branchId =
+  (req.params && req.params.branchId) ||
+  (req.body && req.body.branchId) ||
+  (req.query && req.query.branchId);
   
   if (!branchId) {
     // If no branchId in request, use user's assigned branch
