@@ -1,16 +1,17 @@
 import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext.jsx';
-import { 
-  LayoutDashboard, 
-  UtensilsCrossed, 
-  Users, 
-  ShoppingBag, 
-  Receipt, 
-  ChefHat, 
-  DollarSign, 
-  Settings, 
-  LogOut, 
-  ChevronDown, 
+import { Link, useLocation } from 'react-router-dom';
+import {
+  LayoutDashboard,
+  UtensilsCrossed,
+  Users,
+  ShoppingBag,
+  Receipt,
+  ChefHat,
+  DollarSign,
+  Settings,
+  LogOut,
+  ChevronDown,
   ChevronRight,
   Building2,
   Shield,
@@ -26,10 +27,9 @@ import {
 const Sidebar = () => {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [openMenus, setOpenMenus] = useState({});
-  const [activeItem, setActiveItem] = useState('dashboard');
-  
   const { user, logout } = useAuth();
-  console.log(user)
+  const location = useLocation();
+
   const userRole = user?.role || 'guest';
   const userName = user?.name || 'Guest User';
   const userEmail = user?.email || 'guest@example.com';
@@ -41,7 +41,6 @@ const Sidebar = () => {
     }));
   };
 
-  // Define navigation items based on roles
   const navigationItems = {
     admin: [
       {
@@ -54,7 +53,7 @@ const Sidebar = () => {
         id: 'menu',
         label: 'Menu Management',
         icon: UtensilsCrossed,
-        path: '/menu'
+        path: '/admin/menu'
       },
       {
         id: 'orders',
@@ -63,9 +62,9 @@ const Sidebar = () => {
         path: '/admin/orders',
         submenu: [
           { id: 'all-orders', label: 'All Orders', path: '/admin/orders' },
-          { id: 'pending', label: 'Pending', path: '/admin/orders?status=placed' },
-          { id: 'in-kitchen', label: 'In Kitchen', path: '/admin/orders?status=in-kitchen' },
-          { id: 'ready', label: 'Ready', path: '/admin/orders?status=ready' }
+          { id: 'pending', label: 'Pending', path: '/admin/orders/pending' },
+          { id: 'in-kitchen', label: 'In Kitchen', path: '/admin/orders/in-kitchen' },
+          { id: 'ready', label: 'Ready', path: '/admin/orders/ready' }
         ]
       },
       {
@@ -121,7 +120,7 @@ const Sidebar = () => {
         id: 'menu',
         label: 'Menu',
         icon: UtensilsCrossed,
-        path: '/menu'
+        path: '/waiter/menu'
       },
       {
         id: 'my-orders',
@@ -147,16 +146,16 @@ const Sidebar = () => {
         id: 'pending-bills',
         label: 'Pending Bills',
         icon: CreditCard,
-        path: '/cashier/pending'
+        path: '/cashier/pending-bills'
       },
       {
         id: 'daily-summary',
         label: 'Daily Summary',
         icon: DollarSign,
-        path: '/cashier/summary'
+        path: '/cashier/daily-summary'
       }
     ],
-    chef: [
+    kitchen: [
       {
         id: 'dashboard',
         label: 'Kitchen Dashboard',
@@ -173,7 +172,7 @@ const Sidebar = () => {
         id: 'menu',
         label: 'Menu Items',
         icon: Utensils,
-        path: '/menu'
+        path: '/kitchen/menu'
       }
     ]
   };
@@ -183,55 +182,55 @@ const Sidebar = () => {
   const NavItem = ({ item, level = 0 }) => {
     const hasSubmenu = item.submenu && item.submenu.length > 0;
     const isOpen = openMenus[item.id];
-    const isActive = activeItem === item.id;
+    const isActive = location.pathname === item.path;
+
+    const handleItemClick = () => {
+      if (hasSubmenu) {
+        toggleSubmenu(item.id);
+      }
+    };
 
     return (
       <div className="mb-1">
-        <button
-          onClick={() => {
-            if (hasSubmenu) {
-              toggleSubmenu(item.id);
-            } else {
-              setActiveItem(item.id);
-            }
-          }}
+        <div
+          onClick={handleItemClick}
           className={`
             w-full flex items-center justify-between px-4 py-3 rounded-lg
-            transition-all duration-200 group
-            ${isActive 
-              ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/30' 
+            transition-all duration-200 group cursor-pointer
+            ${isActive
+              ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/30'
               : 'text-gray-700 hover:bg-orange-50 hover:text-orange-600'
             }
             ${level > 0 ? 'pl-12' : ''}
           `}
         >
-          <div className="flex items-center gap-3">
-            <item.icon 
-              size={20} 
+          <Link to={item.path} className="flex items-center gap-3">
+            <item.icon
+              size={20}
               className={`${isActive ? 'text-white' : 'text-gray-500 group-hover:text-orange-600'}`}
             />
             {!isCollapsed && (
               <span className="font-medium">{item.label}</span>
             )}
-          </div>
-          
+          </Link>
+
           {!isCollapsed && hasSubmenu && (
             <div className="transition-transform duration-200">
               {isOpen ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
             </div>
           )}
-        </button>
+        </div>
 
         {hasSubmenu && isOpen && !isCollapsed && (
           <div className="mt-1 ml-4 space-y-1">
             {item.submenu.map((subItem) => (
-              <button
+              <Link
                 key={subItem.id}
-                onClick={() => setActiveItem(subItem.id)}
+                to={subItem.path}
                 className={`
                   w-full flex items-center gap-3 px-4 py-2 rounded-lg
                   transition-all duration-200 text-sm
-                  ${activeItem === subItem.id
+                  ${location.pathname === subItem.path
                     ? 'bg-orange-100 text-orange-600 font-medium'
                     : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
                   }
@@ -239,7 +238,7 @@ const Sidebar = () => {
               >
                 <div className="w-2 h-2 rounded-full bg-current opacity-40" />
                 {subItem.label}
-              </button>
+              </Link>
             ))}
           </div>
         )}
@@ -247,7 +246,7 @@ const Sidebar = () => {
     );
   };
 
-  
+
   return (
     <div className="flex h-screen bg-gray-50">
       <aside

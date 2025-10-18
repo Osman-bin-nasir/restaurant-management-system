@@ -1,35 +1,10 @@
 import React from 'react';
-import Sidebar from '../components/Sidebar';
-import { Outlet, Navigate } from 'react-router-dom';
-import { useAuth } from '../contexts/AuthContext.jsx';
+import { Outlet } from 'react-router-dom';
 
 const AppLayout = () => {
-  const { user, loading } = useAuth();
-
-  // While auth state is loading, show spinner
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-screen">
-        <div className="flex flex-col items-center space-y-4">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-4 border-orange-500 border-opacity-75"></div>
-          <p className="text-orange-500 text-lg font-medium">Loading, please wait...</p>
-        </div>
-      </div>
-    );
-  }
-
-  // If not logged in → redirect to login
-  if (!user) {
-    return <Navigate to="/login" replace />;
-  }
-
-  // If logged in → show layout
   return (
-    <div className="flex h-screen">
-      <Sidebar />
-      <main className="flex-1 overflow-y-auto bg-gray-50">
-        <Outlet />
-      </main>
+    <div className="h-screen">
+      <Outlet />
     </div>
   );
 };
