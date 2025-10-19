@@ -301,6 +301,14 @@ export const markOrderAsPaid = asyncHandler(async (req, res) => {
   order.updateOrderStatus();
   await order.save();
 
+  // If the order was for a dine-in table, free up the table
+  if (order.tableId) {
+    await Table.findByIdAndUpdate(order.tableId, {
+      status: "available",
+      currentOrderId: null,
+    });
+  }
+
   const updatedOrder = await Order.findById(orderId).populate("items.menuItem", "name price");
 
   res.status(200).json({
