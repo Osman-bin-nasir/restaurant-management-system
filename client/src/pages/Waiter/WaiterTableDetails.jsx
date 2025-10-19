@@ -86,7 +86,6 @@ const WaiterTableDetails = () => {
 
   const handleSubmitOrder = async () => {
     try {
-      const total = getTotalAmount();
       const orderData = {
         type: 'dine-in',
         tableId: table._id,
@@ -95,36 +94,82 @@ const WaiterTableDetails = () => {
       };
 
       if (currentOrder) {
-        const res = await axios.put(`/orders/${currentOrder._id}`, {
-          customerName: orderData.customerName,
-          items: orderData.items
-        });
-        setCurrentOrder(res.data.order);
-        setTable({ ...table, currentOrderId: res.data.order });
-        toast.success('Order updated successfully!');
+        // Filter for new items to add to the order
+        const newItems = cart.filter(cartItem => 
+          !currentOrder.items.some(orderItem => orderItem.menuItem._id === cartItem._id)
+        );
+
+        if (newItems.length > 0) {
+          const res = await axios.post(`/orders/${currentOrder._id}/items`, {
+            items: newItems.map(({ _id, quantity, notes }) => ({ menuItem: _id, quantity, notes }))
+          });
+          setCurrentOrder(res.data.order);
+          toast.success(`${newItems.length} new item(s) added successfully!`);
+        } else {
+          toast.info('No new items to add.');
+        }
+
       } else {
+        // Create a new order
         const res = await axios.post('/orders/', orderData);
         setCurrentOrder(res.data.order);
         setTable({ ...table, status: 'occupied', currentOrderId: res.data.order });
         toast.success('Order created successfully!');
       }
 
-      setCart(cart.map(item => ({ ...item, original: currentOrder ? item.original : true })));
+      // Refresh cart state to mark all as original
+      const updatedOrderRes = await axios.get(`/orders/${currentOrder ? currentOrder._id : table.currentOrderId._id}`);
+      if (updatedOrderRes.data.success) {
+        const updatedOrder = updatedOrderRes.data.order;
+        setCurrentOrder(updatedOrder);
+        setCart(updatedOrder.items.map(item => ({
+          _id: item.menuItem._id,
+          name: item.menuItem.name,
+          price: item.menuItem.price,
+          quantity: item.quantity,
+          notes: item.notes,
+          original: true
+        })));
+      }
+
       setShowOrderModal(false);
     } catch (err) {
-      const errorMessage = err.response?.status === 404 ? 'Order not found' : err.message || 'Failed to submit order';
+      const errorMessage = err.response?.data?.message || 'Failed to submit order';
       toast.error(errorMessage);
     }
   };
 
-  const handleUpdateStatus = async (status) => {
+  const handleUpdateStatus = async (newStatus) => {
     if (!currentOrder) return;
+
+    // We only allow waiters to mark all items as served
+    if (newStatus !== 'served') {
+      toast.error('Waiters can only mark items as served.');
+      return;
+    }
+
     try {
-      const res = await axios.patch(`/orders/${currentOrder._id}/status`, { status });
+      // Collect all item IDs that are not yet served
+      const itemIdsToUpdate = currentOrder.items
+        .filter(item => item.status !== 'served')
+        .map(item => item._id);
+
+      if (itemIdsToUpdate.length === 0) {
+        toast.success('All items are already served!');
+        return;
+      }
+
+      const res = await axios.patch(`/orders/${currentOrder._id}/items/status`, {
+        itemIds: itemIdsToUpdate,
+        newStatus: 'served'
+      });
+
       setCurrentOrder(res.data.order);
-      toast.success(`Order marked as ${status}!`);
+      toast.success('All items marked as served!');
     } catch (err) {
-      const errorMessage = err.response?.status === 404 ? 'Order not found' : err.message || 'Failed to update status';
+      const errorMessage = err.response?.status === 404 
+        ? 'Order or items not found' 
+        : err.response?.data?.message || 'Failed to update status';
       toast.error(errorMessage);
     }
   };

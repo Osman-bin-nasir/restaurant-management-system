@@ -1,7 +1,6 @@
 import mongoose from "mongoose";
 import Order from "../models/Order.js";
 import MenuItem from "../models/MenuItem.js";
-import UserModel from '../models/User.js';
 import Table from "../models/Table.js";
 import CustomError from "../utils/customError.js";
 import { asyncHandler } from "../middleware/asyncHandler.js";
@@ -51,10 +50,18 @@ export const createOrder = asyncHandler(async (req, res) => {
     }
 
     totalAmount += menuItem.price * item.quantity;
+    
+    // ✅ Each item starts with "placed" status and has its own history
     validatedItems.push({
       menuItem: item.menuItem,
       quantity: item.quantity,
-      notes: item.notes || ""
+      notes: item.notes || "",
+      status: "placed",
+      priceAtOrder: menuItem.price,
+      statusHistory: [{
+        status: "placed",
+        timestamp: new Date()
+      }]
     });
   }
 
@@ -68,7 +75,7 @@ export const createOrder = asyncHandler(async (req, res) => {
     tableId: type === "dine-in" ? tableId : null,
     items: validatedItems,
     totalAmount,
-    status: "placed",
+    status: "placed", // Initial order status
     customerName: customerName || "Guest",
     waiterId,
     branchId
@@ -140,154 +147,422 @@ export const getOrderById = asyncHandler(async (req, res) => {
   });
 });
 
-// ====================== UPDATE ORDER STATUS ======================
-export const updateOrderStatus = asyncHandler(async (req, res) => {
-  const { id } = req.params;
-  const { status } = req.body;
+// ====================== UPDATE ITEM STATUS ======================
+/**
+ * Update status of specific items within an order
+ * Replaces the monolithic updateOrderStatus for granular control
+ */
+export const updateItemStatus = asyncHandler(async (req, res) => {
+  const { orderId } = req.params;
+  const { itemIds, newStatus } = req.body;
+  const { id: userId } = req.user;
 
-  if (!status) throw new CustomError("Status is required", 400);
+  // Validation
+  if (!itemIds || !Array.isArray(itemIds) || itemIds.length === 0) {
+    throw new CustomError("Item IDs array is required", 400);
+  }
 
-  const validStatuses = ["placed", "in-kitchen", "ready", "served", "paid", "cancelled"];
-  if (!validStatuses.includes(status)) {
+  const validStatuses = ['placed', 'in-kitchen', 'ready', 'served', 'cancelled'];
+  if (!validStatuses.includes(newStatus)) {
     throw new CustomError(`Status must be one of: ${validStatuses.join(", ")}`, 400);
   }
 
-  const order = await Order.findByIdAndUpdate(id, { status }, { new: true })
-    .populate("items.menuItem", "name price")
-    .populate("waiterId", "name")
-    .populate("tableId", "tableNumber");
-
+  const order = await Order.findById(orderId);
   if (!order) throw new CustomError("Order not found", 404);
 
-  // Update table status only if order is "paid" or "cancelled"
-  if ((status === "paid" || status === "cancelled") && order.tableId) {
-    await Table.findByIdAndUpdate(order.tableId, {
-      status: "available",
-      currentOrderId: null
-    });
+  // Find items to update
+  const itemsToUpdate = order.items.filter(item => 
+    itemIds.includes(item._id.toString())
+  );
+
+  if (itemsToUpdate.length === 0) {
+    throw new CustomError("No matching items found in order", 404);
   }
 
-  res.status(200).json({
-    success: true,
-    message: `Order status updated to ${status}`,
-    order
+  // ✅ Status transition validation
+  const invalidTransitions = [];
+  itemsToUpdate.forEach(item => {
+    if (!isValidTransition(item.status, newStatus)) {
+      invalidTransitions.push({
+        itemId: item._id,
+        from: item.status,
+        to: newStatus
+      });
+    }
   });
-});
 
-// ====================== UPDATE ORDER (EDIT ITEMS) ======================
-export const updateOrder = asyncHandler(async (req, res) => {
-  const { id } = req.params;
-  const { items, customerName } = req.body;
-
-  // Find the existing order
-  const order = await Order.findById(id);
-  if (!order) throw new CustomError("Order not found", 404);
-
-  // Prevent updates if order is in certain statuses
-  if (["paid", "cancelled"].includes(order.status)) {
-    throw new CustomError(`Cannot update order with status: ${order.status}`, 400);
+  if (invalidTransitions.length > 0) {
+    throw new CustomError(
+      `Invalid status transitions: ${JSON.stringify(invalidTransitions)}`,
+      400
+    );
   }
 
-  let totalAmount = 0;
-  const validatedItems = [];
-  const newItemsForKitchen = [];
-
-  if (items && items.length > 0) {
-    // Create a map of existing items for comparison
-    const existingItemsMap = new Map(
-      order.items.map(item => [item.menuItem.toString(), item])
-    );
-
-    for (const item of items) {
-      if (!item.menuItem || item.quantity <= 0) {
-        throw new CustomError("Invalid menu item or quantity", 400);
-      }
-
-      const menuItem = await MenuItem.findById(item.menuItem);
-      if (!menuItem) throw new CustomError(`Menu item not found: ${item.menuItem}`, 404);
-
-      if (!menuItem.availability) {
-        throw new CustomError(`${menuItem.name} is currently unavailable`, 400);
-      }
-
-      totalAmount += menuItem.price * item.quantity;
-
-      // Check if this is a new item (not in existing order)
-      const existingItem = existingItemsMap.get(item.menuItem.toString());
-
-      const validatedItem = {
-        menuItem: item.menuItem,
-        quantity: item.quantity,
-        notes: item.notes || "",
-        status: "pending" // Default status
-      };
-
-      if (!existingItem) {
-        // This is a NEW item - mark for kitchen
-        validatedItem.status = "in-kitchen";
-        newItemsForKitchen.push({
-          menuItem: item.menuItem,
-          name: menuItem.name,
-          quantity: item.quantity,
-          notes: validatedItem.notes
-        });
-      } else {
-        // This is an EXISTING item - retain its original status
-        validatedItem.status = existingItem.status;
-        
-        // Optional: Handle quantity changes for existing items if needed
-        // if (existingItem.quantity !== item.quantity) {
-        //   // Logic for quantity adjustments can go here
-        //   // But don't mark as "in-kitchen" to prevent reprocessing
-        // }
-      }
-      
-      validatedItems.push(validatedItem);
+  // Update each item
+  const now = new Date();
+  itemsToUpdate.forEach(item => {
+    item.status = newStatus;
+    
+    // Track timestamps
+    if (newStatus === 'in-kitchen' && !item.kitchenStartTime) {
+      item.kitchenStartTime = now;
+    } else if (newStatus === 'ready') {
+      item.kitchenCompleteTime = now;
+    } else if (newStatus === 'served') {
+      item.servedTime = now;
+    } else if (newStatus === 'cancelled') {
+      item.cancelledAt = now;
+      item.cancelledBy = userId;
     }
 
-    // Update order items and total
-    order.items = validatedItems;
-    order.totalAmount = totalAmount;
-  }
+    // Add to history
+    item.statusHistory.push({
+      status: newStatus,
+      timestamp: now,
+      updatedBy: userId
+    });
+  });
 
-  // Update customer name if provided
-  if (customerName) order.customerName = customerName;
+  // ✅ Recalculate order-level status
+  order.updateOrderStatus();
 
-  // Update order status to "in-kitchen" ONLY if there are new items
-  if (newItemsForKitchen.length > 0) {
-    order.status = "in-kitchen";
-
-    // Send ONLY the new items to the kitchen queue
-    console.log("Sending new items to kitchen:", newItemsForKitchen);
-    // Example: await KitchenQueue.create({ 
-    //   orderId: order._id, 
-    //   items: newItemsForKitchen,
-    //   type: "new-items-only"
-    // });
-  }
-
-  // Save the updated order
   await order.save();
 
-  // Populate and return the updated order
-  const updatedOrder = await Order.findById(id)
-    .populate("items.menuItem", "name price")
+  // Populate and return
+  const updatedOrder = await Order.findById(orderId)
+    .populate("items.menuItem", "name price cookingTime")
     .populate("waiterId", "name")
     .populate("tableId", "tableNumber");
 
   res.status(200).json({
     success: true,
-    message: "Order updated successfully",
+    message: `${itemsToUpdate.length} item(s) updated to ${newStatus}`,
     order: updatedOrder,
-    // Return only the new items that were sent to kitchen
-    newItemsForKitchen: newItemsForKitchen.length > 0 ? newItemsForKitchen : undefined
+    updatedItemIds: itemIds
   });
 });
 
-// ====================== CANCEL ORDER ======================
+// ====================== UPDATE ALL ITEMS STATUS (FOR ADMINS) ======================
+export const updateAllItemsStatus = asyncHandler(async (req, res) => {
+  const { orderId } = req.params;
+  const { newStatus } = req.body;
+  const { id: userId } = req.user;
+
+  console.log('--- updateAllItemsStatus ---');
+  console.log('orderId:', orderId);
+  console.log('newStatus:', newStatus);
+
+  const order = await Order.findById(orderId);
+  if (!order) throw new CustomError("Order not found", 404);
+
+  console.log('order before update:', order);
+
+  order.items.forEach(item => {
+    item.status = newStatus;
+    if (!item.statusHistory) {
+      item.statusHistory = [];
+    }
+    item.statusHistory.push({
+      status: newStatus,
+      timestamp: new Date(),
+      updatedBy: userId
+    });
+  });
+
+  order.updateOrderStatus();
+  await order.save();
+
+  const updatedOrder = await Order.findById(orderId).populate("items.menuItem", "name price");
+
+  console.log('order after update:', updatedOrder);
+
+  res.status(200).json({
+    success: true,
+    message: `All items in order ${order.orderNumber} updated to ${newStatus}`,
+    order: updatedOrder
+  });
+});
+
+// ====================== MARK ORDER AS PAID (FOR ADMINS) ======================
+export const markOrderAsPaid = asyncHandler(async (req, res) => {
+  const { orderId } = req.params;
+  const { id: userId } = req.user;
+
+  const order = await Order.findById(orderId);
+  if (!order) throw new CustomError("Order not found", 404);
+
+  order.payment = {
+    method: 'cash', // or get from req.body
+    amount: order.totalAmount,
+    paidAt: new Date(),
+  };
+
+  order.status = 'paid';
+  order.updateOrderStatus();
+  await order.save();
+
+  const updatedOrder = await Order.findById(orderId).populate("items.menuItem", "name price");
+
+  res.status(200).json({
+    success: true,
+    message: `Order ${order.orderNumber} marked as paid`,
+    order: updatedOrder
+  });
+});
+
+// ====================== GET ITEMS BY STATUS ======================
+/**
+ * Filter order items by status - useful for kitchen display
+ */
+export const getItemsByStatus = asyncHandler(async (req, res) => {
+  const { branchId } = req.user;
+  const { status = 'placed,in-kitchen' } = req.query;
+
+  const statuses = status.split(',').filter(s => 
+    ['placed', 'in-kitchen', 'ready', 'served'].includes(s)
+  );
+
+  // Aggregate items across all orders
+  const orders = await Order.find({
+    branchId,
+    'items.status': { $in: statuses }
+  })
+    .populate("items.menuItem", "name price cookingTime category")
+    .populate("waiterId", "name")
+    .populate("tableId", "tableNumber")
+    .sort({ createdAt: 1 });
+
+  // Flatten items with order context
+  const items = [];
+  orders.forEach(order => {
+    order.items
+      .filter(item => statuses.includes(item.status))
+      .forEach(item => {
+        items.push({
+          itemId: item._id,
+          orderId: order._id,
+          orderNumber: order.orderNumber,
+          tableNumber: order.tableId?.tableNumber || 'Parcel',
+          menuItem: item.menuItem,
+          quantity: item.quantity,
+          notes: item.notes,
+          status: item.status,
+          kitchenStartTime: item.kitchenStartTime,
+          waiter: order.waiterId?.name,
+          createdAt: item.createdAt || order.createdAt
+        });
+      });
+  });
+
+  res.status(200).json({
+    success: true,
+    count: items.length,
+    items: items.sort((a, b) => a.createdAt - b.createdAt) // FIFO
+  });
+});
+
+// ====================== ADD ITEMS TO EXISTING ORDER ======================
+/**
+ * Add new items to an order - all start with "placed" status
+ */
+export const addItemsToOrder = asyncHandler(async (req, res) => {
+  const { orderId } = req.params;
+  const { items } = req.body;
+
+  if (!items || !Array.isArray(items) || items.length === 0) {
+    throw new CustomError("Items array is required", 400);
+  }
+
+  const order = await Order.findById(orderId);
+  if (!order) throw new CustomError("Order not found", 404);
+
+  if (['paid', 'cancelled'].includes(order.status)) {
+    throw new CustomError("Cannot add items to paid or cancelled orders", 400);
+  }
+
+  // Validate and add new items
+  let additionalAmount = 0;
+
+  for (const newItem of items) {
+    const menuItem = await MenuItem.findById(newItem.menuItem);
+    if (!menuItem) throw new CustomError(`Menu item not found: ${newItem.menuItem}`, 404);
+
+    if (!menuItem.availability) {
+      throw new CustomError(`${menuItem.name} is currently unavailable`, 400);
+    }
+
+    // ✅ New items always start as "placed"
+    order.items.push({
+      menuItem: newItem.menuItem,
+      quantity: newItem.quantity,
+      notes: newItem.notes || '',
+      status: 'placed',
+      priceAtOrder: menuItem.price,
+      statusHistory: [{
+        status: 'placed',
+        timestamp: new Date()
+      }]
+    });
+
+    additionalAmount += menuItem.price * newItem.quantity;
+  }
+
+  order.totalAmount += additionalAmount;
+  order.updateOrderStatus();
+
+  await order.save();
+
+  const updatedOrder = await Order.findById(orderId)
+    .populate("items.menuItem", "name price")
+    .populate("tableId", "tableNumber");
+
+  res.status(200).json({
+    success: true,
+    message: `${items.length} item(s) added to order`,
+    order: updatedOrder
+  });
+});
+
+// ====================== BULK STATUS UPDATE ======================
+/**
+ * Update multiple items across different orders (kitchen efficiency)
+ */
+export const bulkUpdateItemStatus = asyncHandler(async (req, res) => {
+  const { updates } = req.body;
+  const { id: userId } = req.user;
+
+  // updates format: [{ orderId, itemIds, newStatus }, ...]
+  if (!updates || !Array.isArray(updates)) {
+    throw new CustomError("Updates array is required", 400);
+  }
+
+  const results = [];
+  const errors = [];
+
+  for (const update of updates) {
+    try {
+      const order = await Order.findById(update.orderId);
+      if (!order) {
+        errors.push({ orderId: update.orderId, error: "Order not found" });
+        continue;
+      }
+
+      const itemsToUpdate = order.items.filter(item => 
+        update.itemIds.includes(item._id.toString())
+      );
+
+      itemsToUpdate.forEach(item => {
+        if (isValidTransition(item.status, update.newStatus)) {
+          item.status = update.newStatus;
+          
+          if (update.newStatus === 'in-kitchen') {
+            item.kitchenStartTime = new Date();
+          } else if (update.newStatus === 'ready') {
+            item.kitchenCompleteTime = new Date();
+          }
+
+          item.statusHistory.push({
+            status: update.newStatus,
+            timestamp: new Date(),
+            updatedBy: userId
+          });
+        }
+      });
+
+      order.updateOrderStatus();
+      await order.save();
+
+      results.push({
+        orderId: update.orderId,
+        updatedCount: itemsToUpdate.length
+      });
+    } catch (error) {
+      errors.push({
+        orderId: update.orderId,
+        error: error.message
+      });
+    }
+  }
+
+  res.status(200).json({
+    success: true,
+    message: `Bulk update completed`,
+    results,
+    errors: errors.length > 0 ? errors : undefined
+  });
+});
+
+// ====================== CANCEL SPECIFIC ITEMS ======================
+/**
+ * Cancel individual items before preparation
+ */
+export const cancelOrderItems = asyncHandler(async (req, res) => {
+  const { orderId } = req.params;
+  const { itemIds, reason } = req.body;
+  const { id: userId } = req.user;
+
+  if (!itemIds || !Array.isArray(itemIds) || itemIds.length === 0) {
+    throw new CustomError("Item IDs are required", 400);
+  }
+
+  const order = await Order.findById(orderId);
+  if (!order) throw new CustomError("Order not found", 404);
+
+  const itemsToCancel = order.items.filter(item => 
+    itemIds.includes(item._id.toString())
+  );
+
+  // Validate cancellation is allowed
+  const notCancellable = itemsToCancel.filter(item => 
+    ['served', 'cancelled'].includes(item.status)
+  );
+
+  if (notCancellable.length > 0) {
+    throw new CustomError(
+      `Cannot cancel items that are already served or cancelled`,
+      400
+    );
+  }
+
+  // Calculate refund amount
+  let refundAmount = 0;
+  itemsToCancel.forEach(item => {
+    item.status = 'cancelled';
+    item.cancellationReason = reason || 'Customer request';
+    item.cancelledBy = userId;
+    item.cancelledAt = new Date();
+    
+    item.statusHistory.push({
+      status: 'cancelled',
+      timestamp: new Date(),
+      updatedBy: userId
+    });
+
+    refundAmount += (item.priceAtOrder || 0) * item.quantity;
+  });
+
+  // Adjust order total
+  order.totalAmount -= refundAmount;
+  order.updateOrderStatus();
+
+  await order.save();
+
+  const updatedOrder = await Order.findById(orderId)
+    .populate("items.menuItem", "name price");
+
+  res.status(200).json({
+    success: true,
+    message: `${itemsToCancel.length} item(s) cancelled`,
+    refundAmount,
+    order: updatedOrder
+  });
+});
+
+// ====================== CANCEL ORDER (ENTIRE ORDER) ======================
 export const cancelOrder = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const { reason } = req.body;
+  const { id: userId } = req.user;
 
   const order = await Order.findById(id);
   if (!order) throw new CustomError("Order not found", 404);
@@ -295,6 +570,22 @@ export const cancelOrder = asyncHandler(async (req, res) => {
   if (order.status === "paid" || order.status === "cancelled") {
     throw new CustomError("Cannot cancel a paid or already cancelled order", 400);
   }
+
+  // Cancel all items individually
+  order.items.forEach(item => {
+    if (!['served', 'cancelled'].includes(item.status)) {
+      item.status = 'cancelled';
+      item.cancellationReason = reason || 'Order cancelled';
+      item.cancelledBy = userId;
+      item.cancelledAt = new Date();
+      
+      item.statusHistory.push({
+        status: 'cancelled',
+        timestamp: new Date(),
+        updatedBy: userId
+      });
+    }
+  });
 
   order.status = "cancelled";
   await order.save();
@@ -330,7 +621,7 @@ export const assignCashier = asyncHandler(async (req, res) => {
     { cashierId },
     { new: true }
   ).populate("items.menuItem", "name price")
-    .populate("cashierId", "name email");
+   .populate("cashierId", "name email");
 
   if (!order) throw new CustomError("Order not found", 404);
 
@@ -382,3 +673,16 @@ export const getOrderStats = asyncHandler(async (req, res) => {
     }
   });
 });
+
+// ====================== HELPER: VALIDATE STATUS TRANSITIONS ======================
+function isValidTransition(currentStatus, newStatus) {
+  const validTransitions = {
+    'placed': ['in-kitchen', 'cancelled'],
+    'in-kitchen': ['ready', 'cancelled'],
+    'ready': ['served', 'in-kitchen', 'cancelled'], // Allow back to kitchen
+    'served': [], // Terminal state (except payment at order level)
+    'cancelled': [] // Terminal state
+  };
+
+  return validTransitions[currentStatus]?.includes(newStatus) || false;
+}

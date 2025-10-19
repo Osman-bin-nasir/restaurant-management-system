@@ -7,7 +7,7 @@ export const authorizePermissions = (...requiredPermissions) => {
       return next(new CustomError('Not authenticated', 401));
     }
 
-    const hasPermission = requiredPermissions.every(p =>
+    const hasPermission = requiredPermissions.some(p =>
       req.user.permissions.includes(p)
     );
 

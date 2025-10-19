@@ -3,8 +3,11 @@ import {
   createOrder,
   getAllOrders,
   getOrderById,
-  updateOrderStatus,
-  updateOrder,
+  updateItemStatus, // ✨ NEW
+  updateAllItemsStatus, // ✨ NEW
+  markOrderAsPaid, // ✨ NEW
+  addItemsToOrder,  // ✨ NEW
+  cancelOrderItems, // ✨ NEW
   cancelOrder,
   assignCashier,
   getOrderStats
@@ -15,57 +18,40 @@ import { checkBranchAccess } from "../middleware/branchAccess.js";
 
 const router = express.Router();
 
-// 📋 GET ALL ORDERS - Waiters, Managers, Admins
-router.get(
-  "/",
-  userAuth,
-  authorizePermissions("orders:view"),
-  checkBranchAccess,
-  getAllOrders
-);
+// ====================== CORE ORDER ROUTES ======================
 
-// 📊 GET ORDER STATS - Managers & Admins only
-router.get(
-  "/stats/summary",
-  userAuth,
-  authorizePermissions("reports:view"),
-  getOrderStats
-);
+router.route("/")
+  .get(userAuth, authorizePermissions("orders:view"), checkBranchAccess, getAllOrders)
+  .post(userAuth, authorizePermissions("orders:create"), checkBranchAccess, createOrder);
 
-// 📌 GET ORDER BY ID
-router.get(
-  "/:id",
-  userAuth,
-  authorizePermissions("orders:view"),
-  getOrderById
-);
+router.route("/:id")
+  .get(userAuth, authorizePermissions("orders:view"), getOrderById);
 
-// ➕ CREATE ORDER - Waiters, Managers, Admins
-router.post(
-  "/",
-  userAuth,
-  authorizePermissions("orders:create"),
-  checkBranchAccess,
-  createOrder
-);
+// ====================== ITEM-SPECIFIC ROUTES ======================
 
-// ✏️ UPDATE ORDER (Edit items, customer name) - Only in "placed" status
-router.put(
-  "/:id",
-  userAuth,
-  authorizePermissions("orders:update"),
-  updateOrder
-);
+// ✨ NEW: Add items to an existing order
+router.route("/:orderId/items")
+  .post(userAuth, authorizePermissions("orders:update"), addItemsToOrder);
 
-// 🔄 UPDATE ORDER STATUS - Kitchen, Cashier, Waiter, Manager
-router.patch(
-  "/:id/status",
-  userAuth,
-  authorizePermissions("orders:update"),
-  updateOrderStatus
-);
+// ✨ NEW: Update status of multiple items in an order
+router.route("/:orderId/items/status")
+  .patch(userAuth, authorizePermissions("orders:update", "kitchen:update"), updateItemStatus);
 
-// ❌ CANCEL ORDER - Waiter, Manager, Admin
+// ✨ NEW: Update status of all items in an order (for admins)
+router.route("/:orderId/all-items/status")
+  .patch(userAuth, authorizePermissions("orders:update"), updateAllItemsStatus);
+
+// ✨ NEW: Mark an order as paid (for admins)
+router.route("/:orderId/mark-as-paid")
+  .patch(userAuth, authorizePermissions("billing:process"), markOrderAsPaid);
+
+// ✨ NEW: Cancel specific items in an order
+router.route("/:orderId/items/cancel")
+  .patch(userAuth, authorizePermissions("orders:update"), cancelOrderItems);
+
+// ====================== ORDER-LEVEL STATUS & ASSIGNMENT ======================
+
+// ❌ CANCEL ENTIRE ORDER
 router.patch(
   "/:id/cancel",
   userAuth,
@@ -79,6 +65,16 @@ router.patch(
   userAuth,
   authorizePermissions("orders:update"),
   assignCashier
+);
+
+// ====================== STATS & REPORTS ======================
+
+// 📊 GET ORDER STATS
+router.get(
+  "/stats/summary",
+  userAuth,
+  authorizePermissions("reports:view"),
+  getOrderStats
 );
 
 export default router;

@@ -41,8 +41,6 @@ import CashierCreateOrder from '../pages/Cashier/CashierCreateOrder.jsx';
 
 // Kitchen Pages
 import KitchenDashboard from '../pages/Kitchen/KitchenDashboard.jsx';
-import OrderQueue from '../pages/Kitchen/OrderQueue.jsx';
-import MenuItems from '../pages/Kitchen/MenuItems.jsx';
 
 // Waiter Pages
 import WaiterDashboard from '../pages/Waiter/WaiterDashboard.jsx';
@@ -152,8 +150,6 @@ const AppRouter = () => {
             }
           >
             <Route path="dashboard" element={<KitchenDashboard />} />
-            <Route path="orders" element={<OrderQueue />} />
-            <Route path="menu" element={<MenuItems />} />
           </Route>
 
           {/* Waiter Routes */}

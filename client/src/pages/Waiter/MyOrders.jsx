@@ -99,14 +99,27 @@ const MyOrders = () => {
     setShowModal(true);
   };
 
-  // ✅ Update order status
-  const updateOrderStatus = async (orderId, newStatus) => {
+  // ✅ Update all items status
+  const updateAllItemsStatus = async (orderId, newStatus) => {
     try {
-      await axios.patch(`/orders/${orderId}/status`, { status: newStatus });
+      const order = orders.find(o => o._id === orderId);
+      if (!order) {
+        toast.error('Order not found!');
+        return;
+      }
+
+      const itemIdsToUpdate = order.items.map(item => item._id);
+
+      await axios.patch(`/orders/${orderId}/items/status`, { 
+        itemIds: itemIdsToUpdate,
+        newStatus 
+      });
+      
       await fetchOrders();
+      toast.success(`Order moved to ${newStatus}`);
 
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to update order status');
+      toast.error(err.response?.data?.message || `Failed to update order to ${newStatus}`);
     }
   };
 
@@ -454,7 +467,7 @@ const MyOrders = () => {
                   <div className="flex flex-wrap gap-2">
                     {selectedOrder.status === 'placed' && (
                       <button
-                        onClick={() => updateOrderStatus(selectedOrder._id, 'in-kitchen')}
+                        onClick={() => updateAllItemsStatus(selectedOrder._id, 'in-kitchen')}
                         className="px-4 py-2.5 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 font-semibold transition shadow-sm"
                       >
                         Move to Kitchen
@@ -462,7 +475,7 @@ const MyOrders = () => {
                     )}
                     {selectedOrder.status === 'ready' && (
                       <button
-                        onClick={() => updateOrderStatus(selectedOrder._id, 'served')}
+                        onClick={() => updateAllItemsStatus(selectedOrder._id, 'served')}
                         className="px-4 py-2.5 bg-purple-500 text-white rounded-lg hover:bg-purple-600 font-semibold transition shadow-sm"
                       >
                         Mark Served

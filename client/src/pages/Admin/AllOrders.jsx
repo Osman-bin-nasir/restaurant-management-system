@@ -81,7 +81,7 @@ const AllOrders = () => {
   // ✅ Update order status
   const updateOrderStatus = async (orderId, newStatus) => {
     try {
-      await axios.patch(`/orders/${orderId}/status`, { status: newStatus });
+      await axios.patch(`/orders/${orderId}/all-items/status`, { newStatus });
       await fetchOrders();
 
       if (selectedOrder?._id === orderId) {
@@ -101,6 +101,18 @@ const AllOrders = () => {
       await axios.patch(`/orders/${orderId}/cancel`, { reason: 'Cancelled by admin' });
       await fetchOrders();
       setShowModal(false);
+    } catch (err) {
+      alert(`Error: ${err.response?.data?.message || err.message}`);
+    }
+  };
+
+  // ✅ Mark order as paid
+  const markOrderAsPaid = async (orderId) => {
+    try {
+      await axios.patch(`/orders/${orderId}/mark-as-paid`);
+      await fetchOrders();
+      const { data } = await axios.get(`/orders/${orderId}`);
+      setSelectedOrder(data.order);
     } catch (err) {
       alert(`Error: ${err.response?.data?.message || err.message}`);
     }
@@ -448,7 +460,7 @@ const AllOrders = () => {
                     )}
                     {selectedOrder.status === 'served' && (
                       <button
-                        onClick={() => updateOrderStatus(selectedOrder._id, 'paid')}
+                        onClick={() => markOrderAsPaid(selectedOrder._id)}
                         className="px-4 py-2.5 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 font-semibold transition shadow-sm"
                       >
                         Mark Paid

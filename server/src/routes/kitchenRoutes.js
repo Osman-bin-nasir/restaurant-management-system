@@ -1,8 +1,8 @@
 import express from "express";
 import {
-  getKitchenOrders,
-  startPreparingOrder,
-  markOrderReady,
+  getKitchenQueue,
+  startCookingItems,
+  markItemsReady,
   getKitchenStats,
   updateItemAvailability
 } from "../controllers/kitchenController.js";
@@ -11,28 +11,28 @@ import { authorizePermissions } from "../middleware/authorize.js";
 
 const router = express.Router();
 
-// 📋 GET KITCHEN ORDERS - View pending orders
+// 📋 GET KITCHEN QUEUE - View pending items
 router.get(
-  "/orders",
+  "/queue",
   userAuth,
   authorizePermissions("kitchen:view"),
-  getKitchenOrders
+  getKitchenQueue
 );
 
-// 👨‍🍳 START PREPARING - Mark order as in-kitchen
-router.patch(
-  "/orders/:orderId/start",
+// 👨‍🍳 START COOKING ITEMS - Mark items as in-kitchen
+router.post(
+  "/items/start-cooking",
   userAuth,
   authorizePermissions("kitchen:update"),
-  startPreparingOrder
+  startCookingItems
 );
 
-// ✅ MARK AS READY - Order is ready for serving
-router.patch(
-  "/orders/:orderId/ready",
+// ✅ MARK ITEMS READY - Items are ready for serving
+router.post(
+  "/items/mark-ready",
   userAuth,
   authorizePermissions("kitchen:update"),
-  markOrderReady
+  markItemsReady
 );
 
 // 📊 KITCHEN STATS - Dashboard metrics
