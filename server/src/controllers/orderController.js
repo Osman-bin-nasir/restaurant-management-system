@@ -159,8 +159,8 @@ export const updateOrderStatus = asyncHandler(async (req, res) => {
 
   if (!order) throw new CustomError("Order not found", 404);
 
-  // ✅ If order is served, update table status
-  if (status === "served" && order.tableId) {
+  // Update table status only if order is "paid" or "cancelled"
+  if ((status === "paid" || status === "cancelled") && order.tableId) {
     await Table.findByIdAndUpdate(order.tableId, {
       status: "available",
       currentOrderId: null
@@ -179,13 +179,25 @@ export const updateOrder = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const { items, customerName } = req.body;
 
+  // Find the existing order
   const order = await Order.findById(id);
   if (!order) throw new CustomError("Order not found", 404);
 
+  // Prevent updates if order is in certain statuses
+  if (["paid", "cancelled"].includes(order.status)) {
+    throw new CustomError(`Cannot update order with status: ${order.status}`, 400);
+  }
+
   let totalAmount = 0;
   const validatedItems = [];
+  const newItemsForKitchen = [];
 
   if (items && items.length > 0) {
+    // Create a map of existing items for comparison
+    const existingItemsMap = new Map(
+      order.items.map(item => [item.menuItem.toString(), item])
+    );
+
     for (const item of items) {
       if (!item.menuItem || item.quantity <= 0) {
         throw new CustomError("Invalid menu item or quantity", 400);
@@ -199,21 +211,65 @@ export const updateOrder = asyncHandler(async (req, res) => {
       }
 
       totalAmount += menuItem.price * item.quantity;
-      validatedItems.push({
+
+      // Check if this is a new item (not in existing order)
+      const existingItem = existingItemsMap.get(item.menuItem.toString());
+
+      const validatedItem = {
         menuItem: item.menuItem,
         quantity: item.quantity,
-        notes: item.notes || ""
-      });
+        notes: item.notes || "",
+        status: "pending" // Default status
+      };
+
+      if (!existingItem) {
+        // This is a NEW item - mark for kitchen
+        validatedItem.status = "in-kitchen";
+        newItemsForKitchen.push({
+          menuItem: item.menuItem,
+          name: menuItem.name,
+          quantity: item.quantity,
+          notes: validatedItem.notes
+        });
+      } else {
+        // This is an EXISTING item - retain its original status
+        validatedItem.status = existingItem.status;
+        
+        // Optional: Handle quantity changes for existing items if needed
+        // if (existingItem.quantity !== item.quantity) {
+        //   // Logic for quantity adjustments can go here
+        //   // But don't mark as "in-kitchen" to prevent reprocessing
+        // }
+      }
+      
+      validatedItems.push(validatedItem);
     }
 
+    // Update order items and total
     order.items = validatedItems;
     order.totalAmount = totalAmount;
   }
 
+  // Update customer name if provided
   if (customerName) order.customerName = customerName;
 
+  // Update order status to "in-kitchen" ONLY if there are new items
+  if (newItemsForKitchen.length > 0) {
+    order.status = "in-kitchen";
+
+    // Send ONLY the new items to the kitchen queue
+    console.log("Sending new items to kitchen:", newItemsForKitchen);
+    // Example: await KitchenQueue.create({ 
+    //   orderId: order._id, 
+    //   items: newItemsForKitchen,
+    //   type: "new-items-only"
+    // });
+  }
+
+  // Save the updated order
   await order.save();
 
+  // Populate and return the updated order
   const updatedOrder = await Order.findById(id)
     .populate("items.menuItem", "name price")
     .populate("waiterId", "name")
@@ -222,7 +278,9 @@ export const updateOrder = asyncHandler(async (req, res) => {
   res.status(200).json({
     success: true,
     message: "Order updated successfully",
-    order: updatedOrder
+    order: updatedOrder,
+    // Return only the new items that were sent to kitchen
+    newItemsForKitchen: newItemsForKitchen.length > 0 ? newItemsForKitchen : undefined
   });
 });
 
