@@ -50,6 +50,7 @@ import TableOrders from '../pages/Waiter/TableOrders.jsx';
 import MyOrders from '../pages/Waiter/MyOrders.jsx';
 import CreateOrder from '../pages/Waiter/CreateOrder.jsx';
 import TableDetails from '../pages/Admin/TableDetails.jsx';
+import WaiterTableDetails from '../pages/Waiter/WaiterTableDetails.jsx';
 
 const AppRouter = () => {
   const { user } = useAuth();
@@ -166,6 +167,7 @@ const AppRouter = () => {
           >
             <Route path="dashboard" element={<WaiterDashboard />} />
             <Route path="tables" element={<TableOrders />} />
+            <Route path="tables/:id" element={<WaiterTableDetails />} />
             <Route path="orders/create" element={<CreateOrder />} />
             <Route path="orders" element={<MyOrders />} />
           </Route>

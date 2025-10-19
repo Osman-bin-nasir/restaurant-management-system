@@ -264,7 +264,7 @@ const Sidebar = () => {
             {!isCollapsed && (
               <div>
                 <h1 className="text-2xl font-bold text-gray-900">
-                  <span className="text-orange-500">Resto</span>Manager
+                  <span className="text-orange-500">Restro</span>Manager
                 </h1>
                 <p className="text-xs text-gray-500 mt-1 capitalize">{userRole} Panel</p>
               </div>
