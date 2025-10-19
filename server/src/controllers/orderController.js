@@ -182,11 +182,6 @@ export const updateOrder = asyncHandler(async (req, res) => {
   const order = await Order.findById(id);
   if (!order) throw new CustomError("Order not found", 404);
 
-  // ✅ Only allow editing if order is in "placed" status
-  if (order.status !== "placed") {
-    throw new CustomError("Can only edit orders in 'placed' status", 400);
-  }
-
   let totalAmount = 0;
   const validatedItems = [];
 
