@@ -407,21 +407,16 @@ export const addItemsToOrder = asyncHandler(async (req, res) => {
     );
 
     if (existingItem) {
-      // ✅ FIX: Only mark the ADDITIONAL quantity as "placed"/"in-kitchen"
-      const oldQuantity = existingItem.quantity;
-      const newQuantity = newItem.quantity;
-      const quantityDifference = newQuantity - oldQuantity;
+      // ✅ Treat incoming quantity as "add this many new items"
+      const quantityToAdd = newItem.quantity;
 
-      if (quantityDifference > 0) {
-        // Quantity increased: Create new, separate items for the additional quantity.
-        // The original item is not modified, preserving its current status (e.g., 'served').
-        // The new items are marked as 'placed' to enter the kitchen workflow.
-        for (let i = 0; i < quantityDifference; i++) {
+      if (quantityToAdd > 0) {
+        for (let i = 0; i < quantityToAdd; i++) {
           order.items.push({
             menuItem: newItem.menuItem,
-            quantity: 1, // Each additional item is tracked separately
+            quantity: 1, // Each new item tracked separately
             notes: newItem.notes || '',
-            status: 'placed', // ✅ NEW items start as "placed"
+            status: 'placed',
             priceAtOrder: menuItem.price,
             statusHistory: [
               {
@@ -434,30 +429,7 @@ export const addItemsToOrder = asyncHandler(async (req, res) => {
           });
         }
 
-        additionalAmount += menuItem.price * quantityDifference;
-      } else if (quantityDifference < 0) {
-        // Quantity decreased - not allowed for served items
-        if (existingItem.status === 'served' || existingItem.status === 'ready') {
-          throw new CustomError(
-            `Cannot reduce quantity of ${menuItem.name} - item already ${existingItem.status}`,
-            400
-          );
-        }
-        
-        existingItem.quantity = newQuantity;
-        existingItem.statusHistory.push({
-          status: existingItem.status,
-          timestamp: new Date(),
-          updatedBy: req.user.id,
-          note: `Quantity reduced from ${oldQuantity} to ${newQuantity}`,
-        });
-
-        additionalAmount += menuItem.price * quantityDifference; // negative value
-      } else {
-        // No quantity change - just update notes if provided
-        if (newItem.notes) {
-          existingItem.notes = newItem.notes;
-        }
+        additionalAmount += menuItem.price * quantityToAdd;
       }
     } else {
       // ✅ New item - add with "placed" status
