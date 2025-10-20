@@ -39,7 +39,7 @@ const WaiterTableDetails = () => {
                 price: item.menuItem.price,
                 quantity: item.quantity,
                 notes: item.notes,
-                original: orderRes.data.order.status !== 'placed' // Served if not 'placed'
+                original: orderRes.data.order.status !== 'placed'
               }));
               setCart(cartItems);
             }
@@ -59,6 +59,15 @@ const WaiterTableDetails = () => {
     fetchData();
   }, [id]);
 
+  // Reset cart to empty when opening modal for updates
+  const handleOpenModal = () => {
+    if (currentOrder) {
+      // Clear cart when opening update modal
+      setCart([]);
+    }
+    setShowOrderModal(true);
+  };
+
   const addToCart = (item) => {
     const existing = cart.find(c => c._id === item._id);
     if (existing) {
@@ -69,14 +78,8 @@ const WaiterTableDetails = () => {
   };
 
   const updateQuantity = (itemId, newQuantity) => {
-    const item = cart.find(c => c._id === itemId);
-    if (item.original && newQuantity < item.quantity) {
-      return; // Prevent reducing quantity of served items
-    }
     if (newQuantity === 0) {
-      if (!item.original) {
-        setCart(cart.filter(c => c._id !== itemId));
-      }
+      setCart(cart.filter(c => c._id !== itemId));
     } else {
       setCart(cart.map(c => (c._id === itemId ? { ...c, quantity: newQuantity } : c)));
     }
@@ -101,8 +104,6 @@ const WaiterTableDetails = () => {
       let orderId;
   
       if (currentOrder) {
-        // ✅ FIXED: Always send full cart state to backend
-        // Backend will determine what's new vs updated
         console.log('Updating existing order with items:', orderData.items);
         
         const res = await axios.post(`/orders/${currentOrder._id}/items`, {
@@ -117,7 +118,6 @@ const WaiterTableDetails = () => {
         successMessage = 'Order updated successfully!';
         orderId = res.data.order._id;
       } else {
-        // Create new order
         console.log('Creating new order with data:', orderData);
         const res = await axios.post('/orders', orderData);
         console.log('New order response:', res.data);
@@ -136,7 +136,6 @@ const WaiterTableDetails = () => {
         throw new Error('Invalid order ID');
       }
   
-      // ✅ Fetch updated order to get correct item statuses
       console.log('Fetching updated order with ID:', orderId);
       const updatedOrderRes = await axios.get(`/orders/${orderId}`);
       
@@ -147,8 +146,6 @@ const WaiterTableDetails = () => {
       const updatedOrder = updatedOrderRes.data.order;
       setCurrentOrder(updatedOrder);
       
-      // ✅ CRITICAL: Properly mark items based on their actual status
-      // Group items by menuItem to show combined quantity
       const itemMap = new Map();
       
       updatedOrder.items.forEach((item) => {
@@ -156,7 +153,6 @@ const WaiterTableDetails = () => {
         if (itemMap.has(key)) {
           const existing = itemMap.get(key);
           existing.quantity += item.quantity;
-          // Mark as original only if ALL items are not "placed"
           if (item.status === 'placed') {
             existing.original = false;
           }
@@ -167,7 +163,7 @@ const WaiterTableDetails = () => {
             price: item.menuItem.price,
             quantity: item.quantity,
             notes: item.notes,
-            original: item.status !== 'placed' // New items are not original
+            original: item.status !== 'placed'
           });
         }
       });
@@ -187,21 +183,19 @@ const WaiterTableDetails = () => {
       toast.error(errorMessage);
     }
   };
-  
 
   const handleUpdateStatus = async (newStatus) => {
     if (!currentOrder) return;
 
     try {
-      // Collect all item IDs that are eligible for the new status
       let itemIdsToUpdate = [];
       if (newStatus === 'in-kitchen') {
         itemIdsToUpdate = currentOrder.items
-          .filter(item => item.status === 'placed') // Only 'placed' can go to 'in-kitchen'
+          .filter(item => item.status === 'placed')
           .map(item => item._id);
       } else if (newStatus === 'served') {
         itemIdsToUpdate = currentOrder.items
-          .filter(item => item.status === 'ready') // Only 'ready' can go to 'served'
+          .filter(item => item.status === 'ready')
           .map(item => item._id);
       }
 
@@ -257,7 +251,6 @@ const WaiterTableDetails = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-6">
       <Toaster position="top-right" />
-      {/* Header */}
       <div className="mb-8">
         <div className="flex items-center justify-between mb-6">
           <div>
@@ -279,9 +272,7 @@ const WaiterTableDetails = () => {
         </div>
       </div>
 
-      {/* Table Information */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-        {/* Table Details Card (Limited) */}
         <div className="bg-white rounded-2xl shadow-md p-6 border-l-4 border-blue-500">
           <h2 className="text-xl font-bold text-gray-900 mb-4">Table Information</h2>
           <div className="space-y-4">
@@ -308,7 +299,7 @@ const WaiterTableDetails = () => {
           </div>
           {(table.status === 'occupied' || table.status === 'available' || table.status === 'reserved') && (
             <button
-              onClick={() => setShowOrderModal(true)}
+              onClick={handleOpenModal}
               className="mt-4 w-full bg-gradient-to-r from-orange-500 to-orange-600 text-white py-3 rounded-xl font-bold hover:from-orange-600 hover:to-orange-700 transition flex items-center justify-center gap-2 shadow-lg"
             >
               <Plus size={20} />
@@ -317,7 +308,6 @@ const WaiterTableDetails = () => {
           )}
         </div>
 
-        {/* Current Order Card (Limited to current order) */}
         {table.currentOrderId && currentOrder && (
           <div className="bg-white rounded-2xl shadow-md p-6 border-l-4 border-orange-500">
             <h2 className="text-xl font-bold text-gray-900 mb-4">Current Order</h2>
@@ -376,11 +366,10 @@ const WaiterTableDetails = () => {
                   ))
                 )}
               </div>
-              {/* Buttons for updating status */}
               <div className="flex gap-2">
                 {currentOrder.status === 'placed' && (
                   <button
-                    onClick={() => handleUpdateStatus('in-kitchen')} // Changed to 'in-kitchen'
+                    onClick={() => handleUpdateStatus('in-kitchen')}
                     className="flex-1 bg-gradient-to-r from-yellow-500 to-yellow-600 text-white py-2 rounded-xl font-bold hover:from-yellow-600 hover:to-yellow-700 transition flex items-center justify-center gap-2 shadow-lg"
                   >
                     Send to Kitchen
@@ -400,14 +389,13 @@ const WaiterTableDetails = () => {
         )}
       </div>
 
-      {/* Order Modal */}
       {showOrderModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-3xl shadow-2xl w-full max-w-5xl max-h-[90vh] overflow-hidden flex flex-col">
             <div className="bg-gradient-to-r from-orange-500 to-orange-600 text-white p-6 flex items-center justify-between">
               <div>
                 <h2 className="text-2xl font-bold mb-1">
-                  {currentOrder ? `Edit Order ${currentOrder.orderNumber}` : 'Create Order'} - Table {table.tableNumber}
+                  {currentOrder ? `Add Items to Order ${currentOrder.orderNumber}` : 'Create Order'} - Table {table.tableNumber}
                 </h2>
                 <p className="text-white/90 text-sm">Capacity: {table.capacity} persons</p>
               </div>
@@ -446,8 +434,7 @@ const WaiterTableDetails = () => {
                             <div className="flex items-center justify-between bg-orange-50 rounded-lg p-2">
                               <button
                                 onClick={() => updateQuantity(item._id, inCart.quantity - 1)}
-                                disabled={inCart.original}
-                                className="w-8 h-8 bg-orange-500 text-white rounded-lg flex items-center justify-center hover:bg-orange-600 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                                className="w-8 h-8 bg-orange-500 text-white rounded-lg flex items-center justify-center hover:bg-orange-600 transition"
                               >
                                 <Minus size={16} />
                               </button>
@@ -477,13 +464,16 @@ const WaiterTableDetails = () => {
 
               <div className="w-96 bg-white border-l border-gray-200 flex flex-col">
                 <div className="p-6 border-b border-gray-200">
-                  <h3 className="text-lg font-bold text-gray-900 mb-4">Order Summary</h3>
+                  <h3 className="text-lg font-bold text-gray-900 mb-4">
+                    {currentOrder ? 'New Items to Add' : 'Order Summary'}
+                  </h3>
                   <input
                     type="text"
                     placeholder="Customer Name *"
                     value={customerName}
                     onChange={(e) => setCustomerName(e.target.value)}
                     className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition"
+                    disabled={currentOrder}
                   />
                 </div>
 
@@ -491,7 +481,7 @@ const WaiterTableDetails = () => {
                   {cart.length === 0 ? (
                     <div className="text-center py-12">
                       <ShoppingBag size={48} className="text-gray-300 mx-auto mb-4" />
-                      <p className="text-gray-500">No items added</p>
+                      <p className="text-gray-500">No new items added</p>
                     </div>
                   ) : (
                     cart.map((item) => (
@@ -508,15 +498,13 @@ const WaiterTableDetails = () => {
                             ₹{(item.price * item.quantity).toFixed(2)}
                           </span>
                         </div>
-                        {!item.original && (
-                          <button
-                            onClick={() => updateQuantity(item._id, 0)}
-                            className="text-red-500 hover:text-red-600 text-xs font-semibold flex items-center gap-1"
-                          >
-                            <Trash2 size={12} />
-                            Remove
-                          </button>
-                        )}
+                        <button
+                          onClick={() => updateQuantity(item._id, 0)}
+                          className="text-red-500 hover:text-red-600 text-xs font-semibold flex items-center gap-1"
+                        >
+                          <Trash2 size={12} />
+                          Remove
+                        </button>
                       </div>
                     ))
                   )}
@@ -524,7 +512,7 @@ const WaiterTableDetails = () => {
 
                 <div className="p-6 border-t border-gray-200 bg-gray-50">
                   <div className="flex items-center justify-between text-lg font-bold mb-4">
-                    <span className="text-gray-900">Total:</span>
+                    <span className="text-gray-900">{currentOrder ? 'New Items Total:' : 'Total:'}</span>
                     <span className="text-orange-600">₹{getTotalAmount().toFixed(2)}</span>
                   </div>
                   <button
@@ -533,7 +521,7 @@ const WaiterTableDetails = () => {
                     className="w-full bg-gradient-to-r from-green-500 to-green-600 text-white py-3 rounded-xl font-bold hover:from-green-600 hover:to-green-700 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg"
                   >
                     <CheckCircle size={20} />
-                    {currentOrder ? 'Update Order' : 'Create Order'}
+                    {currentOrder ? 'Add Items to Order' : 'Create Order'}
                   </button>
                 </div>
               </div>

@@ -413,21 +413,9 @@ export const addItemsToOrder = asyncHandler(async (req, res) => {
       const quantityDifference = newQuantity - oldQuantity;
 
       if (quantityDifference > 0) {
-        // Quantity increased - add new sub-items with "placed" status
-        // Keep the existing item as is (maintain its current status)
-        existingItem.quantity = newQuantity;
-        existingItem.notes = newItem.notes || existingItem.notes || '';
-        
-        // Add history entry for the quantity update
-        existingItem.statusHistory.push({
-          status: existingItem.status, // Keep current status
-          timestamp: new Date(),
-          updatedBy: req.user.id,
-          note: `Quantity updated from ${oldQuantity} to ${newQuantity} (+${quantityDifference} new items)`,
-        });
-
-        // ✅ CRITICAL FIX: Create new items for the additional quantity
-        // These will be marked as "placed" and go through the kitchen workflow
+        // Quantity increased: Create new, separate items for the additional quantity.
+        // The original item is not modified, preserving its current status (e.g., 'served').
+        // The new items are marked as 'placed' to enter the kitchen workflow.
         for (let i = 0; i < quantityDifference; i++) {
           order.items.push({
             menuItem: newItem.menuItem,
