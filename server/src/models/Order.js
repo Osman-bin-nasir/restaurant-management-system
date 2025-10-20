@@ -124,19 +124,22 @@ orderSchema.methods.updateOrderStatus = function() {
   }
   
   const allServed = items.every(item => item.status === 'served');
-  const allReady = items.every(item => ['ready', 'served'].includes(item.status));
+  const anyReady = items.some(item => item.status === 'ready');
   const anyInKitchen = items.some(item => item.status === 'in-kitchen');
+  const allPlaced = items.every(item => item.status === 'placed');
   
   if (this.payment?.paidAt) {
     this.status = 'paid';
   } else if (allServed) {
     this.status = 'served';
-  } else if (allReady) {
-    this.status = 'ready';
+  } else if (anyReady) {
+    this.status = 'ready'; // Prioritize 'ready' if any item is ready
   } else if (anyInKitchen) {
     this.status = 'in-kitchen';
-  } else {
+  } else if (allPlaced) {
     this.status = 'placed';
+  } else {
+    this.status = 'placed'; // Fallback
   }
 };
 

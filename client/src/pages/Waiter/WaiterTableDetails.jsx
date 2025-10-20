@@ -85,91 +85,161 @@ const WaiterTableDetails = () => {
   const getTotalAmount = () => cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
 
   const handleSubmitOrder = async () => {
-    try {
-      const orderData = {
-        type: 'dine-in',
-        tableId: table._id,
-        customerName: customerName || 'Guest',
-        items: cart.map(({ _id, quantity, notes }) => ({ menuItem: _id, quantity, notes }))
-      };
+  try {
+    const orderData = {
+      type: 'dine-in',
+      tableId: table._id,
+      customerName: customerName || 'Guest',
+      items: cart.map(({ _id, quantity, notes }) => ({ menuItem: _id, quantity, notes })),
+    };
 
-      if (currentOrder) {
-        // Filter for new items to add to the order
-        const newItems = cart.filter(cartItem => 
-          !currentOrder.items.some(orderItem => orderItem.menuItem._id === cartItem._id)
-        );
+    let successMessage = '';
+    let orderId;
 
-        if (newItems.length > 0) {
-          const res = await axios.post(`/orders/${currentOrder._id}/items`, {
-            items: newItems.map(({ _id, quantity, notes }) => ({ menuItem: _id, quantity, notes }))
-          });
-          setCurrentOrder(res.data.order);
-          toast.success(`${newItems.length} new item(s) added successfully!`);
-        } else {
-          toast.info('No new items to add.');
+    if (currentOrder) {
+      // Verify order exists
+      console.log('Verifying order ID:', currentOrder._id);
+      try {
+        const checkOrder = await axios.get(`/orders/${currentOrder._id}`);
+        if (!checkOrder.data.success) {
+          console.warn('Order not found, creating a new one');
+          currentOrder = null; // Fall back to creating a new order
         }
-
-      } else {
-        // Create a new order
-        const res = await axios.post('/orders/', orderData);
-        setCurrentOrder(res.data.order);
-        setTable({ ...table, status: 'occupied', currentOrderId: res.data.order });
-        toast.success('Order created successfully!');
+      } catch (err) {
+        console.warn('Failed to verify order, creating a new one:', err);
+        currentOrder = null;
       }
-
-      // Refresh cart state to mark all as original
-      const updatedOrderRes = await axios.get(`/orders/${currentOrder ? currentOrder._id : table.currentOrderId._id}`);
-      if (updatedOrderRes.data.success) {
-        const updatedOrder = updatedOrderRes.data.order;
-        setCurrentOrder(updatedOrder);
-        setCart(updatedOrder.items.map(item => ({
-          _id: item.menuItem._id,
-          name: item.menuItem.name,
-          price: item.menuItem.price,
-          quantity: item.quantity,
-          notes: item.notes,
-          original: true
-        })));
-      }
-
-      setShowOrderModal(false);
-    } catch (err) {
-      const errorMessage = err.response?.data?.message || 'Failed to submit order';
-      toast.error(errorMessage);
     }
-  };
+
+    if (currentOrder) {
+      // Identify new items and items with updated quantities/notes
+      const newItems = cart.filter(
+        (cartItem) =>
+          !currentOrder.items.some((orderItem) => orderItem.menuItem._id === cartItem._id)
+      );
+      const updatedItems = cart
+        .filter((cartItem) =>
+          currentOrder.items.some((orderItem) => orderItem.menuItem._id === cartItem._id)
+        )
+        .map((cartItem) => {
+          const existingItem = currentOrder.items.find(
+            (orderItem) => orderItem.menuItem._id === cartItem._id
+          );
+          return {
+            menuItem: cartItem._id,
+            quantity: cartItem.quantity,
+            notes: cartItem.notes,
+            hasChanged: existingItem.quantity !== cartItem.quantity || existingItem.notes !== cartItem.notes,
+          };
+        })
+        .filter((item) => item.hasChanged);
+
+      if (newItems.length === 0 && updatedItems.length === 0) {
+        toast.info('No changes to the order.');
+        return;
+      }
+
+      // Combine new and updated items into a single request
+      const itemsToSend = [
+        ...newItems.map(({ _id, quantity, notes }) => ({ menuItem: _id, quantity, notes })),
+        ...updatedItems.map(({ menuItem, quantity, notes }) => ({ menuItem, quantity, notes })),
+      ];
+
+      if (itemsToSend.length > 0) {
+        console.log('Sending items to POST /orders/:id/items:', itemsToSend);
+        const res = await axios.post(`/orders/${currentOrder._id}/items`, { items: itemsToSend });
+        if (!res.data.success) {
+          throw new Error(res.data.message || 'Failed to modify items in order');
+        }
+        setCurrentOrder(res.data.order);
+        successMessage = `${
+          newItems.length > 0 ? `${newItems.length} new item(s) added` : ''
+        }${newItems.length > 0 && updatedItems.length > 0 ? ' and ' : ''}${
+          updatedItems.length > 0 ? `${updatedItems.length} item(s) updated` : ''
+        } successfully!`;
+        orderId = res.data.order._id;
+      }
+    } else {
+      console.log('Creating new order with data:', orderData);
+      const res = await axios.post('/orders', orderData);
+      console.log('New order response:', res.data);
+      if (!res.data.success) {
+        throw new Error(res.data.message || 'Failed to create order');
+      }
+      setCurrentOrder(res.data.order);
+      setTable({ ...table, status: 'occupied', currentOrderId: res.data.order._id });
+      successMessage = 'Order created successfully!';
+      orderId = res.data.order._id;
+    }
+
+    if (!orderId) {
+      throw new Error('Invalid order ID');
+    }
+    console.log('Fetching updated order with ID:', orderId);
+    const updatedOrderRes = await axios.get(`/orders/${orderId}`);
+    if (!updatedOrderRes.data.success) {
+      throw new Error(updatedOrderRes.data.message || 'Failed to fetch updated order');
+    }
+
+    const updatedOrder = updatedOrderRes.data.order;
+    setCurrentOrder(updatedOrder);
+    setCart(
+      updatedOrder.items.map((item) => ({
+        _id: item.menuItem._id,
+        name: item.menuItem.name,
+        price: item.menuItem.price,
+        quantity: item.quantity,
+        notes: item.notes,
+        original: true,
+      }))
+    );
+
+    setShowOrderModal(false);
+    toast.success(successMessage);
+  } catch (err) {
+    console.error('Error in handleSubmitOrder:', {
+      message: err.message,
+      status: err.response?.status,
+      url: err.response?.config?.url,
+      data: err.response?.data,
+    });
+    const errorMessage = err.response?.data?.message || err.message || 'Failed to submit order';
+    toast.error(errorMessage);
+  }
+};
 
   const handleUpdateStatus = async (newStatus) => {
     if (!currentOrder) return;
 
-    // We only allow waiters to mark all items as served
-    if (newStatus !== 'served') {
-      toast.error('Waiters can only mark items as served.');
-      return;
-    }
-
     try {
-      // Collect all item IDs that are not yet served
-      const itemIdsToUpdate = currentOrder.items
-        .filter(item => item.status !== 'served')
-        .map(item => item._id);
+      // Collect all item IDs that are eligible for the new status
+      let itemIdsToUpdate = [];
+      if (newStatus === 'in-kitchen') {
+        itemIdsToUpdate = currentOrder.items
+          .filter(item => item.status === 'placed') // Only 'placed' can go to 'in-kitchen'
+          .map(item => item._id);
+      } else if (newStatus === 'served') {
+        itemIdsToUpdate = currentOrder.items
+          .filter(item => item.status === 'ready') // Only 'ready' can go to 'served'
+          .map(item => item._id);
+      }
 
       if (itemIdsToUpdate.length === 0) {
-        toast.success('All items are already served!');
+        toast.error(`No items eligible to be marked as ${newStatus}!`);
         return;
       }
 
       const res = await axios.patch(`/orders/${currentOrder._id}/items/status`, {
         itemIds: itemIdsToUpdate,
-        newStatus: 'served'
+        newStatus
       });
 
       setCurrentOrder(res.data.order);
-      toast.success('All items marked as served!');
+      toast.success(`Items marked as ${newStatus}!`);
     } catch (err) {
-      const errorMessage = err.response?.status === 404 
-        ? 'Order or items not found' 
-        : err.response?.data?.message || 'Failed to update status';
+      const errorMessage = err.response?.status === 404
+        ? 'Order or items not found'
+        : err.response?.data?.message || `Failed to update status to ${newStatus}`;
       toast.error(errorMessage);
     }
   };
@@ -304,10 +374,20 @@ const WaiterTableDetails = () => {
                 ) : (
                   currentOrder.items.map((item) => (
                     <div key={item._id} className="flex items-center justify-between mb-2">
-                      <span className="text-gray-600">
-                        {item.menuItem.name} × {item.quantity}
-                        {item.notes && <span className="text-xs text-gray-500"> ({item.notes})</span>}
-                      </span>
+                      <div className="flex-1">
+                        <span className="text-gray-600">
+                          {item.menuItem.name} × {item.quantity}
+                          {item.notes && <span className="text-xs text-gray-500"> ({item.notes})</span>}
+                        </span>
+                        <span className={`ml-2 text-xs font-semibold ${item.status === 'ready' ? 'text-green-600' :
+                          item.status === 'served' ? 'text-blue-600' :
+                            item.status === 'in-kitchen' ? 'text-orange-600' :
+                              item.status === 'cancelled' ? 'text-red-600' :
+                                'text-gray-600'
+                          }`}>
+                          ({item.status})
+                        </span>
+                      </div>
                       <span className="font-semibold text-gray-900">
                         ₹{(item.menuItem.price * item.quantity).toFixed(2)}
                       </span>
@@ -319,21 +399,13 @@ const WaiterTableDetails = () => {
               <div className="flex gap-2">
                 {currentOrder.status === 'placed' && (
                   <button
-                    onClick={() => handleUpdateStatus('in-kitchen')}
+                    onClick={() => handleUpdateStatus('in-kitchen')} // Changed to 'in-kitchen'
                     className="flex-1 bg-gradient-to-r from-yellow-500 to-yellow-600 text-white py-2 rounded-xl font-bold hover:from-yellow-600 hover:to-yellow-700 transition flex items-center justify-center gap-2 shadow-lg"
                   >
                     Send to Kitchen
                   </button>
                 )}
-                {currentOrder.status === 'in-kitchen' && (
-                  <button
-                    onClick={() => handleUpdateStatus('ready')}
-                    className="flex-1 bg-gradient-to-r from-green-500 to-green-600 text-white py-2 rounded-xl font-bold hover:from-green-600 hover:to-green-700 transition flex items-center justify-center gap-2 shadow-lg"
-                  >
-                    Mark as Ready
-                  </button>
-                )}
-                {currentOrder.status === 'ready' && (
+                {(currentOrder.status === 'in-kitchen' || currentOrder.status === 'ready') && (
                   <button
                     onClick={() => handleUpdateStatus('served')}
                     className="flex-1 bg-gradient-to-r from-blue-500 to-blue-600 text-white py-2 rounded-xl font-bold hover:from-blue-600 hover:to-blue-700 transition flex items-center justify-center gap-2 shadow-lg"

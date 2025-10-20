@@ -388,7 +388,7 @@ export const addItemsToOrder = asyncHandler(async (req, res) => {
     throw new CustomError("Cannot add items to paid or cancelled orders", 400);
   }
 
-  // Validate and add new items
+  // Validate and process items
   let additionalAmount = 0;
 
   for (const newItem of items) {
@@ -399,20 +399,43 @@ export const addItemsToOrder = asyncHandler(async (req, res) => {
       throw new CustomError(`${menuItem.name} is currently unavailable`, 400);
     }
 
-    // ✅ New items always start as "placed"
-    order.items.push({
-      menuItem: newItem.menuItem,
-      quantity: newItem.quantity,
-      notes: newItem.notes || '',
-      status: 'placed',
-      priceAtOrder: menuItem.price,
-      statusHistory: [{
-        status: 'placed',
-        timestamp: new Date()
-      }]
-    });
+    // Check if the menuItem already exists in the order
+    const existingItem = order.items.find(
+      (item) => item.menuItem.toString() === newItem.menuItem.toString()
+    );
 
-    additionalAmount += menuItem.price * newItem.quantity;
+    if (existingItem) {
+      // Update quantity and notes for existing item
+      const oldQuantity = existingItem.quantity;
+      existingItem.quantity = newItem.quantity;
+      existingItem.notes = newItem.notes || existingItem.notes || '';
+      // Update status history if needed
+      existingItem.statusHistory.push({
+        status: existingItem.status, // Keep current status
+        timestamp: new Date(),
+        updatedBy: req.user.id,
+        note: `Quantity updated from ${oldQuantity} to ${newItem.quantity}`,
+      });
+      // Adjust totalAmount based on quantity change
+      additionalAmount += menuItem.price * (newItem.quantity - oldQuantity);
+    } else {
+      // Add new item
+      order.items.push({
+        menuItem: newItem.menuItem,
+        quantity: newItem.quantity,
+        notes: newItem.notes || '',
+        status: 'placed',
+        priceAtOrder: menuItem.price,
+        statusHistory: [
+          {
+            status: 'placed',
+            timestamp: new Date(),
+            updatedBy: req.user.id,
+          },
+        ],
+      });
+      additionalAmount += menuItem.price * newItem.quantity;
+    }
   }
 
   order.totalAmount += additionalAmount;
@@ -426,8 +449,8 @@ export const addItemsToOrder = asyncHandler(async (req, res) => {
 
   res.status(200).json({
     success: true,
-    message: `${items.length} item(s) added to order`,
-    order: updatedOrder
+    message: `${items.length} item(s) processed (added or updated)`,
+    order: updatedOrder,
   });
 });
 
