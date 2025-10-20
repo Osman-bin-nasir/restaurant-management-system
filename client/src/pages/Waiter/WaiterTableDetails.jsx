@@ -59,10 +59,8 @@ const WaiterTableDetails = () => {
     fetchData();
   }, [id]);
 
-  // Reset cart to empty when opening modal for updates
   const handleOpenModal = () => {
     if (currentOrder) {
-      // Clear cart when opening update modal
       setCart([]);
     }
     setShowOrderModal(true);
@@ -87,99 +85,123 @@ const WaiterTableDetails = () => {
 
   const getTotalAmount = () => cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
 
+  const handleOrderSuccess = (order, successMessage, isNewOrder) => {
+    setCurrentOrder(order);
+    if (isNewOrder) {
+      setTable({ ...table, status: 'occupied', currentOrderId: order._id });
+    }
+
+    const itemMap = new Map();
+    order.items.forEach((item) => {
+      const key = item.menuItem._id;
+      if (itemMap.has(key)) {
+        const existing = itemMap.get(key);
+        existing.quantity += item.quantity;
+        if (item.status === 'placed') {
+          existing.original = false;
+        }
+      } else {
+        itemMap.set(key, {
+          _id: item.menuItem._id,
+          name: item.menuItem.name,
+          price: item.menuItem.price,
+          quantity: item.quantity,
+          notes: item.notes,
+          original: item.status !== 'placed',
+        });
+      }
+    });
+
+    setCart(Array.from(itemMap.values()));
+    setShowOrderModal(false);
+    toast.success(successMessage);
+  };
+
+  const proceedWithUpdate = async () => {
+    try {
+      const orderData = {
+        items: cart.map(({ _id, quantity, notes }) => ({ menuItem: _id, quantity, notes })),
+      };
+
+      const res = await axios.post(`/orders/${currentOrder._id}/items`, { items: orderData.items });
+      if (!res.data.success) throw new Error(res.data.message || 'Failed to update order');
+
+      const updatedOrderRes = await axios.get(`/orders/${res.data.order._id}`);
+      if (!updatedOrderRes.data.success) throw new Error(updatedOrderRes.data.message || 'Failed to fetch updated order');
+
+      handleOrderSuccess(updatedOrderRes.data.order, 'Order updated successfully!', false);
+    } catch (err) {
+      const errorMessage = err.response?.data?.message || err.message || 'Failed to update order';
+      toast.error(errorMessage);
+    }
+  };
+
+  const handleUpdateConfirmation = () => {
+    toast(
+      (t) => (
+        <div className="bg-white p-6 rounded-xl shadow-2xl text-center max-w-md w-full mx-auto">
+          <p className="font-semibold text-xl mb-3 text-gray-800">Confirm Order Update</p>
+          <p className="text-sm text-gray-600 mb-5">
+            Are you sure you want to update this order? <br /> This action cannot be undone.
+          </p>
+          <div className="flex justify-center gap-4">
+            <button
+              className="px-6 py-2 bg-gray-200 hover:bg-gray-300 rounded-lg font-semibold text-gray-800 transition"
+              onClick={() => toast.dismiss(t.id)}
+            >
+              Cancel
+            </button>
+            <button
+              className="px-6 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg font-semibold transition"
+              onClick={() => {
+                toast.dismiss(t.id);
+                proceedWithUpdate();
+              }}
+            >
+              Confirm
+            </button>
+          </div>
+        </div>
+      ),
+      {
+        position: 'top-center',
+        duration: Infinity, // Stay until dismissed
+        style: {
+          background: 'transparent', // Remove default toast background
+          boxShadow: 'none', // Remove default shadow (handled by toast content)
+          padding: 0, // Remove default padding
+          margin: 'auto', // Center horizontally
+          top: '50%', // Center vertically
+          transform: 'translateY(-50%)', // Adjust for vertical centering
+          maxWidth: '90vw', // Responsive width
+        },
+      }
+    );
+  };
+
   const handleSubmitOrder = async () => {
+    if (currentOrder) {
+      handleUpdateConfirmation();
+      return;
+    }
+
     try {
       const orderData = {
         type: 'dine-in',
         tableId: table._id,
         customerName: customerName || 'Guest',
-        items: cart.map(({ _id, quantity, notes }) => ({
-          menuItem: _id,
-          quantity,
-          notes
-        })),
+        items: cart.map(({ _id, quantity, notes }) => ({ menuItem: _id, quantity, notes })),
       };
-  
-      let successMessage = '';
-      let orderId;
-  
-      if (currentOrder) {
-        console.log('Updating existing order with items:', orderData.items);
-        
-        const res = await axios.post(`/orders/${currentOrder._id}/items`, {
-          items: orderData.items
-        });
-        
-        if (!res.data.success) {
-          throw new Error(res.data.message || 'Failed to update order');
-        }
-        
-        setCurrentOrder(res.data.order);
-        successMessage = 'Order updated successfully!';
-        orderId = res.data.order._id;
-      } else {
-        console.log('Creating new order with data:', orderData);
-        const res = await axios.post('/orders', orderData);
-        console.log('New order response:', res.data);
-        
-        if (!res.data.success) {
-          throw new Error(res.data.message || 'Failed to create order');
-        }
-        
-        setCurrentOrder(res.data.order);
-        setTable({ ...table, status: 'occupied', currentOrderId: res.data.order._id });
-        successMessage = 'Order created successfully!';
-        orderId = res.data.order._id;
-      }
-  
-      if (!orderId) {
-        throw new Error('Invalid order ID');
-      }
-  
-      console.log('Fetching updated order with ID:', orderId);
-      const updatedOrderRes = await axios.get(`/orders/${orderId}`);
-      
-      if (!updatedOrderRes.data.success) {
-        throw new Error(updatedOrderRes.data.message || 'Failed to fetch updated order');
-      }
-  
-      const updatedOrder = updatedOrderRes.data.order;
-      setCurrentOrder(updatedOrder);
-      
-      const itemMap = new Map();
-      
-      updatedOrder.items.forEach((item) => {
-        const key = item.menuItem._id;
-        if (itemMap.has(key)) {
-          const existing = itemMap.get(key);
-          existing.quantity += item.quantity;
-          if (item.status === 'placed') {
-            existing.original = false;
-          }
-        } else {
-          itemMap.set(key, {
-            _id: item.menuItem._id,
-            name: item.menuItem.name,
-            price: item.menuItem.price,
-            quantity: item.quantity,
-            notes: item.notes,
-            original: item.status !== 'placed'
-          });
-        }
-      });
-      
-      setCart(Array.from(itemMap.values()));
-      setShowOrderModal(false);
-      toast.success(successMessage);
-      
+
+      const res = await axios.post('/orders', orderData);
+      if (!res.data.success) throw new Error(res.data.message || 'Failed to create order');
+
+      const updatedOrderRes = await axios.get(`/orders/${res.data.order._id}`);
+      if (!updatedOrderRes.data.success) throw new Error(updatedOrderRes.data.message || 'Failed to fetch updated order');
+
+      handleOrderSuccess(updatedOrderRes.data.order, 'Order created successfully!', true);
     } catch (err) {
-      console.error('Error in handleSubmitOrder:', {
-        message: err.message,
-        status: err.response?.status,
-        url: err.response?.config?.url,
-        data: err.response?.data,
-      });
-      const errorMessage = err.response?.data?.message || err.message || 'Failed to submit order';
+      const errorMessage = err.response?.data?.message || err.message || 'Failed to create order';
       toast.error(errorMessage);
     }
   };
@@ -250,7 +272,7 @@ const WaiterTableDetails = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-6">
-      <Toaster position="top-right" />
+      <Toaster position="top-center" />
       <div className="mb-8">
         <div className="flex items-center justify-between mb-6">
           <div>
@@ -515,13 +537,18 @@ const WaiterTableDetails = () => {
                     <span className="text-gray-900">{currentOrder ? 'New Items Total:' : 'Total:'}</span>
                     <span className="text-orange-600">₹{getTotalAmount().toFixed(2)}</span>
                   </div>
+                  {currentOrder && (
+                    <p className="text-red-600 text-center font-bold text-lg my-2">
+                      This order cannot be edited later.
+                    </p>
+                  )}
                   <button
                     onClick={handleSubmitOrder}
                     disabled={!customerName.trim() || cart.length === 0}
                     className="w-full bg-gradient-to-r from-green-500 to-green-600 text-white py-3 rounded-xl font-bold hover:from-green-600 hover:to-green-700 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg"
                   >
                     <CheckCircle size={20} />
-                    {currentOrder ? 'Add Items to Order' : 'Create Order'}
+                    {currentOrder ? 'Confirm Update Order' : 'Create Order'}
                   </button>
                 </div>
               </div>
