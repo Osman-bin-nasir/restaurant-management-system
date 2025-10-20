@@ -85,128 +85,109 @@ const WaiterTableDetails = () => {
   const getTotalAmount = () => cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
 
   const handleSubmitOrder = async () => {
-  try {
-    const orderData = {
-      type: 'dine-in',
-      tableId: table._id,
-      customerName: customerName || 'Guest',
-      items: cart.map(({ _id, quantity, notes }) => ({ menuItem: _id, quantity, notes })),
-    };
-
-    let successMessage = '';
-    let orderId;
-
-    if (currentOrder) {
-      // Verify order exists
-      console.log('Verifying order ID:', currentOrder._id);
-      try {
-        const checkOrder = await axios.get(`/orders/${currentOrder._id}`);
-        if (!checkOrder.data.success) {
-          console.warn('Order not found, creating a new one');
-          currentOrder = null; // Fall back to creating a new order
-        }
-      } catch (err) {
-        console.warn('Failed to verify order, creating a new one:', err);
-        currentOrder = null;
-      }
-    }
-
-    if (currentOrder) {
-      // Identify new items and items with updated quantities/notes
-      const newItems = cart.filter(
-        (cartItem) =>
-          !currentOrder.items.some((orderItem) => orderItem.menuItem._id === cartItem._id)
-      );
-      const updatedItems = cart
-        .filter((cartItem) =>
-          currentOrder.items.some((orderItem) => orderItem.menuItem._id === cartItem._id)
-        )
-        .map((cartItem) => {
-          const existingItem = currentOrder.items.find(
-            (orderItem) => orderItem.menuItem._id === cartItem._id
-          );
-          return {
-            menuItem: cartItem._id,
-            quantity: cartItem.quantity,
-            notes: cartItem.notes,
-            hasChanged: existingItem.quantity !== cartItem.quantity || existingItem.notes !== cartItem.notes,
-          };
-        })
-        .filter((item) => item.hasChanged);
-
-      if (newItems.length === 0 && updatedItems.length === 0) {
-        toast.info('No changes to the order.');
-        return;
-      }
-
-      // Combine new and updated items into a single request
-      const itemsToSend = [
-        ...newItems.map(({ _id, quantity, notes }) => ({ menuItem: _id, quantity, notes })),
-        ...updatedItems.map(({ menuItem, quantity, notes }) => ({ menuItem, quantity, notes })),
-      ];
-
-      if (itemsToSend.length > 0) {
-        console.log('Sending items to POST /orders/:id/items:', itemsToSend);
-        const res = await axios.post(`/orders/${currentOrder._id}/items`, { items: itemsToSend });
+    try {
+      const orderData = {
+        type: 'dine-in',
+        tableId: table._id,
+        customerName: customerName || 'Guest',
+        items: cart.map(({ _id, quantity, notes }) => ({
+          menuItem: _id,
+          quantity,
+          notes
+        })),
+      };
+  
+      let successMessage = '';
+      let orderId;
+  
+      if (currentOrder) {
+        // ✅ FIXED: Always send full cart state to backend
+        // Backend will determine what's new vs updated
+        console.log('Updating existing order with items:', orderData.items);
+        
+        const res = await axios.post(`/orders/${currentOrder._id}/items`, {
+          items: orderData.items
+        });
+        
         if (!res.data.success) {
-          throw new Error(res.data.message || 'Failed to modify items in order');
+          throw new Error(res.data.message || 'Failed to update order');
         }
+        
         setCurrentOrder(res.data.order);
-        successMessage = `${
-          newItems.length > 0 ? `${newItems.length} new item(s) added` : ''
-        }${newItems.length > 0 && updatedItems.length > 0 ? ' and ' : ''}${
-          updatedItems.length > 0 ? `${updatedItems.length} item(s) updated` : ''
-        } successfully!`;
+        successMessage = 'Order updated successfully!';
+        orderId = res.data.order._id;
+      } else {
+        // Create new order
+        console.log('Creating new order with data:', orderData);
+        const res = await axios.post('/orders', orderData);
+        console.log('New order response:', res.data);
+        
+        if (!res.data.success) {
+          throw new Error(res.data.message || 'Failed to create order');
+        }
+        
+        setCurrentOrder(res.data.order);
+        setTable({ ...table, status: 'occupied', currentOrderId: res.data.order._id });
+        successMessage = 'Order created successfully!';
         orderId = res.data.order._id;
       }
-    } else {
-      console.log('Creating new order with data:', orderData);
-      const res = await axios.post('/orders', orderData);
-      console.log('New order response:', res.data);
-      if (!res.data.success) {
-        throw new Error(res.data.message || 'Failed to create order');
+  
+      if (!orderId) {
+        throw new Error('Invalid order ID');
       }
-      setCurrentOrder(res.data.order);
-      setTable({ ...table, status: 'occupied', currentOrderId: res.data.order._id });
-      successMessage = 'Order created successfully!';
-      orderId = res.data.order._id;
+  
+      // ✅ Fetch updated order to get correct item statuses
+      console.log('Fetching updated order with ID:', orderId);
+      const updatedOrderRes = await axios.get(`/orders/${orderId}`);
+      
+      if (!updatedOrderRes.data.success) {
+        throw new Error(updatedOrderRes.data.message || 'Failed to fetch updated order');
+      }
+  
+      const updatedOrder = updatedOrderRes.data.order;
+      setCurrentOrder(updatedOrder);
+      
+      // ✅ CRITICAL: Properly mark items based on their actual status
+      // Group items by menuItem to show combined quantity
+      const itemMap = new Map();
+      
+      updatedOrder.items.forEach((item) => {
+        const key = item.menuItem._id;
+        if (itemMap.has(key)) {
+          const existing = itemMap.get(key);
+          existing.quantity += item.quantity;
+          // Mark as original only if ALL items are not "placed"
+          if (item.status === 'placed') {
+            existing.original = false;
+          }
+        } else {
+          itemMap.set(key, {
+            _id: item.menuItem._id,
+            name: item.menuItem.name,
+            price: item.menuItem.price,
+            quantity: item.quantity,
+            notes: item.notes,
+            original: item.status !== 'placed' // New items are not original
+          });
+        }
+      });
+      
+      setCart(Array.from(itemMap.values()));
+      setShowOrderModal(false);
+      toast.success(successMessage);
+      
+    } catch (err) {
+      console.error('Error in handleSubmitOrder:', {
+        message: err.message,
+        status: err.response?.status,
+        url: err.response?.config?.url,
+        data: err.response?.data,
+      });
+      const errorMessage = err.response?.data?.message || err.message || 'Failed to submit order';
+      toast.error(errorMessage);
     }
-
-    if (!orderId) {
-      throw new Error('Invalid order ID');
-    }
-    console.log('Fetching updated order with ID:', orderId);
-    const updatedOrderRes = await axios.get(`/orders/${orderId}`);
-    if (!updatedOrderRes.data.success) {
-      throw new Error(updatedOrderRes.data.message || 'Failed to fetch updated order');
-    }
-
-    const updatedOrder = updatedOrderRes.data.order;
-    setCurrentOrder(updatedOrder);
-    setCart(
-      updatedOrder.items.map((item) => ({
-        _id: item.menuItem._id,
-        name: item.menuItem.name,
-        price: item.menuItem.price,
-        quantity: item.quantity,
-        notes: item.notes,
-        original: true,
-      }))
-    );
-
-    setShowOrderModal(false);
-    toast.success(successMessage);
-  } catch (err) {
-    console.error('Error in handleSubmitOrder:', {
-      message: err.message,
-      status: err.response?.status,
-      url: err.response?.config?.url,
-      data: err.response?.data,
-    });
-    const errorMessage = err.response?.data?.message || err.message || 'Failed to submit order';
-    toast.error(errorMessage);
-  }
-};
+  };
+  
 
   const handleUpdateStatus = async (newStatus) => {
     if (!currentOrder) return;

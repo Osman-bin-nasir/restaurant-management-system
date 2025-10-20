@@ -371,7 +371,9 @@ export const getItemsByStatus = asyncHandler(async (req, res) => {
 
 // ====================== ADD ITEMS TO EXISTING ORDER ======================
 /**
+/**
  * Add new items to an order - all start with "placed" status
+ * Update existing items - only NEW quantity goes to "placed" status
  */
 export const addItemsToOrder = asyncHandler(async (req, res) => {
   const { orderId } = req.params;
@@ -405,21 +407,72 @@ export const addItemsToOrder = asyncHandler(async (req, res) => {
     );
 
     if (existingItem) {
-      // Update quantity and notes for existing item
+      // ✅ FIX: Only mark the ADDITIONAL quantity as "placed"/"in-kitchen"
       const oldQuantity = existingItem.quantity;
-      existingItem.quantity = newItem.quantity;
-      existingItem.notes = newItem.notes || existingItem.notes || '';
-      // Update status history if needed
-      existingItem.statusHistory.push({
-        status: existingItem.status, // Keep current status
-        timestamp: new Date(),
-        updatedBy: req.user.id,
-        note: `Quantity updated from ${oldQuantity} to ${newItem.quantity}`,
-      });
-      // Adjust totalAmount based on quantity change
-      additionalAmount += menuItem.price * (newItem.quantity - oldQuantity);
+      const newQuantity = newItem.quantity;
+      const quantityDifference = newQuantity - oldQuantity;
+
+      if (quantityDifference > 0) {
+        // Quantity increased - add new sub-items with "placed" status
+        // Keep the existing item as is (maintain its current status)
+        existingItem.quantity = newQuantity;
+        existingItem.notes = newItem.notes || existingItem.notes || '';
+        
+        // Add history entry for the quantity update
+        existingItem.statusHistory.push({
+          status: existingItem.status, // Keep current status
+          timestamp: new Date(),
+          updatedBy: req.user.id,
+          note: `Quantity updated from ${oldQuantity} to ${newQuantity} (+${quantityDifference} new items)`,
+        });
+
+        // ✅ CRITICAL FIX: Create new items for the additional quantity
+        // These will be marked as "placed" and go through the kitchen workflow
+        for (let i = 0; i < quantityDifference; i++) {
+          order.items.push({
+            menuItem: newItem.menuItem,
+            quantity: 1, // Each additional item is tracked separately
+            notes: newItem.notes || '',
+            status: 'placed', // ✅ NEW items start as "placed"
+            priceAtOrder: menuItem.price,
+            statusHistory: [
+              {
+                status: 'placed',
+                timestamp: new Date(),
+                updatedBy: req.user.id,
+                note: 'Additional item added to existing order'
+              },
+            ],
+          });
+        }
+
+        additionalAmount += menuItem.price * quantityDifference;
+      } else if (quantityDifference < 0) {
+        // Quantity decreased - not allowed for served items
+        if (existingItem.status === 'served' || existingItem.status === 'ready') {
+          throw new CustomError(
+            `Cannot reduce quantity of ${menuItem.name} - item already ${existingItem.status}`,
+            400
+          );
+        }
+        
+        existingItem.quantity = newQuantity;
+        existingItem.statusHistory.push({
+          status: existingItem.status,
+          timestamp: new Date(),
+          updatedBy: req.user.id,
+          note: `Quantity reduced from ${oldQuantity} to ${newQuantity}`,
+        });
+
+        additionalAmount += menuItem.price * quantityDifference; // negative value
+      } else {
+        // No quantity change - just update notes if provided
+        if (newItem.notes) {
+          existingItem.notes = newItem.notes;
+        }
+      }
     } else {
-      // Add new item
+      // ✅ New item - add with "placed" status
       order.items.push({
         menuItem: newItem.menuItem,
         quantity: newItem.quantity,
@@ -449,7 +502,7 @@ export const addItemsToOrder = asyncHandler(async (req, res) => {
 
   res.status(200).json({
     success: true,
-    message: `${items.length} item(s) processed (added or updated)`,
+    message: `Order updated successfully`,
     order: updatedOrder,
   });
 });

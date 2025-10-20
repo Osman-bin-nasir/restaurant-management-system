@@ -91,51 +91,58 @@ const TableDetails = () => {
         type: 'dine-in',
         tableId: table._id,
         customerName: customerName || 'Guest',
-        items: cart.map(({ _id, quantity, notes }) => ({ menuItem: _id, quantity, notes }))
+        items: cart.map(({ _id, quantity, notes }) => ({ menuItem: _id, quantity, notes })),
       };
-
+  
       if (currentOrder) {
-        // Filter for new items to add to the order
-        const newItems = cart.filter(cartItem => 
-          !currentOrder.items.some(orderItem => orderItem.menuItem._id === cartItem._id)
-        );
-
-        if (newItems.length > 0) {
-          const res = await axios.post(`/orders/${currentOrder._id}/items`, {
-            items: newItems.map(({ _id, quantity, notes }) => ({ menuItem: _id, quantity, notes }))
-          });
+        // ✅ FIXED: Send all items (new and updated) to the backend
+        // Backend will intelligently handle:
+        // - New items → add with "placed" status
+        // - Existing items with increased quantity → add additional items with "placed" status
+        // - Existing items with same quantity → no change
+        const res = await axios.post(`/orders/${currentOrder._id}/items`, {
+          items: orderData.items
+        });
+  
+        if (res.data.success) {
           setCurrentOrder(res.data.order);
-          toast.success(`${newItems.length} new item(s) added successfully!`);
-        } else {
-          toast.info('No new items to add.');
+          toast.success('Order updated successfully!');
         }
-
       } else {
-        // Create a new order
-        const res = await axios.post('/orders/', orderData);
-        setCurrentOrder(res.data.order);
-        setTable({ ...table, status: 'occupied', currentOrderId: res.data.order });
-        toast.success('Order created successfully!');
+        // Create new order
+        const res = await axios.post('/orders', orderData);
+        if (res.data.success) {
+          setCurrentOrder(res.data.order);
+          setTable({ ...table, status: 'occupied', currentOrderId: res.data.order });
+          toast.success('Order created successfully!');
+        }
       }
-
-      // Refresh cart state to mark all as original
-      const updatedOrderRes = await axios.get(`/orders/${currentOrder ? currentOrder._id : table.currentOrderId._id}`);
-      if (updatedOrderRes.data.success) {
-        const updatedOrder = updatedOrderRes.data.order;
-        setCurrentOrder(updatedOrder);
-        setCart(updatedOrder.items.map(item => ({
-          _id: item.menuItem._id,
-          name: item.menuItem.name,
-          price: item.menuItem.price,
-          quantity: item.quantity,
-          notes: item.notes,
-          original: true
-        })));
+  
+      // ✅ Refresh order data to get latest status
+      if (currentOrder?._id) {
+        const updatedOrderRes = await axios.get(`/orders/${currentOrder._id}`);
+        if (updatedOrderRes.data.success) {
+          const updatedOrder = updatedOrderRes.data.order;
+          setCurrentOrder(updatedOrder);
+          
+          // ✅ Update cart to reflect actual order state
+          setCart(
+            updatedOrder.items.map((item) => ({
+              _id: item.menuItem._id,
+              name: item.menuItem.name,
+              price: item.menuItem.price,
+              quantity: item.quantity,
+              notes: item.notes,
+              original: item.status !== 'placed' // Mark as original if not newly placed
+            }))
+          );
+        }
       }
-
+  
       setShowOrderModal(false);
     } catch (err) {
-      const errorMessage = err.response?.data?.message || 'Failed to submit order';
+      console.error('Error in handleSubmitOrder:', err);
+      const errorMessage = err.response?.data?.message || err.message || 'Failed to submit order';
       toast.error(errorMessage);
     }
   };
