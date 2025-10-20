@@ -241,6 +241,59 @@ const WaiterTableDetails = () => {
     }
   };
 
+  const handleRemoveItem = async (itemId) => {
+    toast(
+      (t) => (
+        <div className="bg-white p-6 rounded-xl shadow-2xl text-center max-w-md w-full mx-auto">
+          <p className="font-semibold text-xl mb-3 text-gray-800">Confirm Removal</p>
+          <p className="text-sm text-gray-600 mb-5">
+            Are you sure you want to remove this item from the order?
+          </p>
+          <div className="flex justify-center gap-4">
+            <button
+              className="px-6 py-2 bg-gray-200 hover:bg-gray-300 rounded-lg font-semibold text-gray-800 transition"
+              onClick={() => toast.dismiss(t.id)}
+            >
+              Cancel
+            </button>
+            <button
+              className="px-6 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg font-semibold transition"
+              onClick={async () => {
+                toast.dismiss(t.id);
+                try {
+                  const res = await axios.delete(`/orders/${currentOrder._id}/items/${itemId}`);
+                  if (res.data.success) {
+                    toast.success('Item removed successfully!');
+                    setCurrentOrder(res.data.order);
+                  } else {
+                    throw new Error(res.data.message || 'Failed to remove item');
+                  }
+                } catch (err) {
+                  const errorMessage = err.response?.data?.message || err.message || 'Failed to remove item';
+                  toast.error(errorMessage);
+                }
+              }}
+            >
+              Remove
+            </button>
+          </div>
+        </div>
+      ),
+      {
+        position: 'top-center',
+        duration: Infinity,
+        style: {
+          background: 'transparent',
+          boxShadow: 'none',
+          padding: 0,
+          margin: 'auto',
+          top: '50%',
+          transform: 'translateY(-50%)',
+        },
+      }
+    );
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-screen bg-gray-50">
@@ -381,9 +434,20 @@ const WaiterTableDetails = () => {
                           ({item.status})
                         </span>
                       </div>
-                      <span className="font-semibold text-gray-900">
-                        ₹{(item.menuItem.price * item.quantity).toFixed(2)}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold text-gray-900">
+                          ₹{(item.menuItem.price * item.quantity).toFixed(2)}
+                        </span>
+                        {(item.status === 'placed' || item.status === 'in-kitchen') && (
+                          <button
+                            onClick={() => handleRemoveItem(item._id)}
+                            className="text-red-500 hover:text-red-700 p-1 rounded-full transition"
+                            title="Remove Item"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        )}
+                      </div>
                     </div>
                   ))
                 )}

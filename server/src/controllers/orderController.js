@@ -467,6 +467,62 @@ export const addItemsToOrder = asyncHandler(async (req, res) => {
   });
 });
 
+// ====================== REMOVE ITEM FROM ORDER ======================
+export const removeItemFromOrder = asyncHandler(async (req, res) => {
+  const { orderId, itemId } = req.params;
+
+  const order = await Order.findById(orderId);
+  if (!order) {
+    throw new CustomError("Order not found", 404);
+  }
+
+  if (['paid', 'cancelled'].includes(order.status)) {
+    throw new CustomError("Cannot remove items from paid or cancelled orders", 400);
+  }
+
+  const itemIndex = order.items.findIndex(item => item._id.toString() === itemId);
+
+  if (itemIndex === -1) {
+    throw new CustomError("Item not found in order", 404);
+  }
+
+  const itemToRemove = order.items[itemIndex];
+
+  if (!['placed', 'in-kitchen'].includes(itemToRemove.status)) {
+    throw new CustomError(`Cannot remove an item with status '${itemToRemove.status}'`, 400);
+  }
+
+  // Recalculate total amount
+  order.totalAmount -= (itemToRemove.priceAtOrder || 0) * itemToRemove.quantity;
+
+  // Remove the item
+  order.items.splice(itemIndex, 1);
+
+  // Update order status
+  order.updateOrderStatus();
+
+  await order.save();
+
+  // If all items are removed, the order is cancelled. Free up the table.
+  if (order.status === 'cancelled' && order.tableId) {
+    await Table.findByIdAndUpdate(order.tableId, {
+      status: "available",
+      currentOrderId: null
+    });
+  }
+
+  const updatedOrder = await Order.findById(orderId)
+    .populate("items.menuItem", "name price")
+    .populate("waiterId", "name")
+    .populate("tableId", "tableNumber");
+
+  res.status(200).json({
+    success: true,
+    message: "Item removed from order successfully",
+    order: updatedOrder,
+  });
+});
+
 // ====================== BULK STATUS UPDATE ======================
 /**
  * Update multiple items across different orders (kitchen efficiency)
@@ -590,6 +646,14 @@ export const cancelOrderItems = asyncHandler(async (req, res) => {
   order.updateOrderStatus();
 
   await order.save();
+
+  // If all items are cancelled, the order is cancelled. Free up the table.
+  if (order.status === 'cancelled' && order.tableId) {
+    await Table.findByIdAndUpdate(order.tableId, {
+      status: "available",
+      currentOrderId: null
+    });
+  }
 
   const updatedOrder = await Order.findById(orderId)
     .populate("items.menuItem", "name price");

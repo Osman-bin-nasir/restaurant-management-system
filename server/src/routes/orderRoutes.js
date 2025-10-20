@@ -7,6 +7,7 @@ import {
   updateAllItemsStatus, // ✨ NEW
   markOrderAsPaid, // ✨ NEW
   addItemsToOrder,  // ✨ NEW
+  removeItemFromOrder, // ✨ NEW
   cancelOrderItems, // ✨ NEW
   cancelOrder,
   assignCashier,
@@ -32,6 +33,10 @@ router.route("/:id")
 // ✨ NEW: Add items to an existing order
 router.route("/:orderId/items")
   .post(userAuth, authorizePermissions("orders:update"), addItemsToOrder);
+
+// ✨ NEW: Delete an item from an order
+router.route("/:orderId/items/:itemId")
+  .delete(userAuth, authorizePermissions("orders:update"), removeItemFromOrder);
 
 // ✨ NEW: Update status of multiple items in an order
 router.route("/:orderId/items/status")
