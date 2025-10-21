@@ -87,7 +87,7 @@ export const processPayment = asyncHandler(async (req, res) => {
   });
 });
 
-// ====================== GENERATE BILL (ENHANCED) ======================
+// ====================== GENERATE BILL (ENHANCED WITH AGGREGATION) ======================
 export const generateBill = asyncHandler(async (req, res) => {
   const { orderId } = req.params;
 
@@ -98,6 +98,33 @@ export const generateBill = asyncHandler(async (req, res) => {
     .populate("branchId", "name location contact");
 
   if (!order) throw new CustomError("Order not found", 404);
+
+  // ✅ Aggregate duplicate items by menuItem ID
+  const itemMap = new Map();
+  
+  order.items.forEach(item => {
+    const key = item.menuItem._id.toString();
+    
+    if (itemMap.has(key)) {
+      // Item already exists, increase quantity and amount
+      const existing = itemMap.get(key);
+      existing.qty += item.quantity;
+      existing.amount = existing.price * existing.qty;
+    } else {
+      // New item, add to map
+      itemMap.set(key, {
+        name: item.menuItem.name,
+        category: item.menuItem.category,
+        price: item.menuItem.price,
+        qty: item.quantity,
+        notes: item.notes || '',
+        amount: item.menuItem.price * item.quantity
+      });
+    }
+  });
+
+  // Convert map to array
+  const aggregatedItems = Array.from(itemMap.values());
 
   // Calculate tax (5%)
   const TAX_RATE = 0.05;
@@ -116,14 +143,7 @@ export const generateBill = asyncHandler(async (req, res) => {
     table: order.tableId,
     waiter: order.waiterId?.name || "N/A",
     customer: order.customerName,
-    items: order.items.map(item => ({
-      name: item.menuItem.name,
-      category: item.menuItem.category,
-      qty: item.quantity,
-      price: item.menuItem.price,
-      notes: item.notes,
-      amount: item.menuItem.price * item.quantity
-    })),
+    items: aggregatedItems, // ✅ Using aggregated items
     summary: {
       subtotal: subtotal,
       discount: discount,
