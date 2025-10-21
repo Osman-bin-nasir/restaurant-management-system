@@ -1,8 +1,18 @@
-
 import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import axios from '../../api/axios';
-import { CreditCard, DollarSign, ArrowLeft, CheckCircle, XCircle } from 'lucide-react';
+import { 
+  CreditCard, 
+  DollarSign, 
+  ArrowLeft, 
+  CheckCircle, 
+  Percent, 
+  Receipt,
+  Smartphone,
+  Banknote,
+  CreditCard as CardIcon
+} from 'lucide-react';
+import toast, { Toaster } from 'react-hot-toast';
 
 const Billing = () => {
   const location = useLocation();
@@ -11,126 +21,319 @@ const Billing = () => {
 
   const [order, setOrder] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [processing, setProcessing] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState('cash');
-  const [isProcessing, setIsProcessing] = useState(false);
+  const [discount, setDiscount] = useState(0);
+  const [discountType, setDiscountType] = useState('fixed');
+  const [notes, setNotes] = useState('');
+  const [finalAmount, setFinalAmount] = useState(0);
 
   useEffect(() => {
     if (!orderId) {
-      setError('No order ID provided.');
-      setLoading(false);
+      toast.error('No order ID provided');
+      navigate('/cashier/dashboard');
       return;
     }
-
-    const fetchOrderDetails = async () => {
-      try {
-        setLoading(true);
-        const { data } = await axios.get(`/orders/${orderId}`);
-        setOrder(data.order);
-        setError(null);
-      } catch (err) {
-        setError('Failed to fetch order details.');
-        console.error(err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchOrderDetails();
   }, [orderId]);
 
-  const handleProcessPayment = async () => {
-    setIsProcessing(true);
-    try {
-      const response = await axios.post('/cashier/process-payment', {
-        orderId: order._id,
-        paymentMethod: paymentMethod,
-      });
+  useEffect(() => {
+    if (order) {
+      calculateFinalAmount();
+    }
+  }, [discount, discountType, order]);
 
-      if (response.data.success) {
-        alert('Payment successful!');
-        navigate('/cashier/dashboard');
-      } else {
-        throw new Error(response.data.message || 'Payment failed.');
-      }
+  const fetchOrderDetails = async () => {
+    try {
+      setLoading(true);
+      const { data } = await axios.get(`/orders/${orderId}`);
+      setOrder(data.order);
+      setFinalAmount(data.order.totalAmount);
     } catch (err) {
-      alert('Error processing payment: ' + (err.response?.data?.message || err.message));
+      toast.error('Failed to fetch order details');
       console.error(err);
     } finally {
-      setIsProcessing(false);
+      setLoading(false);
     }
   };
 
-  if (loading) {
-    return <div className="p-6">Loading order details...</div>;
-  }
+  const calculateFinalAmount = () => {
+    if (!order) return;
+    
+    let discountAmount = 0;
+    if (discountType === 'percentage') {
+      discountAmount = (order.totalAmount * discount) / 100;
+    } else {
+      discountAmount = parseFloat(discount) || 0;
+    }
 
-  if (error) {
-    return <div className="p-6 text-red-500">{error}</div>;
+    const newAmount = Math.max(0, order.totalAmount - discountAmount);
+    setFinalAmount(newAmount);
+  };
+
+  const handleProcessPayment = async () => {
+    if (processing) return;
+
+    // Validation
+    if (!paymentMethod) {
+      toast.error('Please select a payment method');
+      return;
+    }
+
+    if (discount < 0 || (discountType === 'percentage' && discount > 100)) {
+      toast.error('Invalid discount value');
+      return;
+    }
+
+    if (discountType === 'fixed' && discount > order.totalAmount) {
+      toast.error('Discount cannot exceed total amount');
+      return;
+    }
+
+    setProcessing(true);
+
+    try {
+      const response = await axios.post('/cashier/payment/process', {
+        orderId: order._id,
+        paymentMethod,
+        discount: discountType === 'percentage' 
+          ? (order.totalAmount * discount) / 100 
+          : parseFloat(discount) || 0,
+        notes
+      });
+
+      if (response.data.success) {
+        toast.success('Payment processed successfully!', {
+          icon: '✅',
+          duration: 2000
+        });
+        
+        setTimeout(() => {
+          navigate('/cashier/dashboard');
+        }, 2000);
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Payment processing failed');
+      console.error(err);
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  const paymentMethods = [
+    { id: 'cash', name: 'Cash', icon: Banknote, color: 'green' },
+    { id: 'card', name: 'Card', icon: CardIcon, color: 'blue' },
+    { id: 'upi', name: 'UPI', icon: Smartphone, color: 'purple' },
+    { id: 'cheque', name: 'Cheque', icon: Receipt, color: 'orange' }
+  ];
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-4 border-orange-500"></div>
+      </div>
+    );
   }
 
   if (!order) {
-    return <div className="p-6">No order details found.</div>;
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <p className="text-gray-600">Order not found</p>
+      </div>
+    );
   }
 
   return (
-    <div className="p-6 bg-gray-50 min-h-screen">
+    <div className="min-h-screen bg-gray-50 p-6">
+      <Toaster position="top-center" />
+      
+      {/* Header */}
       <div className="mb-6">
-        <button onClick={() => navigate(-1)} className="flex items-center gap-2 text-gray-600 hover:text-gray-900">
+        <button 
+          onClick={() => navigate('/cashier/dashboard')} 
+          className="flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-4 transition"
+        >
           <ArrowLeft size={18} />
-          Back to Pending Bills
+          Back to Dashboard
         </button>
+        <h1 className="text-3xl font-bold text-gray-900">Process Payment</h1>
       </div>
 
-      <h1 className="text-3xl font-bold text-gray-900 mb-6">Process Payment</h1>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-2 bg-white p-6 rounded-xl shadow-sm border">
-          <h2 className="text-xl font-bold mb-4">Order Summary</h2>
-          <div className="space-y-3">
-            <p><strong>Order #:</strong> {order.orderNumber}</p>
-            <p><strong>Customer:</strong> {order.customerName}</p>
-            <p><strong>Table:</strong> {order.tableId?.tableNumber || 'N/A'}</p>
-            <p><strong>Total Amount:</strong> <span className="font-bold text-2xl text-orange-600">₹{order.totalAmount.toFixed(2)}</span></p>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Order Summary */}
+        <div className="lg:col-span-2 bg-white p-6 rounded-xl shadow-md border border-gray-100">
+          <h2 className="text-xl font-bold mb-4 text-gray-900">Order Summary</h2>
+          
+          <div className="space-y-4 mb-6">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="bg-gray-50 p-4 rounded-lg">
+                <p className="text-sm text-gray-600 mb-1">Order Number</p>
+                <p className="font-mono font-bold text-gray-900">{order.orderNumber}</p>
+              </div>
+              <div className="bg-gray-50 p-4 rounded-lg">
+                <p className="text-sm text-gray-600 mb-1">Customer</p>
+                <p className="font-semibold text-gray-900">{order.customerName}</p>
+              </div>
+              <div className="bg-gray-50 p-4 rounded-lg">
+                <p className="text-sm text-gray-600 mb-1">Table</p>
+                <p className="font-semibold text-gray-900">
+                  {order.tableId?.tableNumber || 'Parcel'}
+                </p>
+              </div>
+              <div className="bg-gray-50 p-4 rounded-lg">
+                <p className="text-sm text-gray-600 mb-1">Type</p>
+                <p className="font-semibold text-gray-900 capitalize">{order.type}</p>
+              </div>
+            </div>
           </div>
 
-          <div className="mt-6">
-            <h3 className="font-bold mb-2">Items</h3>
-            <ul className="divide-y divide-gray-200">
-              {order.items.map(item => (
-                <li key={item._id} className="py-2 flex justify-between">
-                  <span>{item.menuItem.name} x {item.quantity}</span>
-                  <span>₹{(item.menuItem.price * item.quantity).toFixed(2)}</span>
-                </li>
+          {/* Items */}
+          <div className="mb-6">
+            <h3 className="font-bold mb-3 text-gray-900">Items</h3>
+            <div className="space-y-2">
+              {order.items.map((item, index) => (
+                <div key={index} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+                  <div className="flex-1">
+                    <p className="font-semibold text-gray-900">{item.menuItem.name}</p>
+                    {item.notes && (
+                      <p className="text-sm text-gray-600 mt-1">Note: {item.notes}</p>
+                    )}
+                  </div>
+                  <div className="text-right ml-4">
+                    <p className="text-sm text-gray-600">Qty: {item.quantity}</p>
+                    <p className="font-bold text-gray-900">
+                      ₹{(item.menuItem.price * item.quantity).toFixed(2)}
+                    </p>
+                  </div>
+                </div>
               ))}
-            </ul>
+            </div>
+          </div>
+
+          {/* Discount Section */}
+          <div className="border-t border-gray-200 pt-4">
+            <h3 className="font-bold mb-3 text-gray-900 flex items-center gap-2">
+              <Percent size={18} />
+              Apply Discount (Optional)
+            </h3>
+            <div className="grid grid-cols-3 gap-3">
+              <select
+                value={discountType}
+                onChange={(e) => setDiscountType(e.target.value)}
+                className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+              >
+                <option value="fixed">Fixed (₹)</option>
+                <option value="percentage">Percentage (%)</option>
+              </select>
+              <input
+                type="number"
+                min="0"
+                max={discountType === 'percentage' ? 100 : order.totalAmount}
+                value={discount}
+                onChange={(e) => setDiscount(parseFloat(e.target.value) || 0)}
+                placeholder="0"
+                className="col-span-2 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+              />
+            </div>
+          </div>
+
+          {/* Notes */}
+          <div className="mt-4">
+            <label className="block text-sm font-semibold text-gray-700 mb-2">
+              Payment Notes (Optional)
+            </label>
+            <textarea
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="Add any payment notes..."
+              rows="2"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+            />
           </div>
         </div>
 
-        <div className="bg-white p-6 rounded-xl shadow-sm border h-fit">
-          <h2 className="text-xl font-bold mb-4">Payment Method</h2>
-          <div className="space-y-3">
-            <label className={`flex items-center gap-3 p-4 rounded-lg border-2 cursor-pointer ${paymentMethod === 'cash' ? 'border-green-500 bg-green-50' : 'border-gray-200'}`} >
-              <input type="radio" name="paymentMethod" value="cash" checked={paymentMethod === 'cash'} onChange={() => setPaymentMethod('cash')} className="hidden" />
-              <DollarSign className="text-green-600" />
-              <span className="font-semibold">Cash</span>
-            </label>
-            <label className={`flex items-center gap-3 p-4 rounded-lg border-2 cursor-pointer ${paymentMethod === 'card' ? 'border-blue-500 bg-blue-50' : 'border-gray-200'}`} >
-              <input type="radio" name="paymentMethod" value="card" checked={paymentMethod === 'card'} onChange={() => setPaymentMethod('card')} className="hidden" />
-              <CreditCard className="text-blue-600" />
-              <span className="font-semibold">Card</span>
-            </label>
+        {/* Payment Panel */}
+        <div className="bg-white p-6 rounded-xl shadow-md border border-gray-100 h-fit sticky top-6">
+          <h2 className="text-xl font-bold mb-4 text-gray-900">Payment Method</h2>
+          
+          <div className="space-y-3 mb-6">
+            {paymentMethods.map((method) => {
+              const Icon = method.icon;
+              const isSelected = paymentMethod === method.id;
+              return (
+                <label
+                  key={method.id}
+                  className={`flex items-center gap-3 p-4 rounded-lg border-2 cursor-pointer transition ${
+                    isSelected
+                      ? `border-${method.color}-500 bg-${method.color}-50`
+                      : 'border-gray-200 hover:border-gray-300'
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="paymentMethod"
+                    value={method.id}
+                    checked={isSelected}
+                    onChange={() => setPaymentMethod(method.id)}
+                    className="hidden"
+                  />
+                  <Icon className={isSelected ? `text-${method.color}-600` : 'text-gray-400'} size={24} />
+                  <span className={`font-semibold ${isSelected ? 'text-gray-900' : 'text-gray-700'}`}>
+                    {method.name}
+                  </span>
+                </label>
+              );
+            })}
           </div>
 
-          <div className="mt-6">
-            <button
-              onClick={handleProcessPayment}
-              disabled={isProcessing}
-              className="w-full bg-green-500 text-white py-3 rounded-lg font-semibold hover:bg-green-600 transition flex items-center justify-center gap-2 disabled:bg-gray-400"
-            >
-              {isProcessing ? 'Processing...' : `Pay ₹${order.totalAmount.toFixed(2)}`}
-            </button>
+          {/* Amount Summary */}
+          <div className="bg-gray-50 rounded-lg p-4 space-y-3 mb-6">
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-600">Subtotal:</span>
+              <span className="font-semibold text-gray-900">₹{order.totalAmount.toFixed(2)}</span>
+            </div>
+            {discount > 0 && (
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-600">Discount:</span>
+                <span className="font-semibold text-green-600">
+                  -₹{discountType === 'percentage' 
+                    ? ((order.totalAmount * discount) / 100).toFixed(2)
+                    : parseFloat(discount).toFixed(2)
+                  }
+                  {discountType === 'percentage' && ` (${discount}%)`}
+                </span>
+              </div>
+            )}
+            <div className="border-t border-gray-200 pt-3 flex justify-between">
+              <span className="font-bold text-gray-900">Total Amount:</span>
+              <span className="font-bold text-2xl text-orange-600">
+                ₹{finalAmount.toFixed(2)}
+              </span>
+            </div>
           </div>
+
+          {/* Process Button */}
+          <button
+            onClick={handleProcessPayment}
+            disabled={processing}
+            className="w-full bg-gradient-to-r from-green-500 to-green-600 text-white py-4 rounded-xl font-bold hover:from-green-600 hover:to-green-700 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg"
+          >
+            {processing ? (
+              <>
+                <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-white"></div>
+                Processing...
+              </>
+            ) : (
+              <>
+                <CheckCircle size={20} />
+                Process Payment ₹{finalAmount.toFixed(2)}
+              </>
+            )}
+          </button>
+
+          <p className="text-xs text-gray-500 text-center mt-4">
+            Payment will be recorded and table will be cleared
+          </p>
         </div>
       </div>
     </div>

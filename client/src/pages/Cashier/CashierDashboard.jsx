@@ -8,9 +8,16 @@ import {
   TrendingUp,
   Clock,
   CheckCircle,
-  AlertCircle
+  AlertCircle,
+  Search,
+  Filter,
+  RefreshCw,
+  Eye,
+  Package,
+  Table2
 } from 'lucide-react';
 import axios from '../../api/axios';
+import toast, { Toaster } from 'react-hot-toast';
 
 const CashierDashboard = () => {
   const { user } = useAuth();
@@ -21,18 +28,24 @@ const CashierDashboard = () => {
     totalDiscount: 0,
     averageTransaction: 0
   });
-  const [pendingBills, setPendingBills] = useState([]);
+  const [pendingOrders, setPendingOrders] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterType, setFilterType] = useState('all');
+  const [selectedOrder, setSelectedOrder] = useState(null);
+  const [showBillModal, setShowBillModal] = useState(false);
 
   useEffect(() => {
     fetchCashierData();
+    const interval = setInterval(fetchCashierData, 30000); // Refresh every 30s
+    return () => clearInterval(interval);
   }, []);
 
   const fetchCashierData = async () => {
     try {
-      const [statsRes, billsRes] = await Promise.all([
+      const [statsRes, ordersRes] = await Promise.all([
         axios.get('/cashier/stats/today'),
-        axios.get('/cashier/pending-bills')
+        axios.get('/orders', { params: { status: 'served,ready' } })
       ]);
 
       setStats(statsRes.data?.stats || {
@@ -42,17 +55,49 @@ const CashierDashboard = () => {
         averageTransaction: 0
       });
 
-      setPendingBills(billsRes.data?.bills || []);
+      setPendingOrders(ordersRes.data?.orders || []);
     } catch (error) {
       console.error('Failed to fetch cashier data:', error);
+      toast.error('Failed to load data');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleProcessPayment = (orderId) => {
-    navigate(`/cashier/billing?orderId=${orderId}`);
+  const handleViewBill = async (order) => {
+    try {
+      const { data } = await axios.get(`/cashier/bill/${order._id}`);
+      setSelectedOrder({ ...order, billDetails: data.bill });
+      setShowBillModal(true);
+    } catch (error) {
+      toast.error('Failed to generate bill');
+    }
   };
+
+  const handleProcessPayment = (order) => {
+    navigate(`/cashier/billing?orderId=${order._id}`);
+  };
+
+  const getStatusBadge = (status) => {
+    const badges = {
+      ready: { bg: 'bg-green-100', text: 'text-green-700', label: 'Ready' },
+      served: { bg: 'bg-blue-100', text: 'text-blue-700', label: 'Served' }
+    };
+    const badge = badges[status] || badges.ready;
+    return (
+      <span className={`px-3 py-1 rounded-full text-xs font-semibold ${badge.bg} ${badge.text}`}>
+        {badge.label}
+      </span>
+    );
+  };
+
+  const filteredOrders = pendingOrders.filter(order => {
+    const matchesSearch = 
+      order.orderNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      order.customerName?.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesType = filterType === 'all' || order.type === filterType;
+    return matchesSearch && matchesType;
+  });
 
   if (loading) {
     return (
@@ -64,13 +109,26 @@ const CashierDashboard = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 p-8">
+      <Toaster position="top-center" />
+      
       {/* Header */}
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
-          <CreditCard size={36} className="text-green-500" />
-          Cashier Dashboard 💳
-        </h1>
-        <p className="text-gray-600 mt-2">Welcome, {user?.name}! Manage payments and billing</p>
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
+              <CreditCard size={36} className="text-green-500" />
+              Cashier Dashboard
+            </h1>
+            <p className="text-gray-600 mt-2">Welcome, {user?.name}! Process payments and manage billing</p>
+          </div>
+          <button
+            onClick={fetchCashierData}
+            className="flex items-center gap-2 px-5 py-2.5 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition shadow-sm"
+          >
+            <RefreshCw className="w-4 h-4" />
+            Refresh
+          </button>
+        </div>
       </div>
 
       {/* Today's Stats */}
@@ -92,7 +150,7 @@ const CashierDashboard = () => {
             </div>
             <p className="text-gray-600 text-sm font-medium">Total Amount</p>
           </div>
-          <p className="text-3xl font-bold text-gray-900">₹{stats.totalAmount.toLocaleString()}</p>
+          <p className="text-3xl font-bold text-gray-900">₹{stats.totalAmount.toLocaleString('en-IN')}</p>
         </div>
 
         <div className="bg-white rounded-2xl shadow-md p-6">
@@ -108,89 +166,117 @@ const CashierDashboard = () => {
         <div className="bg-white rounded-2xl shadow-md p-6">
           <div className="flex items-center gap-3 mb-3">
             <div className="bg-purple-500 p-3 rounded-xl">
-              <Receipt className="text-white" size={24} />
+              <AlertCircle className="text-white" size={24} />
             </div>
-            <p className="text-gray-600 text-sm font-medium">Total Discount</p>
+            <p className="text-gray-600 text-sm font-medium">Pending Bills</p>
           </div>
-          <p className="text-3xl font-bold text-gray-900">₹{stats.totalDiscount}</p>
+          <p className="text-3xl font-bold text-gray-900">{filteredOrders.length}</p>
+        </div>
+      </div>
+
+      {/* Filters */}
+      <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-100 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+            <input
+              type="text"
+              placeholder="Search by order number or customer name..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition"
+            />
+          </div>
+          <div className="relative">
+            <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+            <select
+              value={filterType}
+              onChange={(e) => setFilterType(e.target.value)}
+              className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 appearance-none transition cursor-pointer"
+            >
+              <option value="all">All Types</option>
+              <option value="dine-in">Dine-in</option>
+              <option value="parcel">Parcel</option>
+            </select>
+          </div>
         </div>
       </div>
 
       {/* Pending Bills */}
-      <div className="bg-white rounded-2xl shadow-md p-6">
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-xl font-bold text-gray-900">Pending Bills</h2>
-          <button
-            onClick={fetchCashierData}
-            className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors text-sm font-medium"
-          >
-            Refresh
-          </button>
-        </div>
+      <div className="bg-white rounded-xl shadow-md p-6">
+        <h2 className="text-xl font-bold text-gray-900 mb-6">Pending Bills</h2>
 
-        {pendingBills.length === 0 ? (
+        {filteredOrders.length === 0 ? (
           <div className="text-center py-12">
             <CheckCircle size={64} className="text-green-500 mx-auto mb-4" />
             <p className="text-xl font-semibold text-gray-900 mb-2">All Bills Cleared! 🎉</p>
             <p className="text-gray-600">No pending bills to process</p>
           </div>
         ) : (
-          <div className="space-y-4">
-            {pendingBills.map((bill) => (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {filteredOrders.map((order) => (
               <div 
-                key={bill.orderId} 
-                className="border border-gray-200 rounded-xl p-5 hover:shadow-md transition-shadow"
+                key={order._id} 
+                className="border border-gray-200 rounded-xl p-5 hover:shadow-lg transition-shadow"
               >
                 <div className="flex items-center justify-between mb-4">
                   <div>
-                    <h3 className="text-lg font-bold text-gray-900 mb-1">{bill.orderNumber}</h3>
+                    <h3 className="text-lg font-bold text-gray-900 mb-1">{order.orderNumber}</h3>
                     <div className="flex items-center gap-4 text-sm text-gray-600">
                       <span className="flex items-center gap-1">
-                        {bill.tableNumber !== 'Parcel' ? (
-                          <>📍 Table {bill.tableNumber}</>
+                        {order.type === 'dine-in' ? (
+                          <>
+                            <Table2 size={14} />
+                            Table {order.tableId?.tableNumber}
+                          </>
                         ) : (
-                          <>📦 {bill.tableNumber}</>
+                          <>
+                            <Package size={14} />
+                            Parcel
+                          </>
                         )}
                       </span>
                       <span className="flex items-center gap-1">
                         <Clock size={14} />
-                        {new Date(bill.createdAt).toLocaleTimeString('en-IN', {
+                        {new Date(order.createdAt).toLocaleTimeString('en-IN', {
                           hour: '2-digit',
                           minute: '2-digit'
                         })}
                       </span>
                     </div>
                   </div>
-                  
-                  <div className="text-right">
-                    <p className="text-2xl font-bold text-gray-900">₹{bill.totalAmount}</p>
-                    <p className="text-xs text-gray-500">{bill.items} items</p>
-                  </div>
+                  {getStatusBadge(order.status)}
                 </div>
 
-                <div className="flex items-center gap-3">
-                  <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                    bill.status === 'ready' 
-                      ? 'bg-green-100 text-green-700' 
-                      : 'bg-blue-100 text-blue-700'
-                  }`}>
-                    {bill.status === 'ready' ? 'Ready for Billing' : 'Served'}
-                  </span>
-                  
-                  {bill.waiterId && (
-                    <span className="text-xs text-gray-600">
-                      Waiter: {bill.waiterId}
-                    </span>
-                  )}
+                <div className="mb-4">
+                  <p className="text-sm text-gray-600 mb-1">Customer</p>
+                  <p className="font-semibold text-gray-900">{order.customerName}</p>
                 </div>
 
-                <div className="mt-4 pt-4 border-t border-gray-200">
+                <div className="mb-4">
+                  <p className="text-sm text-gray-600 mb-1">Items</p>
+                  <p className="font-semibold text-gray-900">{order.items?.length || 0} items</p>
+                </div>
+
+                <div className="bg-gradient-to-r from-orange-500 to-orange-600 rounded-lg p-3 mb-4">
+                  <p className="text-white text-sm opacity-90 mb-1">Total Amount</p>
+                  <p className="text-2xl font-bold text-white">₹{order.totalAmount?.toFixed(2)}</p>
+                </div>
+
+                <div className="flex gap-2">
                   <button
-                    onClick={() => handleProcessPayment(bill.orderId)}
-                    className="w-full bg-green-500 text-white py-3 rounded-lg font-semibold hover:bg-green-600 transition-colors flex items-center justify-center gap-2"
+                    onClick={() => handleViewBill(order)}
+                    className="flex-1 flex items-center justify-center gap-2 bg-blue-500 text-white py-2 rounded-lg font-semibold hover:bg-blue-600 transition"
                   >
-                    <CreditCard size={20} />
-                    Process Payment
+                    <Eye size={18} />
+                    View Bill
+                  </button>
+                  <button
+                    onClick={() => handleProcessPayment(order)}
+                    className="flex-1 flex items-center justify-center gap-2 bg-green-500 text-white py-2 rounded-lg font-semibold hover:bg-green-600 transition"
+                  >
+                    <CreditCard size={18} />
+                    Pay
                   </button>
                 </div>
               </div>
@@ -199,47 +285,112 @@ const CashierDashboard = () => {
         )}
       </div>
 
-      {/* Quick Actions */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-8">
-        <button
-          onClick={() => navigate('/cashier/create-order')}
-          className="bg-gradient-to-r from-green-500 to-teal-500 text-white p-6 rounded-2xl shadow-lg hover:shadow-xl transition-all"
-        >
-          <div className="flex items-center justify-between">
-            <div className="text-left">
-              <p className="text-xl font-bold mb-2">Create Order</p>
-              <p className="text-white/80 text-sm">Create a new order</p>
+      {/* Bill Modal */}
+      {showBillModal && selectedOrder && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl">
+            <div className="p-6 border-b border-gray-200 flex items-center justify-between sticky top-0 bg-white">
+              <h2 className="text-2xl font-bold text-gray-900">Bill Preview</h2>
+              <button
+                onClick={() => setShowBillModal(false)}
+                className="text-gray-400 hover:text-gray-600 transition"
+              >
+                <span className="text-2xl">×</span>
+              </button>
             </div>
-            <Receipt size={32} />
-          </div>
-        </button>
 
-        <button
-          onClick={() => navigate('/cashier/summary')}
-          className="bg-gradient-to-r from-blue-500 to-purple-500 text-white p-6 rounded-2xl shadow-lg hover:shadow-xl transition-all"
-        >
-          <div className="flex items-center justify-between">
-            <div className="text-left">
-              <p className="text-xl font-bold mb-2">Daily Summary</p>
-              <p className="text-white/80 text-sm">View today's transactions</p>
-            </div>
-            <TrendingUp size={32} />
-          </div>
-        </button>
+            <div className="p-6">
+              {/* Bill Details */}
+              <div className="mb-6 text-center">
+                <h3 className="text-xl font-bold text-gray-900">Restaurant Name</h3>
+                <p className="text-sm text-gray-600">{selectedOrder.branchId?.name}</p>
+                <p className="text-sm text-gray-600">{selectedOrder.branchId?.location}</p>
+              </div>
 
-        <button
-          onClick={() => navigate('/cashier/pending-bills')}
-          className="bg-gradient-to-r from-orange-500 to-red-500 text-white p-6 rounded-2xl shadow-lg hover:shadow-xl transition-all"
-        >
-          <div className="flex items-center justify-between">
-            <div className="text-left">
-              <p className="text-xl font-bold mb-2">All Pending Bills</p>
-              <p className="text-white/80 text-sm">View all unpaid orders</p>
+              <div className="border-t border-b border-gray-200 py-4 mb-4">
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <p className="text-gray-600">Bill No:</p>
+                    <p className="font-semibold">{selectedOrder.billDetails?.billNumber}</p>
+                  </div>
+                  <div>
+                    <p className="text-gray-600">Date:</p>
+                    <p className="font-semibold">{selectedOrder.billDetails?.date}</p>
+                  </div>
+                  <div>
+                    <p className="text-gray-600">Customer:</p>
+                    <p className="font-semibold">{selectedOrder.customerName}</p>
+                  </div>
+                  <div>
+                    <p className="text-gray-600">Table:</p>
+                    <p className="font-semibold">
+                      {selectedOrder.tableId?.tableNumber || 'Parcel'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Items */}
+              <div className="mb-6">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-gray-200">
+                      <th className="text-left py-2 text-sm font-semibold text-gray-700">Item</th>
+                      <th className="text-center py-2 text-sm font-semibold text-gray-700">Qty</th>
+                      <th className="text-right py-2 text-sm font-semibold text-gray-700">Price</th>
+                      <th className="text-right py-2 text-sm font-semibold text-gray-700">Amount</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {selectedOrder.billDetails?.items.map((item, index) => (
+                      <tr key={index} className="border-b border-gray-100">
+                        <td className="py-3 text-sm">{item.name}</td>
+                        <td className="text-center py-3 text-sm">{item.qty}</td>
+                        <td className="text-right py-3 text-sm">₹{item.price}</td>
+                        <td className="text-right py-3 text-sm font-semibold">₹{item.amount}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Summary */}
+              <div className="bg-gray-50 rounded-lg p-4 space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-600">Subtotal:</span>
+                  <span className="font-semibold">₹{selectedOrder.billDetails?.summary.subtotal}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-600">Discount:</span>
+                  <span className="font-semibold text-green-600">-₹{selectedOrder.billDetails?.summary.discount}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-600">Tax (5%):</span>
+                  <span className="font-semibold">₹{selectedOrder.billDetails?.summary.tax}</span>
+                </div>
+                <div className="border-t border-gray-200 pt-2 flex justify-between">
+                  <span className="font-bold text-gray-900">Total:</span>
+                  <span className="font-bold text-xl text-orange-600">
+                    ₹{selectedOrder.billDetails?.summary.total}
+                  </span>
+                </div>
+              </div>
+
+              <div className="mt-6">
+                <button
+                  onClick={() => {
+                    setShowBillModal(false);
+                    handleProcessPayment(selectedOrder);
+                  }}
+                  className="w-full bg-green-500 text-white py-3 rounded-lg font-bold hover:bg-green-600 transition"
+                >
+                  Proceed to Payment
+                </button>
+              </div>
             </div>
-            <AlertCircle size={32} />
           </div>
-        </button>
-      </div>
+        </div>
+      )}
     </div>
   );
 };

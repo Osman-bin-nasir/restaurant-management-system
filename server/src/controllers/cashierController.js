@@ -1,78 +1,93 @@
 import Order from "../models/Order.js";
 import User from "../models/User.js";
+import Table from "../models/Table.js";
 import CustomError from "../utils/customError.js";
 import { asyncHandler } from "../middleware/asyncHandler.js";
 import mongoose from "mongoose";
-import Table from "../models/Table.js";
 
-// ====================== PROCESS PAYMENT ======================
+// ====================== PROCESS PAYMENT (ENHANCED) ======================
 export const processPayment = asyncHandler(async (req, res) => {
-    const { orderId, paymentMethod, discount = 0, notes } = req.body;
-    const { id: cashierId } = req.user;
-  
-    if (!orderId || !paymentMethod) {
-      throw new CustomError("Order ID and payment method are required", 400);
-    }
-  
-    const validPaymentMethods = ["cash", "card", "upi", "cheque"];
-    if (!validPaymentMethods.includes(paymentMethod)) {
-      throw new CustomError(`Payment method must be one of: ${validPaymentMethods.join(", ")}`, 400);
-    }
-  
-    const order = await Order.findById(orderId);
-    if (!order) throw new CustomError("Order not found", 404);
-  
-    if (order.status === "paid") {
-      throw new CustomError("Order already paid", 400);
-    }
-  
-    if (order.status !== "served" && order.status !== "ready") {
-      throw new CustomError("Order must be served or ready before payment", 400);
-    }
-  
-    // Validate discount
-    if (discount < 0 || discount > order.totalAmount) {
-      throw new CustomError("Invalid discount amount", 400);
-    }
-  
-    const finalAmount = order.totalAmount - discount;
-  
-    order.status = "paid";
-    order.cashierId = cashierId;
-    order.payment = {
-      method: paymentMethod,
-      amount: finalAmount,
-      originalAmount: order.totalAmount,
-      discount: discount,
-      paidAt: new Date(),
-      notes: notes || ""
-    };
-  
-    await order.save();
-  
-    // ✅ NEW: Automatically clear table if it's a dine-in order
-    if (order.tableId) {
-      await Table.findByIdAndUpdate(order.tableId, {
-        status: "available",
-        currentOrderId: null
+  const { orderId, paymentMethod, discount = 0, notes } = req.body;
+  const { id: cashierId } = req.user;
+
+  if (!orderId || !paymentMethod) {
+    throw new CustomError("Order ID and payment method are required", 400);
+  }
+
+  const validPaymentMethods = ["cash", "card", "upi", "cheque"];
+  if (!validPaymentMethods.includes(paymentMethod)) {
+    throw new CustomError(`Payment method must be one of: ${validPaymentMethods.join(", ")}`, 400);
+  }
+
+  const order = await Order.findById(orderId).populate('tableId');
+  if (!order) throw new CustomError("Order not found", 404);
+
+  if (order.status === "paid") {
+    throw new CustomError("Order already paid", 400);
+  }
+
+  // Allow payment for served or ready orders
+  if (!["served", "ready"].includes(order.status)) {
+    throw new CustomError("Order must be served or ready before payment", 400);
+  }
+
+  // Validate discount
+  if (discount < 0 || discount > order.totalAmount) {
+    throw new CustomError("Invalid discount amount", 400);
+  }
+
+  const finalAmount = order.totalAmount - discount;
+
+  // Mark all items as served if not already
+  order.items.forEach(item => {
+    if (item.status !== 'served') {
+      item.status = 'served';
+      item.servedTime = new Date();
+      item.statusHistory.push({
+        status: 'served',
+        timestamp: new Date(),
+        updatedBy: cashierId
       });
-      console.log(`✅ Table cleared after payment for order ${order.orderNumber}`);
     }
-  
-    const populatedOrder = await Order.findById(orderId)
-      .populate("items.menuItem", "name price")
-      .populate("waiterId", "name")
-      .populate("cashierId", "name")
-      .populate("tableId", "tableNumber");
-  
-    res.status(200).json({
-      success: true,
-      message: "Payment processed successfully. Table has been freed.",
-      order: populatedOrder
-    });
   });
 
-// ====================== GENERATE BILL ======================
+  // Update order payment details
+  order.status = "paid";
+  order.cashierId = cashierId;
+  order.payment = {
+    method: paymentMethod,
+    amount: finalAmount,
+    originalAmount: order.totalAmount,
+    discount: discount,
+    paidAt: new Date(),
+    notes: notes || ""
+  };
+
+  await order.save();
+
+  // ✅ Automatically clear table if it's a dine-in order
+  if (order.tableId) {
+    await Table.findByIdAndUpdate(order.tableId._id, {
+      status: "available",
+      currentOrderId: null
+    });
+    console.log(`✅ Table ${order.tableId.tableNumber} cleared after payment for order ${order.orderNumber}`);
+  }
+
+  const populatedOrder = await Order.findById(orderId)
+    .populate("items.menuItem", "name price")
+    .populate("waiterId", "name")
+    .populate("cashierId", "name")
+    .populate("tableId", "tableNumber");
+
+  res.status(200).json({
+    success: true,
+    message: "Payment processed successfully. Table has been freed.",
+    order: populatedOrder
+  });
+});
+
+// ====================== GENERATE BILL (ENHANCED) ======================
 export const generateBill = asyncHandler(async (req, res) => {
   const { orderId } = req.params;
 
@@ -84,7 +99,7 @@ export const generateBill = asyncHandler(async (req, res) => {
 
   if (!order) throw new CustomError("Order not found", 404);
 
-  // Calculate tax (assume 5%)
+  // Calculate tax (5%)
   const TAX_RATE = 0.05;
   const subtotal = order.totalAmount;
   const discount = order.payment?.discount || 0;
@@ -126,6 +141,187 @@ export const generateBill = asyncHandler(async (req, res) => {
   res.status(200).json({
     success: true,
     bill
+  });
+});
+
+// ====================== GET PENDING BILLS (ENHANCED) ======================
+export const getPendingBills = asyncHandler(async (req, res) => {
+  const { branchId } = req.user;
+  const { status, sortBy = "createdAt", type } = req.query;
+
+  // Default to ready and served orders
+  const validStatuses = ["ready", "served"];
+  const statuses = status ? status.split(",").filter(s => validStatuses.includes(s)) : validStatuses;
+
+  const filter = {
+    branchId,
+    status: { $in: statuses }
+  };
+
+  // Add type filter if provided
+  if (type && ['dine-in', 'parcel'].includes(type)) {
+    filter.type = type;
+  }
+
+  const orders = await Order.find(filter)
+    .populate("items.menuItem", "name price")
+    .populate("waiterId", "name email")
+    .populate("tableId", "tableNumber")
+    .sort({ [sortBy]: -1 });
+
+  const bills = orders.map(order => ({
+    orderId: order._id,
+    orderNumber: order.orderNumber,
+    tableNumber: order.tableId?.tableNumber || "Parcel",
+    customerName: order.customerName,
+    type: order.type,
+    items: order.items.map(item => ({
+      name: item.menuItem.name,
+      quantity: item.quantity,
+      price: item.menuItem.price
+    })),
+    totalAmount: order.totalAmount,
+    status: order.status,
+    waiterId: order.waiterId?.name,
+    createdAt: order.createdAt
+  }));
+
+  res.status(200).json({
+    success: true,
+    count: bills.length,
+    bills
+  });
+});
+
+// ====================== GET DAILY SUMMARY (ENHANCED) ======================
+export const getDailySummary = asyncHandler(async (req, res) => {
+  const { branchId, id: cashierId } = req.user;
+
+  // Get today's start and end time
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const tomorrow = new Date(today);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+
+  const filter = {
+    branchId,
+    status: "paid",
+    createdAt: { $gte: today, $lt: tomorrow }
+  };
+
+  // Get all paid orders for today
+  const orders = await Order.find(filter);
+
+  // Calculate statistics
+  const totalOrders = orders.length;
+  const totalSales = orders.reduce((sum, order) => sum + (order.payment?.amount || 0), 0);
+  const totalDiscount = orders.reduce((sum, order) => sum + (order.payment?.discount || 0), 0);
+  const averageOrderValue = totalOrders > 0 ? Math.round(totalSales / totalOrders) : 0;
+
+  // Payment method breakdown
+  const paymentBreakdown = {};
+  orders.forEach(order => {
+    const method = order.payment?.method || "unknown";
+    if (!paymentBreakdown[method]) {
+      paymentBreakdown[method] = { count: 0, amount: 0 };
+    }
+    paymentBreakdown[method].count++;
+    paymentBreakdown[method].amount += order.payment?.amount || 0;
+  });
+
+  // Order type breakdown
+  const typeBreakdown = {
+    "dine-in": { count: 0, amount: 0 },
+    "parcel": { count: 0, amount: 0 }
+  };
+  orders.forEach(order => {
+    typeBreakdown[order.type].count++;
+    typeBreakdown[order.type].amount += order.payment?.amount || 0;
+  });
+
+  // Cashier-specific stats
+  const cashierOrders = orders.filter(o => o.cashierId?.toString() === cashierId.toString());
+  const cashierStats = {
+    ordersProcessed: cashierOrders.length,
+    totalCollected: cashierOrders.reduce((sum, o) => sum + (o.payment?.amount || 0), 0),
+    averageTransaction: cashierOrders.length > 0 
+      ? Math.round(cashierOrders.reduce((sum, o) => sum + (o.payment?.amount || 0), 0) / cashierOrders.length)
+      : 0
+  };
+
+  res.status(200).json({
+    success: true,
+    date: today.toLocaleDateString("en-IN"),
+    summary: {
+      totalOrders,
+      totalSales,
+      totalDiscount,
+      averageOrderValue,
+      paymentBreakdown,
+      typeBreakdown,
+      cashierStats
+    }
+  });
+});
+
+// ====================== GET CASHIER STATS (ENHANCED) ======================
+export const getCashierStats = asyncHandler(async (req, res) => {
+  const { id: cashierId } = req.user;
+  const { branchId } = req.user;
+
+  // Get today's orders processed by this cashier
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const tomorrow = new Date(today);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+
+  const orders = await Order.find({
+    cashierId,
+    branchId,
+    status: "paid",
+    createdAt: { $gte: today, $lt: tomorrow }
+  });
+
+  // Calculate stats
+  const totalOrders = orders.length;
+  const totalAmount = orders.reduce((sum, order) => sum + (order.payment?.amount || 0), 0);
+  const totalDiscount = orders.reduce((sum, order) => sum + (order.payment?.discount || 0), 0);
+  const averageTransaction = totalOrders > 0 
+    ? Math.round(totalAmount / totalOrders)
+    : 0;
+
+  // Payment method breakdown
+  const paymentMethods = {};
+  orders.forEach(order => {
+    const method = order.payment?.method || "unknown";
+    paymentMethods[method] = (paymentMethods[method] || 0) + 1;
+  });
+
+  // Hourly breakdown
+  const hourlyBreakdown = Array(24).fill(0).map((_, hour) => ({
+    hour,
+    count: 0,
+    amount: 0
+  }));
+
+  orders.forEach(order => {
+    const hour = new Date(order.payment.paidAt).getHours();
+    hourlyBreakdown[hour].count++;
+    hourlyBreakdown[hour].amount += order.payment?.amount || 0;
+  });
+
+  res.status(200).json({
+    success: true,
+    cashier: req.userDoc.name,
+    date: today.toLocaleDateString("en-IN"),
+    stats: {
+      totalOrders,
+      totalAmount,
+      totalDiscount,
+      averageTransaction,
+      paymentMethods,
+      hourlyBreakdown: hourlyBreakdown.filter(h => h.count > 0)
+    }
   });
 });
 
@@ -174,10 +370,6 @@ export const applyDiscount = asyncHandler(async (req, res) => {
     appliedAt: new Date()
   };
 
-  // Update totalAmount after discount
-  const newTotal = order.totalAmount - discount;
-  order.totalAmount = newTotal;
-
   await order.save();
 
   res.status(200).json({
@@ -185,97 +377,9 @@ export const applyDiscount = asyncHandler(async (req, res) => {
     message: "Discount applied successfully",
     order: {
       id: order._id,
-      originalTotal: order.totalAmount + discount,
+      originalTotal: order.totalAmount,
       discountAmount: discount,
-      newTotal: newTotal
-    }
-  });
-});
-
-// ====================== GET PENDING BILLS ======================
-export const getPendingBills = asyncHandler(async (req, res) => {
-  const { branchId } = req.user;
-  const { status = "ready", sortBy = "createdAt" } = req.query;
-
-  const validStatuses = ["ready", "served"];
-  const statuses = status ? status.split(",").filter(s => validStatuses.includes(s)) : validStatuses;
-
-  const orders = await Order.find({
-    branchId,
-    status: { $in: statuses }
-  })
-    .populate("items.menuItem", "name price")
-    .populate("waiterId", "name email")
-    .populate("tableId", "tableNumber")
-    .sort({ [sortBy]: -1 });
-
-  const bills = orders.map(order => ({
-    orderId: order._id,
-    orderNumber: order.orderNumber,
-    tableNumber: order.tableId?.tableNumber || "Parcel",
-    customerName: order.customerName,
-    items: order.items.length,
-    totalAmount: order.totalAmount,
-    status: order.status,
-    waiterId: order.waiterId?.name,
-    createdAt: order.createdAt
-  }));
-
-  res.status(200).json({
-    success: true,
-    count: bills.length,
-    bills
-  });
-});
-
-// ====================== GET DAILY SUMMARY ======================
-export const getDailySummary = asyncHandler(async (req, res) => {
-  const { branchId } = req.user;
-
-  // Get today's start and end time
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const tomorrow = new Date(today);
-  tomorrow.setDate(tomorrow.getDate() + 1);
-
-  const orders = await Order.find({
-    branchId,
-    status: "paid",
-    createdAt: { $gte: today, $lt: tomorrow }
-  });
-
-  // Calculate statistics
-  const totalOrders = orders.length;
-  const totalSales = orders.reduce((sum, order) => sum + (order.payment?.amount || 0), 0);
-  const totalDiscount = orders.reduce((sum, order) => sum + (order.payment?.discount || 0), 0);
-  const averageOrderValue = totalOrders > 0 ? Math.round(totalSales / totalOrders) : 0;
-
-  // Payment method breakdown
-  const paymentBreakdown = {};
-  orders.forEach(order => {
-    const method = order.payment?.method || "unknown";
-    paymentBreakdown[method] = (paymentBreakdown[method] || 0) + order.payment?.amount;
-  });
-
-  // Order type breakdown
-  const typeBreakdown = {
-    "dine-in": 0,
-    "parcel": 0
-  };
-  orders.forEach(order => {
-    typeBreakdown[order.type]++;
-  });
-
-  res.status(200).json({
-    success: true,
-    date: today.toLocaleDateString("en-IN"),
-    summary: {
-      totalOrders,
-      totalSales,
-      totalDiscount,
-      averageOrderValue,
-      paymentBreakdown,
-      typeBreakdown
+      finalAmount: order.totalAmount - discount
     }
   });
 });
@@ -288,7 +392,7 @@ export const refundOrder = asyncHandler(async (req, res) => {
 
   if (!reason) throw new CustomError("Refund reason is required", 400);
 
-  const order = await Order.findById(orderId);
+  const order = await Order.findById(orderId).populate('tableId');
   if (!order) throw new CustomError("Order not found", 404);
 
   if (!order.payment) {
@@ -308,9 +412,17 @@ export const refundOrder = asyncHandler(async (req, res) => {
     processedAt: new Date()
   };
 
-  // Mark order as refunded if full refund
+  // Mark order as cancelled if full refund
   if (actualRefundAmount === order.payment.amount) {
     order.status = "cancelled";
+    
+    // Free up table if dine-in
+    if (order.tableId) {
+      await Table.findByIdAndUpdate(order.tableId._id, {
+        status: "available",
+        currentOrderId: null
+      });
+    }
   }
 
   await order.save();
@@ -368,41 +480,6 @@ export const splitBill = asyncHandler(async (req, res) => {
   });
 });
 
-// ====================== GET CASHIER STATS ======================
-export const getCashierStats = asyncHandler(async (req, res) => {
-  const { id: cashierId } = req.user;
-  const { branchId } = req.user;
-
-  // Get today's orders processed by this cashier
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const tomorrow = new Date(today);
-  tomorrow.setDate(tomorrow.getDate() + 1);
-
-  const orders = await Order.find({
-    cashierId,
-    branchId,
-    status: "paid",
-    createdAt: { $gte: today, $lt: tomorrow }
-  });
-
-  const stats = {
-    totalOrders: orders.length,
-    totalAmount: orders.reduce((sum, order) => sum + (order.payment?.amount || 0), 0),
-    totalDiscount: orders.reduce((sum, order) => sum + (order.payment?.discount || 0), 0),
-    averageTransaction: orders.length > 0 
-      ? Math.round(orders.reduce((sum, order) => sum + (order.payment?.amount || 0), 0) / orders.length)
-      : 0
-  };
-
-  res.status(200).json({
-    success: true,
-    cashier: req.userDoc.name,
-    date: today.toLocaleDateString("en-IN"),
-    stats
-  });
-});
-
 // ====================== VOID TRANSACTION ======================
 export const voidTransaction = asyncHandler(async (req, res) => {
   const { orderId } = req.params;
@@ -411,7 +488,7 @@ export const voidTransaction = asyncHandler(async (req, res) => {
 
   if (!reason) throw new CustomError("Reason for void is required", 400);
 
-  const order = await Order.findById(orderId);
+  const order = await Order.findById(orderId).populate('tableId');
   if (!order) throw new CustomError("Order not found", 404);
 
   if (order.status !== "paid") {
@@ -425,6 +502,8 @@ export const voidTransaction = asyncHandler(async (req, res) => {
   };
 
   order.status = "served"; // Back to served status
+
+  // Keep table occupied since order is back to served
   await order.save();
 
   res.status(200).json({
