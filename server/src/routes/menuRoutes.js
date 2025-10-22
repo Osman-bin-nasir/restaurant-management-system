@@ -18,7 +18,7 @@ router.get("/:id", getMenuById);
 
 // Protected admin/staff routes
 router.post("/", userAuth, authorizePermissions("menu:create"), createMenuItem);
-router.put("/:id", userAuth, authorizePermissions("menu:update"), updateMenuItem);
+router.patch("/:id", userAuth, authorizePermissions("menu:update"), updateMenuItem);
 router.delete("/:id", userAuth, authorizePermissions("menu:delete"), deleteMenuItem);
 
 export default router;

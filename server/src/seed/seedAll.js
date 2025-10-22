@@ -111,7 +111,7 @@ const seedAll = async () => {
     const roleDefinitions = [
       {
         name: 'admin',
-        permissions: Object.values(permissionMap) // All permissions
+        permissions: Object.values(permissionMap)
       },
       {
         name: 'manager',
@@ -249,7 +249,6 @@ const seedAll = async () => {
         isActive: true,
         isAccountVerified: true
       },
-      // Additional staff
       {
         name: 'Sarah Waiter',
         email: 'waiter2@restaurant.com',
@@ -284,16 +283,16 @@ const seedAll = async () => {
     });
     console.log(`✅ Created ${createdUsers.length} users\n`);
 
-    // ==================== 5. CREATE MENU ITEMS ====================
+    // ==================== 5. CREATE MENU ITEMS (FROM YOUR DATA) ====================
     console.log('🍽️ Creating menu items...');
     const menuItems = [
-      // Starters
+      // Snacks
       {
         name: 'Paneer Tikka',
         category: 'Snack',
         price: 249,
         description: 'Grilled cottage cheese marinated in Indian spices',
-        image: 'https://images.unsplash.com/photo-1567188040759-fb8a883dc6d8?w=500',
+        image: 'https://images.unsplash.com/photo-1701579231320-cc2f7acad3cd?ixlib=rb-4.0.3',
         cookingTime: 15,
         availability: true,
         ingredients: ['Paneer', 'Yogurt', 'Spices', 'Bell Peppers'],
@@ -304,7 +303,7 @@ const seedAll = async () => {
         category: 'Snack',
         price: 299,
         description: 'Crispy fried chicken wings with hot sauce',
-        image: 'https://images.unsplash.com/photo-1608039755401-742074f0548d?w=500',
+        image: 'https://images.unsplash.com/photo-1637273484026-11d51fb64024?ixlib=rb-4.0.3',
         cookingTime: 20,
         availability: true,
         ingredients: ['Chicken', 'Hot Sauce', 'Butter'],
@@ -321,28 +320,28 @@ const seedAll = async () => {
         ingredients: ['Potato', 'Salt', 'Oil'],
         branchId: mainBranch._id
       },
+      {
+        name: 'Butter Naan',
+        category: 'Snack',
+        price: 49,
+        description: 'Soft leavened bread with butter',
+        image: 'https://images.unsplash.com/photo-1690915475901-6c08af925906?ixlib=rb-4.0.3',
+        cookingTime: 5,
+        availability: true,
+        ingredients: ['Flour', 'Butter', 'Yeast'],
+        branchId: mainBranch._id
+      },
       
-      // Main Course
+      // Meals
       {
         name: 'Chicken Biryani',
         category: 'Meal',
         price: 349,
         description: 'Aromatic rice cooked with marinated chicken and spices',
-        image: 'https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?w=500',
+        image: 'https://images.unsplash.com/photo-1701579231305-d84d8af9a3fd?ixlib=rb-4.0.3',
         cookingTime: 30,
         availability: true,
         ingredients: ['Rice', 'Chicken', 'Spices', 'Onion', 'Yogurt'],
-        branchId: mainBranch._id
-      },
-      {
-        name: 'Veg Biryani',
-        category: 'Meal',
-        price: 279,
-        description: 'Fragrant rice with mixed vegetables and aromatic spices',
-        image: 'https://images.unsplash.com/photo-1633945274309-02c2f6d4e8d7?w=500',
-        cookingTime: 25,
-        availability: true,
-        ingredients: ['Rice', 'Mixed Vegetables', 'Spices'],
         branchId: mainBranch._id
       },
       {
@@ -356,6 +355,8 @@ const seedAll = async () => {
         ingredients: ['Chicken', 'Butter', 'Cream', 'Tomato', 'Spices'],
         branchId: mainBranch._id
       },
+      
+      // Vegan
       {
         name: 'Paneer Butter Masala',
         category: 'Vegan',
@@ -372,38 +373,14 @@ const seedAll = async () => {
         category: 'Vegan',
         price: 249,
         description: 'Creamy black lentils slow-cooked overnight',
-        image: 'https://images.unsplash.com/photo-1546833998-877b37c2e5c6?w=500',
+        image: 'https://images.unsplash.com/photo-1626500154744-e4b394ffea16?ixlib=rb-4.0.3',
         cookingTime: 15,
         availability: true,
         ingredients: ['Black Lentils', 'Butter', 'Cream', 'Spices'],
         branchId: mainBranch._id
       },
       
-      // Breads
-      {
-        name: 'Butter Naan',
-        category: 'Snack',
-        price: 49,
-        description: 'Soft leavened bread with butter',
-        image: 'https://images.unsplash.com/photo-1601050690597-df0568f70950?w=500',
-        cookingTime: 5,
-        availability: true,
-        ingredients: ['Flour', 'Butter', 'Yeast'],
-        branchId: mainBranch._id
-      },
-      {
-        name: 'Garlic Naan',
-        category: 'Snack',
-        price: 59,
-        description: 'Naan bread topped with garlic and coriander',
-        image: 'https://images.unsplash.com/photo-1619365726850-f23c9f2cd544?w=500',
-        cookingTime: 5,
-        availability: true,
-        ingredients: ['Flour', 'Garlic', 'Butter'],
-        branchId: mainBranch._id
-      },
-      
-      // Beverages
+      // Drinks
       {
         name: 'Mango Lassi',
         category: 'Drink',
@@ -442,36 +419,14 @@ const seedAll = async () => {
         category: 'Drink',
         price: 49,
         description: 'Traditional Indian tea with spices',
-        image: 'https://images.unsplash.com/photo-1597318181398-f31a4b1c6243?w=500',
-        cookingTime: 5,
+        image: 'https://images.unsplash.com/photo-1619581073186-5b4ae1b0caad?ixlib=rb-4.0.3',
+        cookingTime: 10,
         availability: true,
         ingredients: ['Tea', 'Milk', 'Spices', 'Sugar'],
         branchId: mainBranch._id
       },
       
       // Desserts
-      {
-        name: 'Gulab Jamun',
-        category: 'Dessert',
-        price: 99,
-        description: 'Soft fried balls soaked in sugar syrup',
-        image: 'https://images.unsplash.com/photo-1589301760014-677d6e7e6bda?w=500',
-        cookingTime: 5,
-        availability: true,
-        ingredients: ['Milk Powder', 'Flour', 'Sugar Syrup'],
-        branchId: mainBranch._id
-      },
-      {
-        name: 'Rasmalai',
-        category: 'Dessert',
-        price: 119,
-        description: 'Cottage cheese dumplings in sweetened milk',
-        image: 'https://images.unsplash.com/photo-1621303837174-89787a7d4729?w=500',
-        cookingTime: 5,
-        availability: true,
-        ingredients: ['Paneer', 'Milk', 'Sugar', 'Saffron'],
-        branchId: mainBranch._id
-      },
       {
         name: 'Ice Cream Sundae',
         category: 'Dessert',
@@ -481,6 +436,17 @@ const seedAll = async () => {
         cookingTime: 3,
         availability: true,
         ingredients: ['Ice Cream', 'Chocolate Sauce', 'Nuts'],
+        branchId: mainBranch._id
+      },
+      {
+        name: 'cake',
+        category: 'Dessert',
+        price: 599,
+        description: 'it s cake',
+        image: 'https://images.unsplash.com/photo-1621303837174-89787a7d4729?w=500',
+        cookingTime: 10,
+        availability: true,
+        ingredients: ['Flour', 'Sugar'],
         branchId: mainBranch._id
       }
     ];
@@ -546,7 +512,6 @@ const seedAll = async () => {
     // ==================== 7. CREATE SAMPLE ORDERS ====================
     console.log('📦 Creating sample orders...');
     
-    // Helper function to create order items with status
     const createOrderItems = (items, baseStatus = 'placed') => {
       return items.map(item => ({
         menuItem: item.menuItemId,
@@ -561,13 +526,16 @@ const seedAll = async () => {
       }));
     };
 
-    // Get some menu items for orders
+    // Get menu items for orders
     const chickenBiryani = createdMenuItems.find(m => m.name === 'Chicken Biryani');
     const butterChicken = createdMenuItems.find(m => m.name === 'Butter Chicken');
     const paneerBM = createdMenuItems.find(m => m.name === 'Paneer Butter Masala');
     const butterNaan = createdMenuItems.find(m => m.name === 'Butter Naan');
     const coldCoffee = createdMenuItems.find(m => m.name === 'Cold Coffee');
-    const gulabJamun = createdMenuItems.find(m => m.name === 'Gulab Jamun');
+    const paneerTikka = createdMenuItems.find(m => m.name === 'Paneer Tikka');
+    const chickenWings = createdMenuItems.find(m => m.name === 'Chicken Wings');
+    const cake = createdMenuItems.find(m => m.name === 'cake');
+    const mangoLassi = createdMenuItems.find(m => m.name === 'Mango Lassi');
 
     const orders = [
       // Order 1 - Placed (New order)
@@ -594,16 +562,17 @@ const seedAll = async () => {
         tableId: createdTables[8]._id,
         items: createOrderItems([
           { menuItemId: butterChicken._id, quantity: 1, price: butterChicken.price },
+          { menuItemId: paneerTikka._id, quantity: 1, price: paneerTikka.price },
           { menuItemId: butterNaan._id, quantity: 3, price: butterNaan.price }
         ], 'in-kitchen'),
-        totalAmount: butterChicken.price + (butterNaan.price * 3),
+        totalAmount: butterChicken.price + paneerTikka.price + (butterNaan.price * 3),
         status: 'in-kitchen',
         customerName: 'Priya Sharma',
         waiterId: userMap.waiter2,
         branchId: mainBranch._id
       },
       
-      // Order 3 - Ready (waiting for waiter)
+      // Order 3 - Ready
       {
         orderNumber: `ORD-${Date.now()}-003`,
         type: 'dine-in',
@@ -611,25 +580,26 @@ const seedAll = async () => {
         items: createOrderItems([
           { menuItemId: paneerBM._id, quantity: 2, price: paneerBM.price },
           { menuItemId: butterNaan._id, quantity: 4, price: butterNaan.price },
-          { menuItemId: gulabJamun._id, quantity: 2, price: gulabJamun.price }
+          { menuItemId: mangoLassi._id, quantity: 2, price: mangoLassi.price }
         ], 'ready'),
-        totalAmount: (paneerBM.price * 2) + (butterNaan.price * 4) + (gulabJamun.price * 2),
+        totalAmount: (paneerBM.price * 2) + (butterNaan.price * 4) + (mangoLassi.price * 2),
         status: 'ready',
         customerName: 'Rohan Verma',
         waiterId: userMap.waiter,
         branchId: mainBranch._id
       },
       
-      // Order 4 - Served (waiting for payment)
+      // Order 4 - Served
       {
         orderNumber: `ORD-${Date.now()}-004`,
         type: 'dine-in',
         tableId: createdTables[18]._id,
         items: createOrderItems([
           { menuItemId: chickenBiryani._id, quantity: 3, price: chickenBiryani.price },
+          { menuItemId: chickenWings._id, quantity: 1, price: chickenWings.price },
           { menuItemId: coldCoffee._id, quantity: 3, price: coldCoffee.price }
         ], 'served'),
-        totalAmount: (chickenBiryani.price * 3) + (coldCoffee.price * 3),
+        totalAmount: (chickenBiryani.price * 3) + chickenWings.price + (coldCoffee.price * 3),
         status: 'served',
         customerName: 'Deepak Patel',
         waiterId: userMap.waiter2,
@@ -643,9 +613,9 @@ const seedAll = async () => {
         items: createOrderItems([
           { menuItemId: butterChicken._id, quantity: 2, price: butterChicken.price },
           { menuItemId: butterNaan._id, quantity: 6, price: butterNaan.price },
-          { menuItemId: gulabJamun._id, quantity: 4, price: gulabJamun.price }
+          { menuItemId: cake._id, quantity: 1, price: cake.price }
         ], 'placed'),
-        totalAmount: (butterChicken.price * 2) + (butterNaan.price * 6) + (gulabJamun.price * 4),
+        totalAmount: (butterChicken.price * 2) + (butterNaan.price * 6) + cake.price,
         status: 'placed',
         customerName: 'Online Order - Rajesh',
         waiterId: userMap.waiter,
@@ -681,7 +651,7 @@ const seedAll = async () => {
     console.log(`   Tables: ${createdTables.length}`);
     console.log(`   Orders: ${createdOrders.length}\n`);
     
-    console.log('🔑 Test Credentials (Password: password123):');
+    console.log('🔑 Test Credentials (Password: 123456):');
     console.log('   Admin:    admin@restaurant.com');
     console.log('   Manager:  manager@restaurant.com');
     console.log('   Cashier:  cashier@restaurant.com');
@@ -705,6 +675,13 @@ const seedAll = async () => {
     console.log(`   In Kitchen: ${createdOrders.filter(o => o.status === 'in-kitchen').length}`);
     console.log(`   Ready: ${createdOrders.filter(o => o.status === 'ready').length}`);
     console.log(`   Served: ${createdOrders.filter(o => o.status === 'served').length}\n`);
+    
+    console.log('🍽️ Menu Breakdown:');
+    console.log(`   Snacks: ${createdMenuItems.filter(m => m.category === 'Snack').length}`);
+    console.log(`   Meals: ${createdMenuItems.filter(m => m.category === 'Meal').length}`);
+    console.log(`   Vegan: ${createdMenuItems.filter(m => m.category === 'Vegan').length}`);
+    console.log(`   Drinks: ${createdMenuItems.filter(m => m.category === 'Drink').length}`);
+    console.log(`   Desserts: ${createdMenuItems.filter(m => m.category === 'Dessert').length}\n`);
     
     console.log('✨ You can now:');
     console.log('   1. Login with any test account');
