@@ -20,6 +20,7 @@ import AdminDashboard from '../pages/Admin/Dashboard.jsx';
 import BranchManagement from '../pages/Admin/BranchManagement.jsx';
 import MenuManagement from '../pages/Admin/MenuManagement.jsx';
 import RevenueReports from '../pages/Admin/RevenueReports.jsx';
+import RevenueDashboard from '../pages/Admin/RevenueDashboard.jsx';
 import RolePermissions from '../pages/Admin/RolePermissions.jsx';
 import AllOrders from '../pages/Admin/AllOrders.jsx';
 import PendingOrders from '../pages/Admin/PendingOrders.jsx';
@@ -98,6 +99,7 @@ const AppRouter = () => {
             <Route path="branches" element={<BranchManagement />} />
             <Route path="menu" element={<MenuManagement />} />
             <Route path="revenue" element={<RevenueReports />} />
+            <Route path="revenue-dashboard" element={<RevenueDashboard />} />
             <Route path="roles" element={<RolePermissions />} />
             <Route path="orders" element={<AllOrders />} />
             <Route path="orders/create" element={<CreateOrder />} />

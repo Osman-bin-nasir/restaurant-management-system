@@ -21,7 +21,8 @@ import {
   CreditCard,
   Table2,
   X,
-  AlignLeft
+  AlignLeft,
+  AreaChart
 } from 'lucide-react';
 
 const Sidebar = () => {
@@ -48,6 +49,12 @@ const Sidebar = () => {
         label: 'Dashboard',
         icon: LayoutDashboard,
         path: '/admin/dashboard'
+      },
+      {
+        id: 'revenue-dashboard',
+        label: 'Revenue Dashboard',
+        icon: AreaChart,
+        path: '/admin/revenue-dashboard'
       },
       {
         id: 'menu',

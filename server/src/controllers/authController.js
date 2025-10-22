@@ -267,6 +267,7 @@ export const isAuthenticated = asyncHandler(async (req, res) => {
             employeeId: user.employeeId,
             shift: user.shift,
             isAccountVerified: user.isAccountVerified,
+            token: req.cookies.token
         },
     });
 });
