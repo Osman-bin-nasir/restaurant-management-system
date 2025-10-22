@@ -169,7 +169,7 @@ const Dashboard = () => {
       {/* Header */}
       <div className="mb-8 flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Welcome back, {user?.name}! 👋</h1>
+          <h1 className="text-3xl font-bold text-gray-900">Welcome back</h1>
           <p className="text-gray-600 mt-2">Here's what's happening with your restaurant today.</p>
         </div>
         <button

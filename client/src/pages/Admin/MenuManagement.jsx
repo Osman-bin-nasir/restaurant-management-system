@@ -20,107 +20,129 @@ const MenuManagement = () => {
         image: ''
     });
 
-    useEffect(() => {
-        const fetchMenuItems = async () => {
-            try {
-                const res = await axios.get("/menu");
-                if (res.data.success) {
-                    setMenuItems(res.data.MenuItems);
-                    setFilteredItems(res.data.MenuItems);
-                }
-            } catch (err) {
-                console.error("Failed to fetch menu items:", err);
+    // Fetch all menu items
+useEffect(() => {
+    const fetchMenuItems = async () => {
+        try {
+            const res = await axios.get("/menu");
+            if (res.data.success) {
+                setMenuItems(res.data.MenuItems);
+                setFilteredItems(res.data.MenuItems);
             }
-        };
-        fetchMenuItems();
-    }, []);
-
-
-    const categories = ['All Categories', 'Snack', 'Meal', 'Vegan', 'Dessert', 'Drink'];
-
-    useEffect(() => {
-        let filtered = menuItems;
-
-        if (selectedCategory !== 'All Categories') {
-            filtered = filtered.filter(item => item.category === selectedCategory);
+        } catch (err) {
+            console.error("Failed to fetch menu items:", err);
         }
+    };
+    fetchMenuItems();
+}, []);
 
-        if (searchQuery) {
-            filtered = filtered.filter(item =>
-                item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                item.description.toLowerCase().includes(searchQuery.toLowerCase())
-            );
-        }
+// Filter logic
+useEffect(() => {
+    let filtered = [...menuItems];
 
-        setFilteredItems(filtered);
-    }, [selectedCategory, searchQuery, menuItems]);
+    if (selectedCategory !== 'All Categories') {
+        filtered = filtered.filter(item => item.category === selectedCategory);
+    }
 
-    const handleInputChange = (e) => {
-        const { name, value, type, checked } = e.target;
-        setFormData(prev => ({
-            ...prev,
-            [name]: type === 'checkbox' ? checked : value
-        }));
+    if (searchQuery) {
+        filtered = filtered.filter(item =>
+            item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            item.description.toLowerCase().includes(searchQuery.toLowerCase())
+        );
+    }
+
+    setFilteredItems(filtered);
+}, [menuItems, selectedCategory, searchQuery]);
+
+// Handle input change
+const handleInputChange = (e) => {
+    const { name, value, type, checked } = e.target;
+    setFormData(prev => ({
+        ...prev,
+        [name]: type === 'checkbox' ? checked : value
+    }));
+};
+
+// Submit: Add or Update
+const handleSubmit = async (e) => {
+    e.preventDefault();
+
+    const payload = {
+        ...formData,
+        price: parseFloat(formData.price) || 0,
+        cookingTime: formData.cookingTime ? parseInt(formData.cookingTime) : undefined,
+        ingredients: formData.ingredients.split(',').map(i => i.trim()).filter(Boolean),
+        image: formData.image || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=500',
+        branchId: '68f7d54d52294df4e0fcc184'
     };
 
-    const handleSubmit = (e) => {
-        e.preventDefault();
-
-        const newItem = {
-            _id: Date.now().toString(),
-            ...formData,
-            price: parseFloat(formData.price),
-            cookingTime: parseInt(formData.cookingTime),
-            ingredients: formData.ingredients.split(',').map(i => i.trim()),
-            image: formData.image || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=500'
-        };
-
+    try {
         if (editingItem) {
+            // UPDATE
+            const res = await axios.patch(`/menu/${editingItem._id}`, payload);
+            const updatedItem = res.data.data;
+
             setMenuItems(prev => prev.map(item =>
-                item._id === editingItem._id ? { ...newItem, _id: editingItem._id } : item
+                item._id === editingItem._id ? updatedItem : item
             ));
         } else {
+            // CREATE
+            const res = await axios.post('/menu/', payload);
+            const newItem = res.data.data;
+
             setMenuItems(prev => [...prev, newItem]);
         }
 
         resetForm();
-    };
+    } catch (err) {
+        console.error("Submit failed:", err);
+    }
+};
+const categories = ['All Categories', 'Snack', 'Meal', 'Vegan', 'Dessert', 'Drink'];
 
-    const resetForm = () => {
-        setFormData({
-            name: '',
-            category: '',
-            price: '',
-            description: '',
-            cookingTime: '',
-            availability: true,
-            ingredients: '',
-            image: ''
-        });
-        setShowAddModal(false);
-        setEditingItem(null);
-    };
+// Reset form and modal
+const resetForm = () => {
+    setFormData({
+        name: '',
+        category: '',
+        price: '',
+        description: '',
+        cookingTime: '',
+        availability: true,
+        ingredients: '',
+        image: ''
+    });
+    setShowAddModal(false);
+    setEditingItem(null);
+};
 
-    const handleEdit = (item) => {
-        setEditingItem(item);
-        setFormData({
-            name: item.name,
-            category: item.category,
-            price: item.price,
-            description: item.description,
-            cookingTime: item.cookingTime,
-            availability: item.availability,
-            ingredients: item.ingredients.join(', '),
-            image: item.image
-        });
-        setShowAddModal(true);
-    };
+// Edit item
+const handleEdit = (item) => {
+    setEditingItem(item);
+    setFormData({
+        name: item.name,
+        category: item.category,
+        price: item.price.toString(),
+        description: item.description,
+        cookingTime: item.cookingTime?.toString() || '',
+        availability: item.availability,
+        ingredients: item.ingredients.join(', '),
+        image: item.image || ''
+    });
+    setShowAddModal(true);
+};
 
-    const handleDelete = (id) => {
-        if (confirm('Are you sure you want to delete this item?')) {
-            setMenuItems(prev => prev.filter(item => item._id !== id));
-        }
-    };
+// Delete item
+const handleDelete = async (id) => {
+    if (!window.confirm('Are you sure you want to delete this item?')) return;
+
+    try {
+        await axios.delete(`/menu/${id}`);
+        setMenuItems(prev => prev.filter(item => item._id !== id));
+    } catch (err) {
+        console.error("Delete failed:", err);
+    }
+};
 
     const categoryImages = {
         'Snack': 'https://images.unsplash.com/photo-1513456852971-30c0b8199d4d?w=500',

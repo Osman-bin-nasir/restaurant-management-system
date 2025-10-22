@@ -117,12 +117,6 @@ const Sidebar = () => {
         path: '/waiter/tables'
       },
       {
-        id: 'menu',
-        label: 'Menu',
-        icon: UtensilsCrossed,
-        path: '/waiter/menu'
-      },
-      {
         id: 'my-orders',
         label: 'My Orders',
         icon: ClipboardList,
