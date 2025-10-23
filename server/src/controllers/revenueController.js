@@ -4,8 +4,112 @@ import { asyncHandler } from "../middleware/asyncHandler.js";
 import CustomError from "../utils/customError.js";
 import mongoose from "mongoose";
 
+// ====================== GET REVENUE KPIS ======================
+export const getRevenueKPIs = asyncHandler(async (req, res) => {
+  const { branchId } = req.user;
+  const { startDate, endDate } = req.query;
+
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+  end.setHours(23, 59, 59, 999);
+
+  const filter = {
+    branchId: new mongoose.Types.ObjectId(branchId),
+    status: "paid",
+    createdAt: { $gte: start, $lte: end },
+  };
+
+  const kpis = await Order.aggregate([
+    { $match: filter },
+    {
+      $group: {
+        _id: null,
+        totalRevenue: { $sum: "$payment.amount" },
+        totalOrders: { $sum: 1 },
+        uniqueCustomers: { $addToSet: "$customer" },
+      },
+    },
+    {
+      $project: {
+        _id: 0,
+        totalRevenue: 1,
+        totalOrders: 1,
+        averageOrderValue: { $divide: ["$totalRevenue", "$totalOrders"] },
+        totalCustomers: { $size: "$uniqueCustomers" },
+      },
+    },
+  ]);
+
+  res.status(200).json({
+    success: true,
+    kpis: kpis[0] || {
+      totalRevenue: 0,
+      totalOrders: 0,
+      averageOrderValue: 0,
+      totalCustomers: 0,
+    },
+  });
+});
+
+// ====================== GET REVENUE FORECAST ======================
+export const getRevenueForecast = asyncHandler(async (req, res) => {
+  const { branchId } = req.user;
+
+  const endDate = new Date();
+  const startDate = new Date();
+  startDate.setDate(endDate.getDate() - 90);
+
+  const filter = {
+    branchId: new mongoose.Types.ObjectId(branchId),
+    status: "paid",
+    createdAt: { $gte: startDate, $lte: endDate },
+  };
+
+  const dailyRevenue = await Order.aggregate([
+    { $match: filter },
+    {
+      $group: {
+        _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } },
+        revenue: { $sum: "$payment.amount" },
+      },
+    },
+    { $sort: { _id: 1 } },
+  ]);
+
+  if (dailyRevenue.length < 2) {
+    return res.status(200).json({ success: true, forecast: [] });
+  }
+
+  const n = dailyRevenue.length;
+  let sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0;
+  dailyRevenue.forEach((item, i) => {
+    sumX += i;
+    sumY += item.revenue;
+    sumXY += i * item.revenue;
+    sumX2 += i * i;
+  });
+
+  const slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
+  const intercept = (sumY - slope * sumX) / n;
+
+  const forecast = [];
+  for (let i = 0; i < 30; i++) {
+    const futureDate = new Date();
+    futureDate.setDate(endDate.getDate() + i);
+    const predictedRevenue = slope * (n + i) + intercept;
+    forecast.push({
+      date: futureDate.toISOString().split('T')[0],
+      predictedRevenue: Math.max(0, predictedRevenue),
+    });
+  }
+
+  res.status(200).json({ success: true, forecast });
+});
+
+
 // ====================== GET DAILY REVENUE ======================
 export const getDailyRevenue = asyncHandler(async (req, res) => {
+  console.log("getDailyRevenue function called");
   const { branchId } = req.user;
   const { date } = req.query; // Optional: specific date (YYYY-MM-DD)
 
@@ -588,14 +692,47 @@ export const getRevenueTrends = asyncHandler(async (req, res) => {
     { $sort: { "_id.year": 1, "_id.month": 1, "_id.day": 1 } }
   ]);
 
+  const dailyExpenses = await Expense.aggregate([
+    {
+      $match: {
+        branchId: new mongoose.Types.ObjectId(branchId),
+        date: { $gte: startDate, $lte: endDate }
+      }
+    },
+    {
+      $group: {
+        _id: {
+          year: { $year: "$date" },
+          month: { $month: "$date" },
+          day: { $dayOfMonth: "$date" }
+        },
+        totalExpenses: { $sum: "$amount" }
+      }
+    }
+  ]);
+
+  const expensesMap = new Map();
+  dailyExpenses.forEach(expense => {
+    const date = new Date(expense._id.year, expense._id.month - 1, expense._id.day).toISOString().split('T')[0];
+    expensesMap.set(date, expense.totalExpenses);
+  });
+
+  const trendsWithNetProfit = trends.map(t => {
+    const date = new Date(t._id.year, t._id.month - 1, t._id.day).toISOString().split('T')[0];
+    const expenses = expensesMap.get(date) || 0;
+    const netProfit = t.revenue - expenses;
+    return {
+      date,
+      orders: t.orders,
+      revenue: Math.round(t.revenue),
+      avgOrderValue: Math.round(t.avgOrderValue),
+      netProfit: Math.round(netProfit)
+    };
+  });
+
   res.status(200).json({
     success: true,
     period: `Last ${daysCount} days`,
-    trends: trends.map(t => ({
-      date: new Date(t._id.year, t._id.month - 1, t._id.day).toISOString().split('T')[0],
-      orders: t.orders,
-      revenue: Math.round(t.revenue),
-      avgOrderValue: Math.round(t.avgOrderValue)
-    }))
+    trends: trendsWithNetProfit
   });
 });
