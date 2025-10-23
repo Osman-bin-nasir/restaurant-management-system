@@ -4,13 +4,34 @@ import {
   getMonthlyRevenue,
   getYearlyRevenue,
   getRevenueComparison,
-  getRevenueTrends
+  getRevenueTrends,
+  getRevenueKPIs,
+  getRevenueForecast
 } from "../controllers/revenueController.js";
 import userAuth from "../middleware/userAuth.js";
 import { authorizePermissions } from "../middleware/authorize.js";
 import { requireBranch } from "../middleware/branchAccess.js";
 
 const router = express.Router();
+
+// 📉 GET REVENUE FORECAST
+router.get(
+  "/forecast",
+  userAuth,
+  authorizePermissions("reports:view"),
+  requireBranch,
+  getRevenueForecast
+);
+
+
+// 📊 GET REVENUE KPIS
+router.get(
+  "/kpis",
+  userAuth,
+  authorizePermissions("reports:view"),
+  requireBranch,
+  getRevenueKPIs
+);
 
 // 📊 GET DAILY REVENUE - Today's or specific date
 router.get(
@@ -57,4 +78,4 @@ router.get(
   getRevenueTrends
 );
 
-export default router;
+export default router
