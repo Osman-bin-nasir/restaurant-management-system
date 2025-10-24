@@ -74,7 +74,7 @@ const AdminUserManagement = () => {
     name: '',
     email: '',
     password: '',
-    roleId: '',
+    roleName: '',
     branchId: '',
     employeeId: '',
     shift: '',
@@ -163,7 +163,7 @@ const AdminUserManagement = () => {
       name: '',
       email: '',
       password: '',
-      roleId: '',
+      roleName: '',
       branchId: '',
       employeeId: '',
       shift: '',
@@ -180,7 +180,7 @@ const AdminUserManagement = () => {
       name: user.name,
       email: user.email,
       password: '',
-      roleId: user.role._id,
+      roleName: user.role,
       branchId: user.branchId._id,
       employeeId: user.employeeId,
       shift: user.shift,
@@ -213,7 +213,7 @@ const AdminUserManagement = () => {
       if (modalType === 'create') {
         const payload = {
           ...formData,
-          role: formData.roleId,
+          role: formData.roleName,
           branchId: formData.branchId,
         };
         const newUser = await api.create(payload);
@@ -222,7 +222,7 @@ const AdminUserManagement = () => {
         const payload = {
           name: formData.name,
           email: formData.email,
-          role: formData.roleId,
+          roleName: formData.roleName,
           branchId: formData.branchId,
           employeeId: formData.employeeId,
           shift: formData.shift,
@@ -549,7 +549,7 @@ const AdminUserManagement = () => {
 
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">Role *</label>
-                  <select required name="roleId" value={formData.roleId} onChange={handleInputChange} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500">
+                  <select required name="roleName" value={formData.roleName} onChange={handleInputChange} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500">
                     <option value="">Select Role</option>
                     {rolesList.map(([id, name]) => (
                       <option key={id} value={id}>{name}</option>

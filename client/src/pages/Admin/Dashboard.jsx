@@ -5,6 +5,7 @@ import {
   ShoppingBag, 
   Users, 
   DollarSign,
+  IndianRupee,
   Table2,
   ChefHat,
   AlertCircle,
@@ -113,7 +114,7 @@ const Dashboard = () => {
     {
       title: 'Total Revenue',
       value: `₹${stats.totalRevenue.toLocaleString('en-IN')}`,
-      icon: DollarSign,
+      icon: IndianRupee,
       color: 'bg-green-500',
       change: `${stats.paidOrdersCount || 0} paid orders`,
       changeColor: 'text-green-600'

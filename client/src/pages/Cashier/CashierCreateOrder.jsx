@@ -6,16 +6,17 @@ import {
   Minus,
   X,
   User,
+  Table2,
   Package,
   Clock,
   Check,
   AlertCircle,
-  Trash2,
-  Table2,
-  CreditCard
+  Trash2
 } from 'lucide-react';
+import toast, { Toaster } from 'react-hot-toast';
+import axios from '../../api/axios';
 
-const CashierCreateOrder = () => {
+const CreateOrder = () => {
   const [menuItems, setMenuItems] = useState([]);
   const [tables, setTables] = useState([]);
   const [cart, setCart] = useState([]);
@@ -26,102 +27,48 @@ const CashierCreateOrder = () => {
   const [selectedTable, setSelectedTable] = useState(null);
   const [customerName, setCustomerName] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  const [showPaymentModal, setShowPaymentModal] = useState(false);
-  const [createdOrder, setCreatedOrder] = useState(null);
-  const [paymentMethod, setPaymentMethod] = useState('cash');
-  const [discount, setDiscount] = useState(0);
-  const [discountType, setDiscountType] = useState('fixed');
-  const [notification, setNotification] = useState(null);
+  const [success, setSuccess] = useState(false);
+  const [orderNumber, setOrderNumber] = useState('');
 
-  const categories = ['All', 'Snack', 'Meal', 'Vegan', 'Dessert', 'Drink'];
-
-  // Mock data for demo
-  const mockMenuItems = [
-    {
-      _id: '1',
-      name: 'Margherita Pizza',
-      description: 'Classic pizza with tomato sauce, mozzarella, and fresh basil',
-      price: 299,
-      category: 'Meal',
-      image: 'https://images.unsplash.com/photo-1604068549290-dea0e4a305ca?w=400',
-      availability: true,
-      cookingTime: 15
-    },
-    {
-      _id: '2',
-      name: 'Caesar Salad',
-      description: 'Crisp romaine lettuce with parmesan and croutons',
-      price: 199,
-      category: 'Vegan',
-      image: 'https://images.unsplash.com/photo-1546793665-c74683f339c1?w=400',
-      availability: true,
-      cookingTime: 5
-    },
-    {
-      _id: '3',
-      name: 'Chocolate Brownie',
-      description: 'Rich chocolate brownie with vanilla ice cream',
-      price: 149,
-      category: 'Dessert',
-      image: 'https://images.unsplash.com/photo-1607920591413-4ec007e70023?w=400',
-      availability: true,
-      cookingTime: 3
-    },
-    {
-      _id: '4',
-      name: 'French Fries',
-      description: 'Crispy golden fries with special seasoning',
-      price: 99,
-      category: 'Snack',
-      image: 'https://images.unsplash.com/photo-1573080496219-bb080dd4f877?w=400',
-      availability: true,
-      cookingTime: 8
-    },
-    {
-      _id: '5',
-      name: 'Mango Smoothie',
-      description: 'Fresh mango blended with yogurt and honey',
-      price: 129,
-      category: 'Drink',
-      image: 'https://images.unsplash.com/photo-1505252585461-04db1eb84625?w=400',
-      availability: true,
-      cookingTime: 2
-    },
-    {
-      _id: '6',
-      name: 'Chicken Burger',
-      description: 'Grilled chicken with lettuce, tomato, and special sauce',
-      price: 249,
-      category: 'Meal',
-      image: 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=400',
-      availability: true,
-      cookingTime: 12
-    }
-  ];
-
-  const mockTables = [
-    { _id: 't1', tableNumber: 'T1' },
-    { _id: 't2', tableNumber: 'T2' },
-    { _id: 't3', tableNumber: 'T3' },
-    { _id: 't4', tableNumber: 'T4' },
-    { _id: 't5', tableNumber: 'T5' },
-    { _id: 't6', tableNumber: 'T6' },
-    { _id: 't7', tableNumber: 'T7' },
-    { _id: 't8', tableNumber: 'T8' }
-  ];
+  const categories = ['All', 'Pizza', 'Burger', 'Main Course', 'Beverage', 'Dessert'];
 
   useEffect(() => {
-    // Simulate API call
-    setTimeout(() => {
-      setMenuItems(mockMenuItems);
-      setTables(mockTables);
-      setLoading(false);
-    }, 500);
+    fetchData();
   }, []);
 
-  const showNotification = (message, type = 'success') => {
-    setNotification({ message, type });
-    setTimeout(() => setNotification(null), 3000);
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+
+      const fetchMenuItems = async () => {
+        try {
+          const res = await axios.get("/menu");
+          if (res.data.success) {
+            setMenuItems(res.data.MenuItems);
+            // setFilteredItems(res.data.MenuItems);
+          }
+        } catch (err) {
+          console.error("Failed to fetch menu items:", err);
+        }
+      };
+      fetchMenuItems();
+
+      const fetchTables = async () => {
+        try {
+          const res = await axios.get("/tables/available");
+          if (res.data.success) {
+            setTables(res.data.tables);
+          }
+        } catch (err) {
+          console.error("Failed to fetch tables:", err);
+        }
+      };
+      fetchTables();
+    } catch (error) {
+      console.error('Failed to fetch data:', error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const filteredMenu = menuItems.filter(item => {
@@ -133,6 +80,7 @@ const CashierCreateOrder = () => {
 
   const addToCart = (item) => {
     const existingItem = cart.find(cartItem => cartItem._id === item._id);
+
     if (existingItem) {
       setCart(cart.map(cartItem =>
         cartItem._id === item._id
@@ -160,6 +108,35 @@ const CashierCreateOrder = () => {
     ));
   };
 
+  const removeFromCart = (itemId) => {
+    setCart(cart.filter(item => item._id !== itemId));
+  };
+
+  const clearCart = () => {
+    toast((t) => (
+      <div className="flex flex-col gap-2">
+        <p>Clear all items from cart?</p>
+        <div className="flex gap-2">
+          <button
+            className="w-full bg-red-500 text-white py-1 rounded-lg font-semibold hover:bg-red-600 transition"
+            onClick={() => {
+              setCart([]);
+              toast.dismiss(t.id);
+            }}
+          >
+            Yes
+          </button>
+          <button
+            className="w-full bg-gray-200 text-gray-700 py-1 rounded-lg font-semibold hover:bg-gray-300 transition"
+            onClick={() => toast.dismiss(t.id)}
+          >
+            No
+          </button>
+        </div>
+      </div>
+    ));
+  };
+
   const getTotalAmount = () => {
     return cart.reduce((total, item) => total + (item.price * item.quantity), 0);
   };
@@ -168,95 +145,89 @@ const CashierCreateOrder = () => {
     return cart.reduce((total, item) => total + item.quantity, 0);
   };
 
-  const getFinalAmount = () => {
-    const total = getTotalAmount();
-    let discountAmount = 0;
-    
-    if (discountType === 'percentage') {
-      discountAmount = (total * discount) / 100;
-    } else {
-      discountAmount = parseFloat(discount) || 0;
-    }
-    
-    return Math.max(0, total - discountAmount);
-  };
-
-  const handleCreateOrder = async () => {
+  const handleSubmitOrder = async () => {
     if (cart.length === 0) {
-      showNotification('Please add items to your order', 'error');
+      toast.error('Please add items to your order');
       return;
     }
-
-    if (!customerName.trim()) {
-      showNotification('Please enter customer name', 'error');
-      return;
-    }
-
+  
     if (orderType === 'dine-in' && !selectedTable) {
-      showNotification('Please select a table for dine-in order', 'error');
+      toast.error('Please select a table for dine-in order');
       return;
     }
-
+  
+    if (!customerName.trim()) {
+      toast.error('Please enter customer name');
+      return;
+    }
+  
     setSubmitting(true);
-
-    // Simulate API call
-    setTimeout(() => {
-      const order = {
-        _id: 'ord_' + Date.now(),
-        orderNumber: 'ORD' + Math.floor(1000 + Math.random() * 9000),
-        totalAmount: getTotalAmount(),
+  
+    try {
+      const orderData = {
         type: orderType,
+        tableId: orderType === 'dine-in' ? selectedTable : null,
+        items: cart.map(item => ({
+          menuItem: item._id,
+          quantity: item.quantity,
+          notes: item.notes
+        })),
         customerName: customerName,
-        items: cart
       };
-      
-      setCreatedOrder(order);
-      setShowPaymentModal(true);
-      setSubmitting(false);
-      
-      // Remove selected table from available tables
-      if (orderType === 'dine-in' && selectedTable) {
-        setTables(prev => prev.filter(t => t._id !== selectedTable));
+  
+      const res = await axios.post("/orders", orderData);
+      const orderId = (res.data.order._id)
+      // await axios.patch(`/orders/${orderId}/mark-as-paid`);
+  
+      if (res.data.success) {
+        setOrderNumber(res.data.order.orderNumber);
+        setSuccess(true);
+  
+        // 🔥 remove the selected table locally (no refresh needed)
+        if (orderType === 'dine-in' && selectedTable) {
+          setTables(prev => prev.filter(t => t._id !== selectedTable));
+        }
+  
+        
+      } else {
+        alert(res.data.message || 'Failed to place order');
       }
-    }, 1000);
-  };
-
-  const handleProcessPayment = async () => {
-    if (!createdOrder) return;
-
-    setSubmitting(true);
-
-    // Simulate payment processing
-    setTimeout(() => {
-      showNotification('Order created and paid successfully!', 'success');
-      
-      // Reset form
-      setCart([]);
-      setCustomerName('');
-      setSelectedTable(null);
-      setDiscount(0);
-      setCreatedOrder(null);
-      setShowPaymentModal(false);
+    } catch (err) {
+      console.error('Order submission failed:', err);
+  
+      const errorMessage = err.response?.data?.message || 'Something went wrong. Please try again.';
+  
+      if (errorMessage.toLowerCase().includes('table is already full')) {
+        toast.error('🚫 This table is already occupied. Please select another one.', {
+          style: {
+            border: '1px solid #f87171',
+            background: '#fff',
+            color: '#b91c1c',
+            fontWeight: '500'
+          },
+          iconTheme: {
+            primary: '#ef4444',
+            secondary: '#fff'
+          }
+        });
+      } else {
+        toast.error(`⚠️ ${errorMessage}`, {
+          style: {
+            border: '1px solid #fbbf24',
+            background: '#fff',
+            color: '#92400e',
+            fontWeight: '500'
+          },
+          iconTheme: {
+            primary: '#f59e0b',
+            secondary: '#fff'
+          }
+        });
+      }
+    } finally {
       setSubmitting(false);
-      
-      // Refresh tables (restore in demo)
-      setTables(mockTables);
-    }, 1500);
-  };
-
-  const handleSkipPayment = () => {
-    showNotification('Order created successfully! Process payment later.', 'success');
-    
-    setCart([]);
-    setCustomerName('');
-    setSelectedTable(null);
-    setCreatedOrder(null);
-    setShowPaymentModal(false);
-    setSubmitting(false);
-    
-    // Refresh tables
-    setTables(mockTables);
-  };
+    }
+  };  
 
   if (loading) {
     return (
@@ -266,29 +237,91 @@ const CashierCreateOrder = () => {
     );
   }
 
+  if (success) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-6">
+        <div className="bg-white rounded-2xl shadow-xl p-8 max-w-md w-full text-center relative">
+          {/* Close Button */}
+          <button
+            onClick={() => {
+              setSuccess(false);
+              setCart([]);
+              setCustomerName('');
+              setSelectedTable(null);
+              setOrderNumber('');
+            }}
+            className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition"
+          >
+            <X size={22} />
+          </button>
+  
+          <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4 animate-bounce">
+            <Check size={40} className="text-green-600" />
+          </div>
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">Order Placed Successfully!</h2>
+          <p className="text-gray-600 mb-4">Your order has been sent to the kitchen</p>
+  
+          <div className="bg-orange-50 rounded-xl p-4 mb-6 border-2 border-orange-200">
+            <p className="text-sm text-gray-600 mb-1">Order Number</p>
+            <p className="text-2xl font-bold text-orange-600">{orderNumber}</p>
+          </div>
+  
+          <div className="space-y-2 text-left bg-gray-50 rounded-xl p-4">
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-600">Customer:</span>
+              <span className="font-semibold text-gray-900">{customerName}</span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-600">Type:</span>
+              <span className="font-semibold text-gray-900 capitalize">{orderType}</span>
+            </div>
+            {orderType === 'dine-in' && selectedTable && (
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-600">Table:</span>
+                <span className="font-semibold text-gray-900">
+                  #{tables.find(t => t._id === selectedTable)?.tableNumber}
+                </span>
+              </div>
+            )}
+            <div className="flex justify-between text-sm border-t border-gray-200 pt-2 mt-2">
+              <span className="text-gray-600">Items:</span>
+              <span className="font-semibold text-gray-900">{getTotalItems()}</span>
+            </div>
+            <div className="flex justify-between text-lg font-bold">
+              <span className="text-gray-900">Total:</span>
+              <span className="text-orange-600">₹{getTotalAmount().toFixed(2)}</span>
+            </div>
+          </div>
+  
+          {/* Close Button at Bottom (optional, for mobile users) */}
+          <button
+            onClick={() => {
+              setSuccess(false);
+              setCart([]);
+              setCustomerName('');
+              setSelectedTable(null);
+              setOrderNumber('');
+            }}
+            className="mt-6 w-full bg-orange-500 text-white py-3 rounded-xl font-semibold hover:bg-orange-600 transition"
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    );
+  }  
+
   return (
     <div className="h-screen overflow-hidden bg-gray-50 flex">
-      {/* Notification Toast */}
-      {notification && (
-        <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-50 animate-fade-in">
-          <div className={`px-6 py-3 rounded-lg shadow-lg flex items-center gap-2 ${
-            notification.type === 'success' 
-              ? 'bg-green-500 text-white' 
-              : 'bg-red-500 text-white'
-          }`}>
-            {notification.type === 'success' ? <Check size={20} /> : <AlertCircle size={20} />}
-            <span className="font-semibold">{notification.message}</span>
-          </div>
-        </div>
-      )}
-      
+      <Toaster />
       {/* Left Side - Menu */}
       <div className="flex-1 overflow-y-auto">
+        {/* Header */}
         <div className="bg-white border-b border-gray-200 sticky top-0 z-30">
           <div className="p-6">
             <div className="mb-4">
-              <h1 className="text-3xl font-bold text-gray-900">Create & Bill Order</h1>
-              <p className="text-gray-600 mt-1">Select items and process payment instantly</p>
+              <h1 className="text-3xl font-bold text-gray-900">Create New Order</h1>
+              <p className="text-gray-600 mt-1">Select items from the menu</p>
             </div>
 
             {/* Search Bar */}
@@ -310,11 +343,10 @@ const CashierCreateOrder = () => {
                   <button
                     key={category}
                     onClick={() => setSelectedCategory(category)}
-                    className={`px-4 py-2 rounded-full font-medium whitespace-nowrap transition ${
-                      selectedCategory === category
-                        ? 'bg-orange-500 text-white shadow-md scale-105'
-                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                    }`}
+                    className={`px-4 py-2 rounded-full font-medium whitespace-nowrap transition ${selectedCategory === category
+                      ? 'bg-orange-500 text-white shadow-md scale-105'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      }`}
                   >
                     {category}
                   </button>
@@ -329,6 +361,7 @@ const CashierCreateOrder = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-4">
             {filteredMenu.map(item => {
               const cartItem = cart.find(c => c._id === item._id);
+
               return (
                 <div
                   key={item._id}
@@ -401,12 +434,13 @@ const CashierCreateOrder = () => {
         </div>
       </div>
 
-      {/* Right Side - Cart */}
+      {/* Right Side - Cart (Fixed Height and Scrollable Items Only) */}
       <div className="w-96 h-screen bg-white border-l border-gray-200 flex flex-col">
+        {/* Cart Header */}
         <div className="bg-gradient-to-r from-orange-500 to-orange-600 text-white p-6 flex-shrink-0">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
-              <div className="bg-white/20 p-2 rounded-lg">
+              <div className="bg-white text-orange-500 bg-opacity-20 p-2 rounded-lg">
                 <ShoppingCart size={24} />
               </div>
               <div>
@@ -416,8 +450,9 @@ const CashierCreateOrder = () => {
             </div>
             {cart.length > 0 && (
               <button
-                onClick={() => setCart([])}
-                className="bg-white/20 hover:bg-white/30 p-2 rounded-lg transition"
+                onClick={clearCart}
+                className="bg-white text-orange-500 bg-opacity-20 hover:bg-opacity-30 p-2 rounded-lg transition"
+                title="Clear cart"
               >
                 <Trash2 size={18} />
               </button>
@@ -431,11 +466,10 @@ const CashierCreateOrder = () => {
                 setOrderType('dine-in');
                 setSelectedTable(null);
               }}
-              className={`flex-1 py-2 px-3 rounded-lg font-semibold transition flex items-center justify-center gap-2 text-sm ${
-                orderType === 'dine-in'
+              className={`flex-1 py-2 px-3 rounded-lg font-semibold transition flex items-center justify-center gap-2 text-sm ${orderType === 'dine-in'
                   ? 'bg-white text-orange-600 shadow-lg'
-                  : 'bg-white/20 hover:bg-white/30'
-              }`}
+                  : 'bg-white bg-opacity-20 text-gray-500 hover:bg-opacity-30'
+                }`}
             >
               <Table2 size={16} />
               Dine-in
@@ -445,11 +479,10 @@ const CashierCreateOrder = () => {
                 setOrderType('parcel');
                 setSelectedTable(null);
               }}
-              className={`flex-1 py-2 px-3 rounded-lg font-semibold transition flex items-center justify-center gap-2 text-sm ${
-                orderType === 'parcel'
+              className={`flex-1 py-2 px-3 rounded-lg font-semibold transition flex items-center justify-center gap-2 text-sm ${orderType === 'parcel'
                   ? 'bg-white text-orange-600 shadow-lg'
-                  : 'bg-white/20 hover:bg-white/30'
-              }`}
+                  : 'bg-white bg-opacity-20 text-gray-500 hover:bg-opacity-30'
+                }`}
             >
               <Package size={16} />
               Parcel
@@ -480,16 +513,15 @@ const CashierCreateOrder = () => {
               <label className="block text-xs font-semibold text-gray-700 mb-1">
                 Select Table *
               </label>
-              <div className="grid grid-cols-4 gap-2 max-h-32 overflow-y-auto">
+              <div className="grid grid-cols-4 gap-2">
                 {tables.map(table => (
                   <button
                     key={table._id}
                     onClick={() => setSelectedTable(table._id)}
-                    className={`p-2 rounded-lg font-bold text-sm transition active:scale-95 ${
-                      selectedTable === table._id
+                    className={`p-2 rounded-lg font-bold text-sm transition active:scale-95 ${selectedTable === table._id
                         ? 'bg-orange-500 text-white shadow-lg ring-2 ring-orange-300'
                         : 'bg-white border border-gray-300 text-gray-700 hover:border-orange-300'
-                    }`}
+                      }`}
                   >
                     {table.tableNumber}
                   </button>
@@ -499,7 +531,7 @@ const CashierCreateOrder = () => {
           )}
         </div>
 
-        {/* Cart Items */}
+        {/* Cart Items (Scrollable Section) */}
         <div className="flex-1 overflow-y-auto p-4 space-y-3">
           {cart.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-center py-12">
@@ -510,8 +542,12 @@ const CashierCreateOrder = () => {
               <p className="text-sm text-gray-600">Add items from the menu</p>
             </div>
           ) : (
-            cart.map((item) => (
-              <div key={item._id} className="bg-white rounded-xl p-3 shadow-sm border border-gray-200 hover:shadow-md transition">
+            cart.map((item, index) => (
+              <div
+                key={item._id}
+                className="bg-white rounded-xl p-3 shadow-sm border border-gray-200 hover:shadow-md transition animate-fadeIn"
+                style={{ animationDelay: `${index * 50}ms` }}
+              >
                 <div className="flex items-start justify-between mb-2">
                   <div className="flex-1">
                     <h3 className="font-bold text-sm text-gray-900">{item.name}</h3>
@@ -519,7 +555,7 @@ const CashierCreateOrder = () => {
                   </div>
                   <div className="flex flex-col items-end gap-1">
                     <button
-                      onClick={() => updateQuantity(item._id, 0)}
+                      onClick={() => removeFromCart(item._id)}
                       className="text-red-500 hover:text-red-600 transition p-1"
                     >
                       <X size={16} />
@@ -573,19 +609,19 @@ const CashierCreateOrder = () => {
             </div>
 
             <button
-              onClick={handleCreateOrder}
+              onClick={handleSubmitOrder}
               disabled={submitting || cart.length === 0 || !customerName.trim() || (orderType === 'dine-in' && !selectedTable)}
               className="w-full bg-gradient-to-r from-green-500 to-green-600 text-white py-3 rounded-xl font-bold hover:from-green-600 hover:to-green-700 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg active:scale-95"
             >
               {submitting ? (
                 <>
                   <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-white"></div>
-                  Creating...
+                  Processing...
                 </>
               ) : (
                 <>
-                  <CreditCard size={20} />
-                  Create & Bill Order
+                  <Check size={20} />
+                  Place Order
                 </>
               )}
             </button>
@@ -593,115 +629,8 @@ const CashierCreateOrder = () => {
         )}
       </div>
 
-      {/* Payment Modal */}
-      {showPaymentModal && createdOrder && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl max-w-md w-full shadow-2xl">
-            <div className="p-6 border-b border-gray-200">
-              <h2 className="text-2xl font-bold text-gray-900">Process Payment</h2>
-              <p className="text-sm text-gray-600 mt-1">Order {createdOrder.orderNumber}</p>
-            </div>
-
-            <div className="p-6 space-y-4">
-              {/* Payment Method */}
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Payment Method
-                </label>
-                <select
-                  value={paymentMethod}
-                  onChange={(e) => setPaymentMethod(e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500"
-                >
-                  <option value="cash">Cash</option>
-                  <option value="card">Card</option>
-                  <option value="upi">UPI</option>
-                  <option value="cheque">Cheque</option>
-                </select>
-              </div>
-
-              {/* Discount */}
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Discount (Optional)
-                </label>
-                <div className="grid grid-cols-3 gap-2">
-                  <select
-                    value={discountType}
-                    onChange={(e) => setDiscountType(e.target.value)}
-                    className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500"
-                  >
-                    <option value="fixed">₹</option>
-                    <option value="percentage">%</option>
-                  </select>
-                  <input
-                    type="number"
-                    min="0"
-                    value={discount}
-                    onChange={(e) => setDiscount(parseFloat(e.target.value) || 0)}
-                    placeholder="0"
-                    className="col-span-2 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500"
-                  />
-                </div>
-              </div>
-
-              {/* Amount Summary */}
-              <div className="bg-gray-50 rounded-lg p-4 space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-600">Order Total:</span>
-                  <span className="font-semibold">₹{createdOrder.totalAmount.toFixed(2)}</span>
-                </div>
-                {discount > 0 && (
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Discount:</span>
-                    <span className="font-semibold text-green-600">
-                      -₹{(discountType === 'percentage' 
-                        ? (createdOrder.totalAmount * discount) / 100 
-                        : discount).toFixed(2)}
-                    </span>
-                  </div>
-                )}
-                <div className="border-t border-gray-200 pt-2 flex justify-between">
-                  <span className="font-bold text-gray-900">Final Amount:</span>
-                  <span className="font-bold text-xl text-orange-600">
-                    ₹{getFinalAmount().toFixed(2)}
-                  </span>
-                </div>
-              </div>
-
-              {/* Action Buttons */}
-              <div className="flex gap-3">
-                <button
-                  onClick={handleSkipPayment}
-                  disabled={submitting}
-                  className="flex-1 px-4 py-3 border border-gray-300 text-gray-700 rounded-lg font-semibold hover:bg-gray-50 transition disabled:opacity-50"
-                >
-                  Pay Later
-                </button>
-                <button
-                  onClick={handleProcessPayment}
-                  disabled={submitting}
-                  className="flex-1 px-4 py-3 bg-green-500 text-white rounded-lg font-semibold hover:bg-green-600 transition disabled:opacity-50 flex items-center justify-center gap-2"
-                >
-                  {submitting ? (
-                    <>
-                      <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-white"></div>
-                      Processing...
-                    </>
-                  ) : (
-                    <>
-                      <Check size={18} />
-                      Confirm Payment
-                    </>
-                  )}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
 
-export default CashierCreateOrder;
+export default CreateOrder;

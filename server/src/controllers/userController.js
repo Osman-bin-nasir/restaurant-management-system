@@ -3,6 +3,7 @@ import { asyncHandler } from "../middleware/asyncHandler.js";
 import CustomError from "../utils/customError.js";
 import Role from "../models/Role.js";
 import bcrypt from 'bcryptjs';
+import mongoose from "mongoose";
 
 // ➕ Create new user (Admin only)
 export const createUser = asyncHandler(async (req, res) => {
@@ -31,10 +32,15 @@ export const createUser = asyncHandler(async (req, res) => {
   }
 
   // ✅ Validate role exists
-  const role = await Role.findOne({ name: roleName });
-  if (!role) {
-    throw new CustomError(`Role '${roleName}' not found. Available roles: admin, manager, cashier, waiter, chef`, 404);
-  }
+let role;
+
+// Detect if roleName is actually an ID
+if (mongoose.isValidObjectId(roleName)) {
+  role = await Role.findById(roleName);
+} else {
+  role = await Role.findOne({ name: roleName });
+}
+
 
   // ✅ Validate branch if provided
   if (branchId) {
@@ -228,7 +234,7 @@ export const deleteUser = asyncHandler(async (req, res) => {
   if (!user) throw new CustomError("User not found", 404);
 
   // Prevent deleting yourself
-  if (req.user._id.toString() === req.params.id) {
+  if (req.user._id === req.params.id) {
     throw new CustomError("Cannot delete your own account", 400);
   }
 
