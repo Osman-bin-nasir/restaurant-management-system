@@ -1,51 +1,15 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
-import { 
-  ChefHat, 
-  Clock, 
+import {
+  ChefHat,
+  Clock,
   CheckCircle,
   AlertCircle,
   Flame,
   Zap,
-  ChevronDown,
-  ChevronUp
 } from 'lucide-react';
 import axios from '../../api/axios';
 import OrderCard from '../../components/OrderCard';
-
-// ====================== HELPER FUNCTIONS ======================
-
-const groupItemsByOrder = (items) => {
-  if (!items || items.length === 0) {
-    return [];
-  }
-
-  const orders = items.reduce((acc, item) => {
-    if (!acc[item.orderId]) {
-      acc[item.orderId] = {
-        orderId: item.orderId,
-        orderNumber: item.orderNumber,
-        tableNumber: item.tableNumber,
-        waitTime: 0,
-        priority: 0,
-        items: [],
-        status: item.status // Assuming all items in a group have same status
-      };
-    }
-    acc[item.orderId].items.push(item);
-    
-    if (item.priority > acc[item.orderId].priority) {
-        acc[item.orderId].priority = item.priority;
-    }
-    if (item.waitTime > acc[item.orderId].waitTime) {
-        acc[item.orderId].waitTime = item.waitTime;
-    }
-    return acc;
-  }, {});
-
-  return Object.values(orders).sort((a, b) => b.priority - a.priority || b.waitTime - a.waitTime);
-};
-
 
 // ====================== HELPER COMPONENTS ======================
 
@@ -63,37 +27,59 @@ const StatCard = ({ icon, label, value, color }) => (
   </div>
 );
 
-const OrderGroup = ({ title, orders, onStart, onReady, icon }) => {
-  const [isExpanded, setIsExpanded] = useState(true);
-
-  if (!orders || orders.length === 0) return null;
-
+const OrderColumn = ({ title, orders, onStartOrder, onReadyOrder, icon, color }) => {
   return (
-    <div className="bg-white rounded-2xl shadow-lg p-4 sm:p-6 mb-8">
-      <div 
-        className="flex items-center justify-between cursor-pointer mb-6"
-        onClick={() => setIsExpanded(!isExpanded)}
-      >
-        <h3 className="text-xl sm:text-2xl font-bold text-gray-800 flex items-center gap-3">
-          {icon} {title} ({orders.length})
-        </h3>
-        {isExpanded ? <ChevronUp size={28} /> : <ChevronDown size={28} />}
-      </div>
-
-      {isExpanded && (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4 sm:gap-6">
+    <div className="bg-gray-50 rounded-2xl p-4">
+      <h2 className={`text-2xl font-bold mb-4 flex items-center gap-3 ${color}`}>
+        {icon} {title} ({orders.length})
+      </h2>
+      {orders.length === 0 ? (
+        <div className="text-center py-12 text-gray-500">
+          <p>No orders in this category.</p>
+        </div>
+      ) : (
+        <div className="space-y-6">
           {orders.map(order => (
-            <OrderCard 
-              key={order.orderId} 
-              order={order} 
-              onStart={onStart} 
-              onReady={onReady} 
+            <OrderCard
+              key={order.orderId}
+              order={order}
+              onStartOrder={onStartOrder}
+              onReadyOrder={onReadyOrder}
             />
           ))}
         </div>
       )}
     </div>
   );
+};
+
+// ====================== HELPER FUNCTIONS ======================
+
+const groupItemsByOrder = (items) => {
+  if (!items || items.length === 0) {
+    return [];
+  }
+
+  const orders = items.reduce((acc, item) => {
+    if (!acc[item.orderId]) {
+      acc[item.orderId] = {
+        orderId: item.orderId,
+        orderNumber: item.orderNumber,
+        tableNumber: item.tableNumber,
+        items: [],
+      };
+    }
+    acc[item.orderId].items.push(item);
+    return acc;
+  }, {});
+
+  const sortedOrders = Object.values(orders).sort((a, b) => {
+    const priorityA = Math.max(...a.items.map(i => i.priority || 0));
+    const priorityB = Math.max(...b.items.map(i => i.priority || 0));
+    return priorityB - priorityA;
+  });
+
+  return sortedOrders;
 };
 
 
@@ -109,36 +95,23 @@ const KitchenDashboard = () => {
     completedToday: 0
   });
   const [queue, setQueue] = useState({
-    newOrders: [],
-    inProgressOrders: [],
+    newItems: [],
+    inProgress: [],
+    almostReady: []
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   const fetchKitchenData = async () => {
     try {
-      // No need to setError(null) here, causes flicker. Only on success.
+      setError(null);
       const [queueRes, statsRes] = await Promise.all([
         axios.get('/kitchen/queue'),
         axios.get('/kitchen/stats')
       ]);
-      
-      setError(null); // Clear error on success
 
-      const rawQueue = queueRes.data.queue || { newItems: [], inProgress: [], almostReady: [] };
-      
-      const allItems = [...rawQueue.newItems, ...rawQueue.inProgress, ...rawQueue.almostReady];
-      const allOrders = groupItemsByOrder(allItems);
-
-      const newOrders = allOrders.filter(o => o.items.every(i => i.status === 'placed'));
-      const inProgressOrders = allOrders.filter(o => !o.items.every(i => i.status === 'placed'));
-
-      setQueue({
-        newOrders,
-        inProgressOrders
-      });
-
-      setStats(statsRes.data.stats || { newItems: 0, inProgress: 0, completedToday: 0, total: 0 });
+      setQueue(queueRes.data.queue || { newItems: [], inProgress: [], almostReady: [] });
+      setStats(statsRes.data.stats || { newItems: 0, inProgress: 0, almostReady: 0, total: 0 });
 
     } catch (err) {
       console.error('Failed to fetch kitchen data:', err);
@@ -159,10 +132,9 @@ const KitchenDashboard = () => {
       await axios.post('/kitchen/items/start-cooking', {
         items: [{ orderId, itemIds }]
       });
-      fetchKitchenData(); // Refresh data
-    } catch (err) {
-      console.error('Failed to start cooking order:', err);
-      alert('Failed to start cooking. The order might have been updated.');
+      fetchKitchenData();
+    } catch (err){console.error('Failed to start cooking item:', err);
+      alert('Failed to start cooking. The item might have been updated already.');
     }
   };
 
@@ -171,40 +143,41 @@ const KitchenDashboard = () => {
       await axios.post('/kitchen/items/mark-ready', {
         items: [{ orderId, itemIds }]
       });
-      fetchKitchenData(); // Refresh data
+      fetchKitchenData();
     } catch (err) {
-      console.error('Failed to mark order as ready:', err);
-      alert('Failed to mark as ready. The order might have been updated.');
+      console.error('Failed to mark item as ready:', err);
+      alert('Failed to mark as ready. The item might have been updated already.');
     }
   };
 
+  const newOrders = useMemo(() => groupItemsByOrder(queue.newItems), [queue.newItems]);
+  const inProgressOrders = useMemo(() => groupItemsByOrder(queue.inProgress), [queue.inProgress]);
+  const almostReadyOrders = useMemo(() => groupItemsByOrder(queue.almostReady), [queue.almostReady]);
+
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-screen bg-gray-100">
-        <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-orange-500"></div>
+      <div className="flex items-center justify-center h-screen bg-gray-50">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-4 border-orange-500"></div>
       </div>
     );
   }
 
-  const totalOrders = queue.newOrders.length + queue.inProgressOrders.length;
-
   return (
-    <div className="min-h-screen bg-gray-50 p-4 sm:p-8 font-sans">
+    <div className="min-h-screen bg-gray-100 p-4 sm:p-8">
       {/* Header */}
-      <header className="mb-8">
-        <h1 className="text-4xl font-bold text-gray-900 flex items-center gap-3">
-          <ChefHat size={40} className="text-orange-500" />
-          Kitchen Command Center
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
+          <ChefHat size={36} className="text-orange-500" />
+          Kitchen Dashboard
         </h1>
-        <p className="text-gray-600 mt-2 text-lg">Welcome, Chef {user?.name}! Let's get cooking.</p>
-      </header>
+        <p className="text-gray-600 mt-2">Welcome, Chef {user?.name}! Let's get cooking.</p>
+      </div>
 
       {/* Quick Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-10">
-        <StatCard icon={<AlertCircle className="text-white" size={28} />} label="New Orders" value={queue.newOrders.length} color="bg-blue-500" />
-        <StatCard icon={<Flame className="text-white" size={28} />} label="In Progress" value={queue.inProgressOrders.length} color="bg-orange-500" />
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6 mb-8">
+        <StatCard icon={<AlertCircle className="text-white" size={28} />} label="New Items" value={stats.newItems} color="bg-blue-500" />
+        <StatCard icon={<Flame className="text-white" size={28} />} label="In Progress" value={stats.inProgress} color="bg-orange-500" />
         <StatCard icon={<CheckCircle className="text-white" size={28} />} label="Completed Today" value={stats.completedToday || 0} color="bg-green-500" />
-        <StatCard icon={<Zap className="text-white" size={28} />} label="Total Active Orders" value={totalOrders} color="bg-purple-500" />
       </div>
 
       {error && (
@@ -214,29 +187,31 @@ const KitchenDashboard = () => {
         </div>
       )}
 
-      {totalOrders === 0 && !loading && !error ? (
-        <div className="text-center py-20 bg-white rounded-2xl shadow-lg">
-          <CheckCircle size={72} className="text-green-500 mx-auto mb-6 animate-pulse" />
-          <p className="text-3xl font-semibold text-gray-900 mb-3">All Caught Up! 🎉</p>
-          <p className="text-gray-600 text-lg">The kitchen is clear. Great job, team!</p>
+      {stats.total === 0 && !loading && !error ? (
+        <div className="text-center py-16 bg-white rounded-2xl shadow-md">
+          <CheckCircle size={64} className="text-green-500 mx-auto mb-4" />
+          <p className="text-2xl font-semibold text-gray-900 mb-2">All Caught Up! 🎉</p>
+          <p className="text-gray-600">No items in the queue. Time for a coffee break?</p>
         </div>
       ) : (
-        <>
-          <OrderGroup
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <OrderColumn
             title="New Orders"
-            orders={queue.newOrders}
-            onStart={handleStartCooking}
-            onReady={handleMarkReady}
-            icon={<AlertCircle size={28} className="text-blue-500" />}
+            orders={newOrders}
+            onStartOrder={handleStartCooking}
+            onReadyOrder={handleMarkReady}
+            icon={<AlertCircle size={24} />}
+            color="text-blue-500"
           />
-          <OrderGroup
+          <OrderColumn
             title="In Progress"
-            orders={queue.inProgressOrders}
-            onStart={handleStartCooking}
-            onReady={handleMarkReady}
-            icon={<Flame size={28} className="text-orange-500" />}
+            orders={inProgressOrders}
+            onStartOrder={handleStartCooking}
+            onReadyOrder={handleMarkReady}
+            icon={<Flame size={24} />}
+            color="text-orange-500"
           />
-        </>
+        </div>
       )}
     </div>
   );

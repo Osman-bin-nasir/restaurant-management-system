@@ -1,109 +1,145 @@
-import React, { useState } from 'react';
-import { Clock, Flame, CheckCircle, FileText } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import { Clock, Flame, CheckCircle, ChevronDown, ChevronUp, StickyNote } from 'lucide-react';
 
-const OrderCard = ({ order, onStart, onReady }) => {
-  const { orderNumber, tableNumber, items, waitTime, priority } = order;
-  const [showNotes, setShowNotes] = useState({});
+const OrderCard = ({ order, onStartOrder, onReadyOrder }) => {
+  const [isExpanded, setIsExpanded] = useState(true);
 
-  const getPriorityInfo = () => {
-    if (priority > 150) return { style: 'border-red-500', label: 'Urgent' };
-    if (priority > 120) return { style: 'border-yellow-500', label: 'High' };
-    return { style: 'border-blue-500', label: 'Normal' };
+  const { orderNumber, tableNumber, items } = order;
+
+  const waitTime = useMemo(() => {
+    if (!items || items.length === 0) return 0;
+    return Math.max(...items.map(item => item.waitTime));
+  }, [items]);
+
+  const priority = useMemo(() => {
+    if (!items || items.length === 0) return 'NORMAL';
+    const maxPriority = Math.max(...items.map(item => item.priority));
+    if (maxPriority > 150) return 'URGENT';
+    if (maxPriority > 120) return 'HIGH';
+    return 'NORMAL';
+  }, [items]);
+
+  const priorityStyles = {
+    URGENT: {
+      border: 'border-red-500',
+      bg: 'bg-red-50',
+      text: 'text-red-700',
+      labelBg: 'bg-red-100',
+    },
+    HIGH: {
+      border: 'border-orange-500',
+      bg: 'bg-orange-50',
+      text: 'text-orange-700',
+      labelBg: 'bg-orange-100',
+    },
+    NORMAL: {
+      border: 'border-blue-500',
+      bg: 'bg-blue-50',
+      text: 'text-blue-700',
+      labelBg: 'bg-blue-100',
+    },
   };
 
-  const priorityInfo = getPriorityInfo();
+  const styles = priorityStyles[priority];
 
-  const getWaitTimeColor = () => {
-    if (waitTime > 20) return 'text-red-600 font-bold';
-    if (waitTime > 10) return 'text-yellow-600 font-semibold';
-    return 'text-gray-600';
-  };
+  const getOrderStatus = () => {
+    if (items.every(item => item.status === 'ready' || item.status === 'completed')) return 'ready';
+    if (items.some(item => item.status === 'in-kitchen')) return 'in-kitchen';
+    if (items.every(item => item.status === 'placed')) return 'placed';
+    return 'mixed'; // Some placed, some in-kitchen
+  }
 
-  const toggleNotes = (itemId) => {
-    setShowNotes(prev => ({ ...prev, [itemId]: !prev[itemId] }));
-  };
-
-  const placedItems = items.filter(i => i.status === 'placed');
-  const inKitchenItems = items.filter(i => i.status === 'in-kitchen');
+  const orderStatus = getOrderStatus();
 
   const handleStart = () => {
-    const itemIdsToStart = placedItems.map(item => item.itemId);
-    if (itemIdsToStart.length > 0) onStart(order.orderId, itemIdsToStart);
+    const itemIds = items.filter(i => i.status === 'placed').map(i => i.itemId);
+    if (itemIds.length > 0) {
+      onStartOrder(order.orderId, itemIds);
+    }
   };
 
   const handleReady = () => {
-    const itemIdsToReady = inKitchenItems.map(item => item.itemId);
-    if (itemIdsToReady.length > 0) onReady(order.orderId, itemIdsToReady);
+    const itemIds = items.filter(i => i.status === 'in-kitchen').map(i => i.itemId);
+    if (itemIds.length > 0) {
+      onReadyOrder(order.orderId, itemIds);
+    }
   };
 
+  const itemsToStartCount = items.filter(i => i.status === 'placed').length;
+  const itemsToReadyCount = items.filter(i => i.status === 'in-kitchen').length;
+
   return (
-    <div className={`bg-white shadow-md rounded-lg border-l-4 ${priorityInfo.style} flex flex-col h-full`}>
-      {/* Card Header */}
-      <div className="p-4 border-b border-gray-200">
-        <div className="flex justify-between items-center">
-          <div className="flex items-baseline gap-2">
-            <h3 className="text-xl font-bold text-gray-800">Order #{orderNumber}</h3>
-            <p className="text-sm text-gray-500">/ Table {tableNumber}</p>
+    <div className={`rounded-2xl shadow-lg border-l-8 ${styles.border} ${styles.bg}`}>
+      <div className="p-4">
+        {/* Header */}
+        <div className="flex justify-between items-start">
+          <div>
+            <h3 className="text-2xl font-bold text-gray-900 ">Table: {tableNumber}</h3>
+            <p className="text-gray-600">Order #{orderNumber}</p>
           </div>
-          <div className={`flex items-center gap-2 ${getWaitTimeColor()}`}>
-            <Clock size={16} />
-            <span>{waitTime}m ago</span>
+          <div className="flex flex-col items-end gap-2">
+            <span className={`text-sm font-bold px-3 py-1 rounded-full ${styles.labelBg} ${styles.text}`}>
+              {priority}
+            </span>
+            <div className="flex items-center gap-2 text-sm">
+              <Clock size={16} className={waitTime > 15 ? 'text-red-600' : 'text-gray-500'} />
+              <span className={`font-semibold ${waitTime > 15 ? 'text-red-600' : 'text-gray-700'}`}>
+                {waitTime}m ago
+              </span>
+            </div>
           </div>
         </div>
-        <span className={`text-xs font-semibold px-2 py-0.5 rounded-full mt-2 inline-block ${
-            priority > 150 ? 'bg-red-100 text-red-700' :
-            priority > 120 ? 'bg-yellow-100 text-yellow-700' :
-            'bg-blue-100 text-blue-700'
-        }`}>{priorityInfo.label}</span>
-      </div>
 
-      {/* Items List */}
-      <div className="p-4 flex-grow">
-        <ul className="space-y-3">
-          {items.map(item => (
-            <li key={item.itemId}>
-              <div className="flex items-start justify-between">
-                <div className="flex items-start gap-3">
-                  <span className={`mt-1.5 h-2.5 w-2.5 rounded-full flex-shrink-0 ${item.status === 'placed' ? 'bg-blue-500' : 'bg-orange-500'}`} title={item.status}></span>
-                  <div>
-                    <p className="font-semibold text-gray-800">
-                      <span className="font-bold text-gray-900">{item.quantity}x</span> {item.menuItem.name}
+        {/* Items List Toggle */}
+        <div
+          className="flex justify-between items-center mt-4 cursor-pointer text-gray-600"
+          onClick={() => setIsExpanded(!isExpanded)}
+        >
+          <span className="font-semibold">{isExpanded ? 'Hide' : 'Show'} {items.length} items</span>
+          {isExpanded ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+        </div>
+
+        {/* Items */}
+        {isExpanded && (
+          <div className="mt-4 space-y-3">
+            {items.map(item => (
+              <div key={item.itemId} className="bg-white p-3 rounded-lg shadow-sm flex justify-between items-center">
+                <div>
+                  <p className="font-bold text-gray-800">{item.menuItem.name} x{item.quantity}</p>
+                  {item.notes && (
+                    <p className="text-xs text-red-600 flex items-center gap-1 mt-1">
+                      <StickyNote size={12} /> {item.notes}
                     </p>
-                  </div>
+                  )}
                 </div>
-                {item.notes && (
-                  <button onClick={() => toggleNotes(item.itemId)} className="text-gray-500 hover:text-gray-700 flex-shrink-0 ml-2">
-                    <FileText size={16} />
-                  </button>
-                )}
+                <span className={`text-xs font-semibold px-2 py-1 rounded-full ${
+                  item.status === 'placed' ? 'bg-gray-200 text-gray-700' :
+                  item.status === 'in-kitchen' ? 'bg-orange-100 text-orange-700' :
+                  'bg-green-100 text-green-700'
+                }`}>
+                  {item.status}
+                </span>
               </div>
-              {item.notes && showNotes[item.itemId] && (
-                <div className="mt-2 ml-5 p-2 bg-yellow-50 border border-yellow-200 rounded-md text-sm text-yellow-800">
-                  {item.notes}
-                </div>
-              )}
-            </li>
-          ))}
-        </ul>
-      </div>
+            ))}
+          </div>
+        )}
 
-      {/* Action Buttons */}
-      <div className="p-3 bg-gray-50 border-t border-gray-200 mt-auto">
-        <div className="flex items-center gap-2">
-          {placedItems.length > 0 && (
+        {/* Actions */}
+        <div className="mt-4 pt-4 border-t border-gray-200 flex flex-col sm:flex-row gap-3">
+          {itemsToStartCount > 0 && (
             <button
               onClick={handleStart}
-              className="flex-1 bg-blue-600 text-white px-3 py-2 rounded-md font-semibold text-sm hover:bg-blue-700 transition-colors flex items-center justify-center gap-2 shadow-sm"
+              className="w-full bg-orange-500 text-white px-4 py-3 rounded-lg font-semibold hover:bg-orange-600 transition-colors flex items-center justify-center gap-2 text-base"
             >
-              <Flame size={16} /> Start ({placedItems.length})
+              <Flame size={20} /> Start Cooking ({itemsToStartCount})
             </button>
           )}
-          {inKitchenItems.length > 0 && (
-            <button
+          {itemsToReadyCount > 0 && (
+             <button
               onClick={handleReady}
-              className="flex-1 bg-green-600 text-white px-3 py-2 rounded-md font-semibold text-sm hover:bg-green-700 transition-colors flex items-center justify-center gap-2 shadow-sm"
+              className="w-full bg-green-500 text-white px-4 py-3 rounded-lg font-semibold hover:bg-green-600 transition-colors flex items-center justify-center gap-2 text-base"
             >
-              <CheckCircle size={16} /> Ready ({inKitchenItems.length})
+              <CheckCircle size={20} /> Mark as Ready ({itemsToReadyCount})
             </button>
           )}
         </div>
