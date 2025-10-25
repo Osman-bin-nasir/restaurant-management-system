@@ -10,6 +10,7 @@ import User from '../models/User.js';
 import MenuItem from '../models/MenuItem.js';
 import Table from '../models/Table.js';
 import Order from '../models/Order.js';
+import Revenue from '../models/Revenue.js';
 
 dotenv.config({ path: './server/.env' });
 
@@ -27,7 +28,8 @@ const seedAll = async () => {
       Branch.deleteMany({}),
       MenuItem.deleteMany({}),
       Table.deleteMany({}),
-      Order.deleteMany({})
+      Order.deleteMany({}),
+      Revenue.deleteMany({})
     ]);
     console.log('✅ Database cleared\n');
 
@@ -620,6 +622,27 @@ const seedAll = async () => {
         customerName: 'Online Order - Rajesh',
         waiterId: userMap.waiter,
         branchId: mainBranch._id
+      },
+      // Order 6 - Paid order
+      {
+        orderNumber: `ORD-${Date.now()}-006`,
+        type: 'dine-in',
+        tableId: createdTables[4]._id, // Use a different table
+        items: createOrderItems([
+          { menuItemId: paneerTikka._id, quantity: 1, price: paneerTikka.price },
+          { menuItemId: butterNaan._id, quantity: 2, price: butterNaan.price }
+        ], 'served'), // Items are served before payment
+        totalAmount: paneerTikka.price + (butterNaan.price * 2),
+        status: 'paid',
+        customerName: 'Sita Singh',
+        waiterId: userMap.waiter,
+        cashierId: userMap.cashier, // Cashier is involved in payment
+        branchId: mainBranch._id,
+        payment: {
+          method: 'card',
+          amount: paneerTikka.price + (butterNaan.price * 2),
+          paidAt: new Date()
+        }
       }
     ];
 
@@ -637,6 +660,23 @@ const seedAll = async () => {
     }
     console.log('✅ Updated table statuses\n');
 
+    // ==================== 8. SEED REVENUE ====================
+    console.log('💰 Seeding revenue...');
+    const paidOrders = createdOrders.filter(o => o.status === 'paid');
+    const revenueData = paidOrders.map(order => ({
+      orderId: order._id,
+      branchId: order.branchId,
+      amount: order.totalAmount,
+      date: order.createdAt
+    }));
+
+    if (revenueData.length > 0) {
+      await Revenue.insertMany(revenueData);
+      console.log(`✅ Seeded ${revenueData.length} revenue records\n`);
+    } else {
+      console.log('No paid orders to seed revenue from.\n');
+    }
+
     // ==================== SUMMARY ====================
     console.log('═══════════════════════════════════════');
     console.log('🎉 SEEDING COMPLETED SUCCESSFULLY!');
@@ -649,7 +689,8 @@ const seedAll = async () => {
     console.log(`   Users: ${createdUsers.length}`);
     console.log(`   Menu Items: ${createdMenuItems.length}`);
     console.log(`   Tables: ${createdTables.length}`);
-    console.log(`   Orders: ${createdOrders.length}\n`);
+    console.log(`   Orders: ${createdOrders.length}`);
+    console.log(`   Revenue: ${revenueData.length}\n`);
     
     console.log('🔑 Test Credentials (Password: 123456):');
     console.log('   Admin:    admin@restaurant.com');
