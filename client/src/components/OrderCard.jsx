@@ -1,149 +1,251 @@
-import React, { useState, useMemo } from 'react';
-import { Clock, Flame, CheckCircle, ChevronDown, ChevronUp, StickyNote } from 'lucide-react';
+import React, { useState } from 'react';
+import {
+  Clock,
+  Flame,
+  CheckCircle,
+  AlertTriangle,
+  ChevronDown,
+  ChevronUp,
+  Utensils,
+  Package,
+  User,
+} from 'lucide-react';
 
 const OrderCard = ({ order, onStartOrder, onReadyOrder }) => {
-  const [isExpanded, setIsExpanded] = useState(true);
+  const [expanded, setExpanded] = useState(true);
+  const [selectedItems, setSelectedItems] = useState([]);
 
-  const { orderNumber, tableNumber, items } = order;
+  const isParcel = order.type === 'parcel';
 
-  const waitTime = useMemo(() => {
-    if (!items || items.length === 0) return 0;
-    return Math.max(...items.map(item => item.waitTime));
-  }, [items]);
-
-  const priority = useMemo(() => {
-    if (!items || items.length === 0) return 'NORMAL';
-    const maxPriority = Math.max(...items.map(item => item.priority));
-    if (maxPriority > 150) return 'URGENT';
-    if (maxPriority > 120) return 'HIGH';
-    return 'NORMAL';
-  }, [items]);
-
-  const priorityStyles = {
-    URGENT: {
-      border: 'border-red-500',
-      bg: 'bg-red-50',
-      text: 'text-red-700',
-      labelBg: 'bg-red-100',
-    },
-    HIGH: {
-      border: 'border-orange-500',
-      bg: 'bg-orange-50',
-      text: 'text-orange-700',
-      labelBg: 'bg-orange-100',
-    },
-    NORMAL: {
-      border: 'border-blue-500',
-      bg: 'bg-blue-50',
-      text: 'text-blue-700',
-      labelBg: 'bg-blue-100',
-    },
+  const toggleItemSelection = (itemId) => {
+    setSelectedItems((prev) =>
+      prev.includes(itemId)
+        ? prev.filter((id) => id !== itemId)
+        : [...prev, itemId]
+    );
   };
 
-  const styles = priorityStyles[priority];
+  const handleStartCooking = () => {
+    const itemsToStart =
+      selectedItems.length > 0
+        ? selectedItems
+        : order.items
+            .filter((item) => ['placed', 'pending'].includes(item.status))
+            .map((item) => item.itemId);
 
-  const getOrderStatus = () => {
-    if (items.every(item => item.status === 'ready' || item.status === 'completed')) return 'ready';
-    if (items.some(item => item.status === 'in-kitchen')) return 'in-kitchen';
-    if (items.every(item => item.status === 'placed')) return 'placed';
-    return 'mixed'; // Some placed, some in-kitchen
-  }
-
-  const orderStatus = getOrderStatus();
-
-  const handleStart = () => {
-    const itemIds = items.filter(i => i.status === 'placed').map(i => i.itemId);
-    if (itemIds.length > 0) {
-      onStartOrder(order.orderId, itemIds);
+    if (itemsToStart.length > 0) {
+      onStartOrder(order.orderId, itemsToStart, order);
+      setSelectedItems([]);
     }
   };
 
-  const handleReady = () => {
-    const itemIds = items.filter(i => i.status === 'in-kitchen').map(i => i.itemId);
-    if (itemIds.length > 0) {
-      onReadyOrder(order.orderId, itemIds);
+  const handleMarkReady = () => {
+    const itemsToComplete =
+      selectedItems.length > 0
+        ? selectedItems
+        : order.items
+            .filter((item) =>
+              ['in-kitchen', 'cooking'].includes(item.status)
+            )
+            .map((item) => item.itemId);
+
+    if (itemsToComplete.length > 0) {
+      onReadyOrder(order.orderId, itemsToComplete, order);
+      setSelectedItems([]);
     }
   };
 
-  const itemsToStartCount = items.filter(i => i.status === 'placed').length;
-  const itemsToReadyCount = items.filter(i => i.status === 'in-kitchen').length;
+  const getStatusBadge = (status) => {
+    const badges = {
+      placed: { text: 'New', color: 'bg-blue-100 text-blue-700' },
+      pending: { text: 'New', color: 'bg-blue-100 text-blue-700' },
+      'in-kitchen': { text: 'Cooking', color: 'bg-yellow-100 text-yellow-700' },
+      cooking: { text: 'Cooking', color: 'bg-yellow-100 text-yellow-700' },
+      ready: { text: 'Ready', color: 'bg-green-100 text-green-700' },
+    };
+    return badges[status] || { text: status, color: 'bg-gray-100 text-gray-700' };
+  };
+
+  const getPriorityBorder = (priority) => {
+    if (priority >= 3) return 'border-red-400';
+    if (priority === 2) return 'border-orange-400';
+    return 'border-gray-200';
+  };
+
+  const hasNewItems = order.items.some((i) =>
+    ['placed', 'pending'].includes(i.status)
+  );
+  const hasInProgressItems = order.items.some((i) =>
+    ['in-kitchen', 'cooking'].includes(i.status)
+  );
 
   return (
-    <div className={`rounded-2xl shadow-lg border-l-8 ${styles.border} ${styles.bg}`}>
-      <div className="p-4">
-        {/* Header */}
-        <div className="flex justify-between items-start">
+    <div
+      className={`bg-white rounded-2xl shadow-md border-2 overflow-hidden transition-all ${getPriorityBorder(
+        Math.max(...order.items.map((i) => i.priority || 0))
+      )}`}
+    >
+      {/* Header */}
+      <div
+        className={`p-5 flex items-center justify-between ${
+          isParcel ? 'bg-purple-100' : 'bg-blue-100'
+        } border-b`}
+      >
+        <div className="flex items-center gap-4">
+          <div
+            className={`p-3 rounded-xl ${
+              isParcel ? 'bg-purple-500' : 'bg-blue-500'
+            }`}
+          >
+            {isParcel ? (
+              <Package size={22} className="text-white" />
+            ) : (
+              <Utensils size={22} className="text-white" />
+            )}
+          </div>
+
           <div>
-            <h3 className="text-2xl font-bold text-gray-900 ">Table: {tableNumber}</h3>
-            <p className="text-gray-600">Order #{orderNumber}</p>
-          </div>
-          <div className="flex flex-col items-end gap-2">
-            <span className={`text-sm font-bold px-3 py-1 rounded-full ${styles.labelBg} ${styles.text}`}>
-              {priority}
-            </span>
-            <div className="flex items-center gap-2 text-sm">
-              <Clock size={16} className={waitTime > 15 ? 'text-red-600' : 'text-gray-500'} />
-              <span className={`font-semibold ${waitTime > 15 ? 'text-red-600' : 'text-gray-700'}`}>
-                {waitTime}m ago
-              </span>
-            </div>
+            <h3 className="text-xl font-bold text-gray-900">
+              {order.orderNumber}
+            </h3>
+            {isParcel ? (
+              <p className="text-sm text-gray-700 flex items-center gap-1">
+                <User size={14} /> {order.customerName || 'Parcel Order'}
+              </p>
+            ) : (
+              <p className="text-sm text-gray-700">
+                Table {order.tableNumber}
+              </p>
+            )}
           </div>
         </div>
 
-        {/* Items List Toggle */}
-        <div
-          className="flex justify-between items-center mt-4 cursor-pointer text-gray-600"
-          onClick={() => setIsExpanded(!isExpanded)}
+        <button
+          onClick={() => setExpanded(!expanded)}
+          className="p-2 bg-white rounded-lg hover:bg-gray-100 transition"
         >
-          <span className="font-semibold">{isExpanded ? 'Hide' : 'Show'} {items.length} items</span>
-          {isExpanded ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+          {expanded ? (
+            <ChevronUp size={20} className="text-gray-700" />
+          ) : (
+            <ChevronDown size={20} className="text-gray-700" />
+          )}
+        </button>
+      </div>
+
+      {/* Order Info */}
+      <div className="px-5 py-3 flex items-center gap-4 text-sm text-gray-600 bg-gray-50 border-b">
+        <div className="flex items-center gap-1">
+          <Clock size={14} />
+          <span>{order.items.length} item{order.items.length > 1 ? 's' : ''}</span>
         </div>
 
-        {/* Items */}
-        {isExpanded && (
-          <div className="mt-4 space-y-3">
-            {items.map(item => (
-              <div key={item.itemId} className="bg-white p-3 rounded-lg shadow-sm flex justify-between items-center">
-                <div>
-                  <p className="font-bold text-gray-800">{item.menuItem.name} x{item.quantity}</p>
-                  {item.notes && (
-                    <p className="text-xs text-red-600 flex items-center gap-1 mt-1">
-                      <StickyNote size={12} /> {item.notes}
-                    </p>
-                  )}
-                </div>
-                <span className={`text-xs font-semibold px-2 py-1 rounded-full ${
-                  item.status === 'placed' ? 'bg-gray-200 text-gray-700' :
-                  item.status === 'in-kitchen' ? 'bg-orange-100 text-orange-700' :
-                  'bg-green-100 text-green-700'
-                }`}>
-                  {item.status}
-                </span>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* Actions */}
-        <div className="mt-4 pt-4 border-t border-gray-200 flex flex-col sm:flex-row gap-3">
-          {itemsToStartCount > 0 && (
-            <button
-              onClick={handleStart}
-              className="w-full bg-orange-500 text-white px-4 py-3 rounded-lg font-semibold hover:bg-orange-600 transition-colors flex items-center justify-center gap-2 text-base"
-            >
-              <Flame size={20} /> Start Cooking ({itemsToStartCount})
-            </button>
-          )}
-          {itemsToReadyCount > 0 && (
-             <button
-              onClick={handleReady}
-              className="w-full bg-green-500 text-white px-4 py-3 rounded-lg font-semibold hover:bg-green-600 transition-colors flex items-center justify-center gap-2 text-base"
-            >
-              <CheckCircle size={20} /> Mark as Ready ({itemsToReadyCount})
-            </button>
-          )}
+        <div
+          className={`px-3 py-1 rounded-full text-xs font-semibold ${
+            isParcel
+              ? 'bg-purple-200 text-purple-700'
+              : 'bg-blue-200 text-blue-700'
+          }`}
+        >
+          {isParcel ? 'PARCEL' : 'DINE-IN'}
         </div>
       </div>
+
+      {/* Items */}
+      {expanded && (
+        <div className="p-5 space-y-3 bg-white">
+          {order.items.map((item) => {
+            const isSelected = selectedItems.includes(item.itemId);
+            const badge = getStatusBadge(item.status);
+
+            return (
+              <div
+                key={item.itemId}
+                onClick={() => toggleItemSelection(item.itemId)}
+                className={`p-4 rounded-xl border-2 cursor-pointer transition-all ${
+                  isSelected
+                    ? 'border-orange-400 bg-orange-50'
+                    : 'border-gray-200 hover:border-gray-300'
+                }`}
+              >
+                <div className="flex items-start justify-between">
+                  <div>
+                    <h4 className="font-semibold text-gray-900">
+                      {item.menuItem.name}
+                    </h4>
+                    {item.notes && (
+                      <p className="text-sm text-yellow-700 mt-1 bg-yellow-50 px-2 py-1 rounded-md">
+                        📝 {item.notes}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <span className="bg-orange-500 text-white px-2 py-1 rounded-full text-xs font-bold">
+                      ×{item.quantity}
+                    </span>
+                    <span
+                      className={`px-2 py-1 rounded-full text-xs font-semibold ${badge.color}`}
+                    >
+                      {badge.text}
+                    </span>
+                  </div>
+                </div>
+
+                {item.menuItem.cookingTime && (
+                  <div className="flex items-center gap-1 text-xs text-gray-500 mt-1">
+                    <Flame size={12} className="text-orange-500" />
+                    {item.menuItem.cookingTime} min
+                  </div>
+                )}
+
+                {item.priority >= 3 && (
+                  <div className="mt-2 text-sm text-red-600 flex items-center gap-1 font-semibold">
+                    <AlertTriangle size={14} /> HIGH PRIORITY
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Action Buttons */}
+      {expanded && (
+        <div className="p-5 bg-gray-50 border-t flex flex-wrap gap-3">
+          {hasNewItems && (
+            <button
+              onClick={handleStartCooking}
+              className="flex-1 bg-gradient-to-r from-blue-500 to-blue-600 text-white py-3 rounded-xl font-semibold hover:shadow-lg transition flex items-center justify-center gap-2"
+            >
+              <Flame size={18} />
+              {selectedItems.length > 0
+                ? `Start ${selectedItems.length}`
+                : 'Start All'}
+            </button>
+          )}
+
+          {hasInProgressItems && (
+            <button
+              onClick={handleMarkReady}
+              className="flex-1 bg-gradient-to-r from-green-500 to-green-600 text-white py-3 rounded-xl font-semibold hover:shadow-lg transition flex items-center justify-center gap-2"
+            >
+              <CheckCircle size={18} />
+              {selectedItems.length > 0
+                ? `Ready ${selectedItems.length}`
+                : 'Mark All Ready'}
+            </button>
+          )}
+
+          {selectedItems.length > 0 && (
+            <button
+              onClick={() => setSelectedItems([])}
+              className="px-5 py-3 bg-gray-200 text-gray-800 rounded-xl font-semibold hover:bg-gray-300 transition"
+            >
+              Clear
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 };

@@ -50,6 +50,8 @@ import MyOrders from '../pages/Waiter/MyOrders.jsx';
 import CreateOrder from '../pages/Waiter/CreateOrder.jsx';
 import TableDetails from '../pages/Admin/TableDetails.jsx';
 import WaiterTableDetails from '../pages/Waiter/WaiterTableDetails.jsx';
+import CashierParcelOrder from '../pages/Cashier/CashierParcelOrder.jsx';
+import ParcelOrderQueue from '../pages/Kitchen/ParcelOrderQueue.jsx';
 
 const AppRouter = () => {
   const { user } = useAuth();
@@ -140,6 +142,7 @@ const AppRouter = () => {
             <Route path="pending-bills" element={<PendingBills />} />
             <Route path="daily-summary" element={<DailySummary />} />
             <Route path="create-order" element={<CashierCreateOrder />} />
+            <Route path="parcel" element={<CashierParcelOrder />} />
           </Route>
 
           {/* Kitchen Routes */}
@@ -152,6 +155,7 @@ const AppRouter = () => {
             }
           >
             <Route path="dashboard" element={<KitchenDashboard />} />
+            <Route path="dashboard2" element={<ParcelOrderQueue />} />
           </Route>
 
           {/* Waiter Routes */}
