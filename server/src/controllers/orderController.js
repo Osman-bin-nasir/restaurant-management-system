@@ -133,6 +133,10 @@ export const getAllOrders = asyncHandler(async (req, res) => {
 
   const total = await Order.countDocuments(filter);
 
+  // Get today's date at midnight
+  const startOfToday = new Date();
+  startOfToday.setHours(0, 0, 0, 0);
+
   // Get stats based on the same filter
   const stats = await Order.aggregate([
     { $match: filter },
@@ -145,7 +149,8 @@ export const getAllOrders = asyncHandler(async (req, res) => {
         ready: { $sum: { $cond: [{ $eq: ["$status", "ready"] }, 1, 0] } },
         served: { $sum: { $cond: [{ $eq: ["$status", "served"] }, 1, 0] } },
         paid: { $sum: { $cond: [{ $eq: ["$status", "paid"] }, 1, 0] } },
-        totalRevenue: { $sum: { $cond: [{ $eq: ["$status", "paid"] }, "$totalAmount", 0] } },
+        totalRevenue: { $sum: { $cond: [{ $eq: ["$status", "paid"] }, { $ifNull: ["$payment.amount", "$totalAmount"] }, 0] } },
+        todayOrders: { $sum: { $cond: [{ $gte: ["$createdAt", startOfToday] }, 1, 0] } },
       }
     },
     { $project: { _id: 0 } }
@@ -158,7 +163,7 @@ export const getAllOrders = asyncHandler(async (req, res) => {
     totalPages: Math.ceil(total / limit),
     currentPage: parseInt(page),
     orders,
-    stats: stats[0] || { total: 0, placed: 0, inKitchen: 0, ready: 0, served: 0, paid: 0, totalRevenue: 0 },
+    stats: stats[0] || { total: 0, placed: 0, inKitchen: 0, ready: 0, served: 0, paid: 0, totalRevenue: 0, todayOrders: 0 },
   });
 });
 
@@ -789,20 +794,18 @@ export const getOrderStats = asyncHandler(async (req, res) => {
     { $match: { branchId: branchObjectId } },
     {
       $group: {
-        _id: "$status",
-        count: { $sum: 1 },
-        totalAmount: { $sum: "$totalAmount" }
+        totalAmount: { $sum: { $ifNull: ["$payment.amount", "$totalAmount"] } }
       }
     }
   ]);
 
   const ordersByType = await Order.aggregate([
-    { $match: { branchId: branchObjectId } },
+    { $match: { branchId: branchObjectId, status: 'paid' } },
     {
       $group: {
         _id: "$type",
         count: { $sum: 1 },
-        totalAmount: { $sum: "$totalAmount" }
+        totalAmount: { $sum: { $ifNull: ["$payment.amount", "$totalAmount"] } }
       }
     }
   ]);

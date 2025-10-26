@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
-import { 
-  TrendingUp, 
-  ShoppingBag, 
-  Users, 
+import {
+  TrendingUp,
+  ShoppingBag,
+  Users,
   DollarSign,
   IndianRupee,
   Table2,
@@ -42,7 +42,7 @@ const Dashboard = () => {
 
       // Fetch multiple stats in parallel
       const [ordersRes, tablesRes] = await Promise.all([
-        axios.get('/orders/stats/summary').catch(() => ({ data: { stats: null } })),
+        axios.get('/orders').catch(() => ({ data: { stats: null } })),
         axios.get('/tables/stats').catch(() => ({ data: { stats: null } }))
       ]);
 
@@ -50,19 +50,18 @@ const Dashboard = () => {
       console.log('Tables Stats:', tablesRes.data);
 
       // ✅ Calculate stats from your existing backend response
-      const orderStats = ordersRes.data?.stats?.byStatus || [];
-      
+      const statsData = ordersRes.data?.stats || {};
+
       // Total orders (all statuses)
-      const totalOrders = orderStats.reduce((sum, s) => sum + (s.count || 0), 0);
-      
+      const totalOrders = statsData.total || 0;
+
       // Revenue from PAID orders - use totalAmount from your backend
-      const paidOrderStats = orderStats.find(s => s._id === 'paid');
-      const totalRevenue = paidOrderStats?.totalAmount || 0;
-      console.log("Total revenue",paidOrderStats);
-      const paidOrdersCount = paidOrderStats?.count || 0;
-      
+      const totalRevenue = statsData.totalRevenue || 0;
+      const paidOrdersCount = statsData.paid || 0;
+
       // Count today's orders (you can add this to backend later)
-      const todayOrders = 0; // Placeholder - backend doesn't provide this yet
+      const todayOrders = statsData.todayOrders || 0;
+
 
       // Get table stats
       const tableStats = tablesRes.data?.stats || {};
@@ -82,14 +81,14 @@ const Dashboard = () => {
       // Fetch recent orders for activity
       const recentOrdersRes = await axios.get('/orders?limit=5');
       const orders = recentOrdersRes.data?.orders || [];
-      
+
       setRecentActivity(orders.slice(0, 3).map(order => ({
         type: 'order',
         title: 'New order placed',
         description: `${order.tableId?.tableNumber ? `Table #${order.tableId.tableNumber}` : 'Parcel'} - ₹${order.totalAmount}`,
-        time: new Date(order.createdAt).toLocaleTimeString('en-IN', { 
-          hour: '2-digit', 
-          minute: '2-digit' 
+        time: new Date(order.createdAt).toLocaleTimeString('en-IN', {
+          hour: '2-digit',
+          minute: '2-digit'
         }),
         icon: ShoppingBag,
         color: 'blue'
