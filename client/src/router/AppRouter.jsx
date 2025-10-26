@@ -143,7 +143,7 @@ const AppRouter = () => {
             <Route path="billing" element={<Billing />} />
             <Route path="pending-bills" element={<PendingBills />} />
             <Route path="daily-summary" element={<DailySummary />} />
-            {/* <Route path="create-order" element={<CashierCreateOrder />} /> */}
+            <Route path="create-order" element={<CashierCreateOrder />} />
             <Route path="parcel" element={<CashierParcelOrder />} />
           </Route>
 
