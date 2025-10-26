@@ -144,10 +144,10 @@ const Sidebar = () => {
         path: '/cashier/dashboard'
       },
       {
-        id: 'create-order',
-        label: 'Create Order',
+        id: 'parcel',
+        label: 'Create Parcel',
         icon: Utensils,
-        path: '/cashier/create-order'
+        path: '/cashier/parcel'
       },
       {
         id: 'billing',

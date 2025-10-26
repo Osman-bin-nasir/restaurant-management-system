@@ -32,6 +32,7 @@ import DailyReports from '../pages/Admin/DailyReports.jsx';
 import MonthlyReports from '../pages/Admin/MonthlyReports.jsx';
 import YearlyReports from '../pages/Admin/YearlyReports.jsx';
 import ExpenseManagement from '../pages/Admin/ExpenseManagement.jsx';
+import TableDetails from '../pages/Admin/TableDetails.jsx';
 import ManagerDashboard from '../pages/Manager/ManagerDashboard.jsx';
 
 // Cashier Pages
@@ -40,16 +41,17 @@ import Billing from '../pages/Cashier/Billing.jsx';
 import PendingBills from '../pages/Cashier/PendingBills.jsx';
 import DailySummary from '../pages/Cashier/DailySummary.jsx';
 import CashierCreateOrder from '../pages/Cashier/CashierCreateOrder.jsx';
+import CashierParcelOrder from '../pages/Cashier/CashierParcelOrder.jsx';
 
 // Kitchen Pages
 import KitchenDashboard from '../pages/Kitchen/KitchenDashboard.jsx';
+import ParcelOrderQueue from '../pages/Kitchen/ParcelOrderQueue.jsx';
 
 // Waiter Pages
 import WaiterDashboard from '../pages/Waiter/WaiterDashboard.jsx';
 import TableOrders from '../pages/Waiter/TableOrders.jsx';
 import MyOrders from '../pages/Waiter/MyOrders.jsx';
 import CreateOrder from '../pages/Waiter/CreateOrder.jsx';
-import TableDetails from '../pages/Admin/TableDetails.jsx';
 import WaiterTableDetails from '../pages/Waiter/WaiterTableDetails.jsx';
 
 const AppRouter = () => {
@@ -141,7 +143,8 @@ const AppRouter = () => {
             <Route path="billing" element={<Billing />} />
             <Route path="pending-bills" element={<PendingBills />} />
             <Route path="daily-summary" element={<DailySummary />} />
-            <Route path="create-order" element={<CashierCreateOrder />} />
+            {/* <Route path="create-order" element={<CashierCreateOrder />} /> */}
+            <Route path="parcel" element={<CashierParcelOrder />} />
           </Route>
 
           {/* Kitchen Routes */}
@@ -154,6 +157,7 @@ const AppRouter = () => {
             }
           >
             <Route path="dashboard" element={<KitchenDashboard />} />
+            <Route path="parcel-queue" element={<ParcelOrderQueue />} />
           </Route>
 
           {/* Waiter Routes */}
