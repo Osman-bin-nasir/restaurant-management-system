@@ -99,21 +99,65 @@ export const createParcelOrder = asyncHandler(async (req, res) => {
 // ============ GET ALL PARCEL ORDERS ============
 export const getAllParcelOrders = asyncHandler(async (req, res) => {
   const { branchId } = req.user;
-  const { status, paymentStatus } = req.query;
+  const { status, paymentStatus, page = 1, limit = 10, searchTerm } = req.query;
 
   const filter = { branchId };
-  if (status) filter.orderStatus = status;
+  if (status) {
+    if (status === 'paid') {
+      filter['payment.status'] = 'paid';
+    } else if (status === 'served') {
+      filter.orderStatus = 'completed';
+    } else {
+      filter.orderStatus = status;
+    }
+  }
   if (paymentStatus) filter['payment.status'] = paymentStatus;
+
+  if (searchTerm) {
+    const searchRegex = new RegExp(searchTerm, 'i');
+    filter.$or = [
+      { orderNumber: searchRegex },
+      { customerName: searchRegex },
+    ];
+  }
 
   const orders = await ParcelOrder.find(filter)
     .populate("items.menuItem", "name price")
     .populate("cashierId", "name")
-    .sort({ createdAt: -1 });
+    .sort({ createdAt: -1 })
+    .skip((page - 1) * limit)
+    .limit(parseInt(limit));
+
+  const total = await ParcelOrder.countDocuments(filter);
+
+  // Stats are calculated on all orders of the branch, not just the filtered ones.
+  const statsAggr = await ParcelOrder.aggregate([
+    { $match: { branchId } },
+    {
+      $group: {
+        _id: null,
+        total: { $sum: 1 },
+        placed: { $sum: { $cond: [{ $eq: ["$orderStatus", "placed"] }, 1, 0] } },
+        inKitchen: { $sum: { $cond: [{ $eq: ["$orderStatus", "in-kitchen"] }, 1, 0] } },
+        ready: { $sum: { $cond: [{ $eq: ["$orderStatus", "ready"] }, 1, 0] } },
+        served: { $sum: { $cond: [{ $eq: ["$orderStatus", "completed"] }, 1, 0] } },
+        paid: { $sum: { $cond: [{ $eq: ["$payment.status", "paid"] }, 1, 0] } },
+        totalRevenue: { $sum: { $cond: [{ $eq: ["$payment.status", "paid"] }, "$totalAmount", 0] } },
+      }
+    },
+    { $project: { _id: 0 } }
+  ]);
+
+  const stats = statsAggr[0] || { total: 0, placed: 0, inKitchen: 0, ready: 0, served: 0, paid: 0, totalRevenue: 0 };
 
   res.status(200).json({
     success: true,
     count: orders.length,
-    orders
+    total,
+    totalPages: Math.ceil(total / limit),
+    currentPage: parseInt(page),
+    orders,
+    stats,
   });
 });
 
@@ -324,4 +368,46 @@ export const refundParcelOrder = asyncHandler(async (req, res) => {
     message: "Order refunded successfully",
     refund: order.payment.refund
   });
+});
+
+export const getParcelOrderStats = asyncHandler(async (req, res) => {
+  try {
+    const branchId = req.user.branchId; // optional, only if branch-based
+    const query = branchId ? { branchId } : {};
+
+    // Count per status
+    const total = await ParcelOrder.countDocuments(query);
+    const placed = await ParcelOrder.countDocuments({ ...query, orderStatus: "placed" });
+    const inKitchen = await ParcelOrder.countDocuments({ ...query, orderStatus: "in-kitchen" });
+    const ready = await ParcelOrder.countDocuments({ ...query, orderStatus: "ready" });
+    const completed = await ParcelOrder.countDocuments({ ...query, orderStatus: "completed" });
+    const refunded = await ParcelOrder.countDocuments({ ...query, orderStatus: "refunded" });
+
+    // Total paid revenue
+    const totalRevenueResult = await ParcelOrder.aggregate([
+      { $match: { ...query, "payment.status": "paid" } },
+      { $group: { _id: null, total: { $sum: "$payment.amount" } } }
+    ]);
+
+    const totalRevenue = totalRevenueResult[0]?.total || 0;
+
+    res.status(200).json({
+      success: true,
+      stats: {
+        total,
+        placed,
+        inKitchen,
+        ready,
+        completed,
+        refunded,
+        totalRevenue,
+      },
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch parcel order stats",
+      error: error.message,
+    });
+  }
 });

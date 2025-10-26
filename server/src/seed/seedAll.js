@@ -11,8 +11,29 @@ import MenuItem from '../models/MenuItem.js';
 import Table from '../models/Table.js';
 import Order from '../models/Order.js';
 import Revenue from '../models/Revenue.js';
+import Expense from '../models/Expense.js';
 
 dotenv.config({ path: './server/.env' });
+
+/**
+ * =================================================================
+ * 🎯 COMPREHENSIVE RESTAURANT SEED SCRIPT
+ * =================================================================
+ * Creates complete restaurant data including:
+ * - Permissions, Roles, Users, Branches
+ * - Menu Items, Tables
+ * - Exactly 50 historical orders (30 dine-in, 20 parcel) with realistic patterns
+ * - Expenses with recurring and one-off costs
+ * - Revenue analytics data
+ * =================================================================
+ */
+
+// --- REVENUE SEED CONFIGURATION ---
+const DAYS_TO_SEED = 90;
+const TOTAL_ORDERS = 50;
+const DINE_IN_ORDERS = 30;
+const PARCEL_ORDERS = 20;
+const BATCH_SIZE = 200;
 
 const seedAll = async () => {
   try {
@@ -29,7 +50,8 @@ const seedAll = async () => {
       MenuItem.deleteMany({}),
       Table.deleteMany({}),
       Order.deleteMany({}),
-      Revenue.deleteMany({})
+      Revenue.deleteMany({}),
+      Expense.deleteMany({})
     ]);
     console.log('✅ Database cleared\n');
 
@@ -276,16 +298,11 @@ const seedAll = async () => {
     ];
 
     const createdUsers = await User.insertMany(users);
-    const userMap = {};
-    createdUsers.forEach(u => {
-      if (u.email === 'waiter@restaurant.com') userMap.waiter = u._id;
-      if (u.email === 'waiter2@restaurant.com') userMap.waiter2 = u._id;
-      if (u.email === 'cashier@restaurant.com') userMap.cashier = u._id;
-      if (u.email === 'chef@restaurant.com') userMap.chef = u._id;
-    });
+    const cashier = createdUsers.find(u => u.email === 'cashier@restaurant.com');
+    const waiters = createdUsers.filter(u => u.email.includes('waiter'));
     console.log(`✅ Created ${createdUsers.length} users\n`);
 
-    // ==================== 5. CREATE MENU ITEMS (FROM YOUR DATA) ====================
+    // ==================== 5. CREATE MENU ITEMS ====================
     console.log('🍽️ Creating menu items...');
     const menuItems = [
       // Snacks
@@ -375,7 +392,7 @@ const seedAll = async () => {
         category: 'Vegan',
         price: 249,
         description: 'Creamy black lentils slow-cooked overnight',
-        image: 'https://images.unsplash.com/photo-1626500154744-e4b394ffea16?ixlib=rb-4.0.3',
+        image: 'https://images.unsplash.com/photo-1626500154744-456578634906?ixlib=rb-4.0.3',
         cookingTime: 15,
         availability: true,
         ingredients: ['Black Lentils', 'Butter', 'Cream', 'Spices'],
@@ -441,10 +458,10 @@ const seedAll = async () => {
         branchId: mainBranch._id
       },
       {
-        name: 'cake',
+        name: 'Cake',
         category: 'Dessert',
         price: 599,
-        description: 'it s cake',
+        description: 'Delicious cake',
         image: 'https://images.unsplash.com/photo-1621303837174-89787a7d4729?w=500',
         cookingTime: 10,
         availability: true,
@@ -460,7 +477,6 @@ const seedAll = async () => {
     console.log('🪑 Creating tables...');
     const tables = [];
     
-    // 2-seater tables (1-8)
     for (let i = 1; i <= 8; i++) {
       tables.push({
         tableNumber: i,
@@ -472,7 +488,6 @@ const seedAll = async () => {
       });
     }
     
-    // 4-seater tables (9-16)
     for (let i = 9; i <= 16; i++) {
       tables.push({
         tableNumber: i,
@@ -484,7 +499,6 @@ const seedAll = async () => {
       });
     }
     
-    // 6-seater tables (17-20)
     for (let i = 17; i <= 20; i++) {
       tables.push({
         tableNumber: i,
@@ -496,7 +510,6 @@ const seedAll = async () => {
       });
     }
     
-    // 8-seater tables (21-22)
     for (let i = 21; i <= 22; i++) {
       tables.push({
         tableNumber: i,
@@ -511,8 +524,209 @@ const seedAll = async () => {
     const createdTables = await Table.insertMany(tables);
     console.log(`✅ Created ${createdTables.length} tables\n`);
 
-    // ==================== 7. CREATE SAMPLE ORDERS ====================
-    console.log('📦 Creating sample orders...');
+    // ==================== 7. GENERATE HISTORICAL ORDERS & EXPENSES ====================
+    console.log(`📊 Generating ${TOTAL_ORDERS} historical orders (30 dine-in, 20 parcel)...`);
+    console.log('⏳ This may take a moment...');
+
+    const today = new Date();
+    const startDate = new Date();
+    startDate.setDate(today.getDate() - DAYS_TO_SEED);
+
+    const orders = [];
+    let dineInCount = 0;
+    let parcelCount = 0;
+    let orderCounter = 1;
+
+    // Helper functions
+    const getRandomItem = (arr) => arr[Math.floor(Math.random() * arr.length)];
+    const getRandomInt = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
+    const getRandomFloat = (min, max) => parseFloat((Math.random() * (max - min) + min).toFixed(2));
+
+    const paymentMethods = ['cash', 'card', 'upi'];
+    const paymentWeights = [0.4, 0.35, 0.25];
+    const getRandomPaymentMethod = () => {
+      const rand = Math.random();
+      let sum = 0;
+      for (let i = 0; i < paymentWeights.length; i++) {
+        sum += paymentWeights[i];
+        if (rand < sum) return paymentMethods[i];
+      }
+      return 'cash';
+    };
+
+    // Weighted menu items
+    const popularMenuItems = createdMenuItems.flatMap(item => {
+      const weight = item.category === 'Meal' ? 3 : item.category === 'Snack' ? 2 : 1;
+      return Array(weight).fill(item);
+    });
+
+    // Distribute orders across days
+    const ordersPerDay = Math.ceil(TOTAL_ORDERS / DAYS_TO_SEED);
+    let remainingDineIn = DINE_IN_ORDERS;
+    let remainingParcel = PARCEL_ORDERS;
+
+    for (let d = 0; d < DAYS_TO_SEED && orders.length < TOTAL_ORDERS; d++) {
+      const currentDate = new Date(startDate);
+      currentDate.setDate(currentDate.getDate() + d);
+
+      // Calculate how many orders to create on this day
+      let dayOrders = Math.min(ordersPerDay, TOTAL_ORDERS - orders.length);
+      let dayDineIn = 0;
+      let dayParcel = 0;
+
+      // Prioritize fulfilling the dine-in and parcel quotas
+      if (remainingDineIn > 0 || remainingParcel > 0) {
+        while (dayOrders > 0 && (remainingDineIn > 0 || remainingParcel > 0)) {
+          if (remainingDineIn > 0 && (remainingParcel === 0 || Math.random() < 0.6)) {
+            // 60% chance to prioritize dine-in if both are available
+            dayDineIn++;
+            remainingDineIn--;
+            dayOrders--;
+          } else if (remainingParcel > 0) {
+            dayParcel++;
+            remainingParcel--;
+            dayOrders--;
+          }
+        }
+      }
+
+      if (d % 10 === 0) console.log(`📅 Processing Day ${d + 1}/${DAYS_TO_SEED}... (${dayDineIn + dayParcel} orders)`);
+
+      // Generate orders for the day
+      for (let i = 0; i < dayDineIn + dayParcel; i++) {
+        const isDineIn = i < dayDineIn;
+        const hour = Math.random() < 0.5 ? getRandomInt(12, 15) : getRandomInt(18, 22);
+        const minute = getRandomInt(0, 59);
+        const orderDate = new Date(currentDate);
+        orderDate.setHours(hour, minute);
+
+        const numItems = getRandomInt(1, 5);
+        let totalAmount = 0;
+        const orderItems = Array.from({ length: numItems }, () => {
+          const menuItem = getRandomItem(popularMenuItems);
+          const quantity = getRandomInt(1, 2);
+          totalAmount += menuItem.price * quantity;
+          return {
+            menuItem: menuItem._id,
+            quantity,
+            priceAtOrder: menuItem.price,
+            status: 'served',
+            statusHistory: [{
+              status: 'served',
+              timestamp: orderDate
+            }]
+          };
+        });
+
+        const hasDiscount = Math.random() < 0.2;
+        const discount = hasDiscount ? totalAmount * getRandomFloat(0.05, 0.15) : 0;
+        const finalAmount = totalAmount - discount;
+
+        orders.push({
+          orderNumber: `ORD-${Date.now()}-${orderCounter++}`,
+          type: isDineIn ? 'dine-in' : 'parcel',
+          tableId: isDineIn ? getRandomItem(createdTables)._id : null,
+          items: orderItems,
+          totalAmount,
+          status: 'paid',
+          waiterId: getRandomItem(waiters)._id,
+          cashierId: cashier._id,
+          branchId: mainBranch._id,
+          payment: {
+            method: getRandomPaymentMethod(),
+            amount: finalAmount,
+            originalAmount: totalAmount,
+            discount,
+            paidAt: new Date(orderDate.getTime() + 15 * 60000),
+          },
+          createdAt: orderDate,
+          updatedAt: new Date(orderDate.getTime() + 15 * 60000),
+        });
+
+        if (isDineIn) dineInCount++;
+        else parcelCount++;
+      }
+    }
+
+    // Generate expenses (unchanged)
+    const expenses = [];
+    for (let d = 0; d < DAYS_TO_SEED; d++) {
+      const currentDate = new Date(startDate);
+      currentDate.setDate(currentDate.getDate() + d);
+      const expenseDate = new Date(currentDate);
+      expenseDate.setHours(10, 0, 0, 0);
+
+      expenses.push({
+        category: 'Groceries',
+        amount: getRandomFloat(3000, 6000) * (orders.length / 50),
+        description: 'Daily purchase of fresh ingredients',
+        date: expenseDate,
+        branchId: mainBranch._id,
+      });
+
+      if (currentDate.getDay() === 1) {
+        expenses.push({
+          category: 'Supplies',
+          amount: getRandomFloat(1000, 2500),
+          description: 'Weekly cleaning and kitchen supplies',
+          date: expenseDate,
+          branchId: mainBranch._id,
+        });
+      }
+
+      if (currentDate.getDate() === 1) {
+        expenses.push({ 
+          category: 'Rent', 
+          amount: 50000, 
+          description: 'Monthly rent', 
+          date: expenseDate, 
+          branchId: mainBranch._id 
+        });
+        expenses.push({ 
+          category: 'Utilities', 
+          amount: getRandomFloat(8000, 12000), 
+          description: 'Electricity, water, gas bills', 
+          date: expenseDate, 
+          branchId: mainBranch._id 
+        });
+      }
+
+      if (currentDate.getDate() === 28) {
+        expenses.push({ 
+          category: 'Salaries', 
+          amount: 150000, 
+          description: 'Monthly staff salaries', 
+          date: expenseDate, 
+          branchId: mainBranch._id 
+        });
+      }
+
+      if (Math.random() < 0.03) {
+        expenses.push({
+          category: 'Maintenance',
+          amount: getRandomFloat(5000, 15000),
+          description: 'Unexpected equipment repair',
+          date: expenseDate,
+          branchId: mainBranch._id,
+        });
+      }
+    }
+
+    // ==================== 8. INSERT ORDERS & EXPENSES ====================
+    console.log('💾 Inserting orders and expenses into database...');
+    
+    if (orders.length > 0) {
+      await Order.insertMany(orders, { ordered: false, batchSize: BATCH_SIZE });
+      console.log(`✅ Inserted ${orders.length} orders (${dineInCount} dine-in, ${parcelCount} parcel).`);
+    }
+    
+    if (expenses.length > 0) {
+      await Expense.insertMany(expenses, { ordered: false, batchSize: BATCH_SIZE });
+      console.log(`✅ Inserted ${expenses.length} expenses.\n`);
+    }
+
+    // ==================== 9. CREATE CURRENT ORDERS ====================
+    console.log('📦 Creating current sample orders...');
     
     const createOrderItems = (items, baseStatus = 'placed') => {
       return items.map(item => ({
@@ -528,7 +742,6 @@ const seedAll = async () => {
       }));
     };
 
-    // Get menu items for orders
     const chickenBiryani = createdMenuItems.find(m => m.name === 'Chicken Biryani');
     const butterChicken = createdMenuItems.find(m => m.name === 'Butter Chicken');
     const paneerBM = createdMenuItems.find(m => m.name === 'Paneer Butter Masala');
@@ -536,13 +749,11 @@ const seedAll = async () => {
     const coldCoffee = createdMenuItems.find(m => m.name === 'Cold Coffee');
     const paneerTikka = createdMenuItems.find(m => m.name === 'Paneer Tikka');
     const chickenWings = createdMenuItems.find(m => m.name === 'Chicken Wings');
-    const cake = createdMenuItems.find(m => m.name === 'cake');
     const mangoLassi = createdMenuItems.find(m => m.name === 'Mango Lassi');
 
-    const orders = [
-      // Order 1 - Placed (New order)
+    const currentOrders = [
       {
-        orderNumber: `ORD-${Date.now()}-001`,
+        orderNumber: `ORD-${Date.now()}-CURRENT-001`,
         type: 'dine-in',
         tableId: createdTables[0]._id,
         items: createOrderItems([
@@ -553,13 +764,11 @@ const seedAll = async () => {
         totalAmount: (chickenBiryani.price * 2) + (butterNaan.price * 4) + (coldCoffee.price * 2),
         status: 'placed',
         customerName: 'Amit Kumar',
-        waiterId: userMap.waiter,
+        waiterId: waiters[0]._id,
         branchId: mainBranch._id
       },
-      
-      // Order 2 - In Kitchen
       {
-        orderNumber: `ORD-${Date.now()}-002`,
+        orderNumber: `ORD-${Date.now()}-CURRENT-002`,
         type: 'dine-in',
         tableId: createdTables[8]._id,
         items: createOrderItems([
@@ -570,13 +779,11 @@ const seedAll = async () => {
         totalAmount: butterChicken.price + paneerTikka.price + (butterNaan.price * 3),
         status: 'in-kitchen',
         customerName: 'Priya Sharma',
-        waiterId: userMap.waiter2,
+        waiterId: waiters[1]._id,
         branchId: mainBranch._id
       },
-      
-      // Order 3 - Ready
       {
-        orderNumber: `ORD-${Date.now()}-003`,
+        orderNumber: `ORD-${Date.now()}-CURRENT-003`,
         type: 'dine-in',
         tableId: createdTables[15]._id,
         items: createOrderItems([
@@ -587,13 +794,11 @@ const seedAll = async () => {
         totalAmount: (paneerBM.price * 2) + (butterNaan.price * 4) + (mangoLassi.price * 2),
         status: 'ready',
         customerName: 'Rohan Verma',
-        waiterId: userMap.waiter,
+        waiterId: waiters[0]._id,
         branchId: mainBranch._id
       },
-      
-      // Order 4 - Served
       {
-        orderNumber: `ORD-${Date.now()}-004`,
+        orderNumber: `ORD-${Date.now()}-CURRENT-004`,
         type: 'dine-in',
         tableId: createdTables[18]._id,
         items: createOrderItems([
@@ -604,53 +809,16 @@ const seedAll = async () => {
         totalAmount: (chickenBiryani.price * 3) + chickenWings.price + (coldCoffee.price * 3),
         status: 'served',
         customerName: 'Deepak Patel',
-        waiterId: userMap.waiter2,
+        waiterId: waiters[1]._id,
         branchId: mainBranch._id
-      },
-      
-      // Order 5 - Parcel order
-      {
-        orderNumber: `ORD-${Date.now()}-005`,
-        type: 'parcel',
-        items: createOrderItems([
-          { menuItemId: butterChicken._id, quantity: 2, price: butterChicken.price },
-          { menuItemId: butterNaan._id, quantity: 6, price: butterNaan.price },
-          { menuItemId: cake._id, quantity: 1, price: cake.price }
-        ], 'placed'),
-        totalAmount: (butterChicken.price * 2) + (butterNaan.price * 6) + cake.price,
-        status: 'placed',
-        customerName: 'Online Order - Rajesh',
-        waiterId: userMap.waiter,
-        branchId: mainBranch._id
-      },
-      // Order 6 - Paid order
-      {
-        orderNumber: `ORD-${Date.now()}-006`,
-        type: 'dine-in',
-        tableId: createdTables[4]._id, // Use a different table
-        items: createOrderItems([
-          { menuItemId: paneerTikka._id, quantity: 1, price: paneerTikka.price },
-          { menuItemId: butterNaan._id, quantity: 2, price: butterNaan.price }
-        ], 'served'), // Items are served before payment
-        totalAmount: paneerTikka.price + (butterNaan.price * 2),
-        status: 'paid',
-        customerName: 'Sita Singh',
-        waiterId: userMap.waiter,
-        cashierId: userMap.cashier, // Cashier is involved in payment
-        branchId: mainBranch._id,
-        payment: {
-          method: 'card',
-          amount: paneerTikka.price + (butterNaan.price * 2),
-          paidAt: new Date()
-        }
       }
     ];
 
-    const createdOrders = await Order.insertMany(orders);
-    console.log(`✅ Created ${createdOrders.length} sample orders\n`);
+    const createdCurrentOrders = await Order.insertMany(currentOrders);
+    console.log(`✅ Created ${createdCurrentOrders.length} current sample orders\n`);
 
-    // Update table status for dine-in orders
-    for (const order of createdOrders) {
+    // Update table status for current dine-in orders
+    for (const order of createdCurrentOrders) {
       if (order.type === 'dine-in' && order.tableId) {
         await Table.findByIdAndUpdate(order.tableId, {
           status: 'occupied',
@@ -660,46 +828,51 @@ const seedAll = async () => {
     }
     console.log('✅ Updated table statuses\n');
 
-    // ==================== 8. SEED REVENUE ====================
-    console.log('💰 Seeding revenue...');
-    const paidOrders = createdOrders.filter(o => o.status === 'paid');
-    const revenueData = paidOrders.map(order => ({
-      orderId: order._id,
-      branchId: order.branchId,
-      amount: order.totalAmount,
-      date: order.createdAt
-    }));
-
-    if (revenueData.length > 0) {
-      await Revenue.insertMany(revenueData);
-      console.log(`✅ Seeded ${revenueData.length} revenue records\n`);
-    } else {
-      console.log('No paid orders to seed revenue from.\n');
-    }
-
-    // ==================== SUMMARY ====================
-    console.log('═══════════════════════════════════════');
-    console.log('🎉 SEEDING COMPLETED SUCCESSFULLY!');
-    console.log('═══════════════════════════════════════\n');
+    // ==================== FINAL SUMMARY ====================
+    console.log('═══════════════════════════════════════════════════════');
+    console.log('🎉 COMPLETE SEEDING FINISHED SUCCESSFULLY!');
+    console.log('═══════════════════════════════════════════════════════\n');
     
-    console.log('📊 Summary:');
+    console.log('📊 BASIC DATA SUMMARY:');
     console.log(`   Permissions: ${createdPermissions.length}`);
     console.log(`   Roles: ${createdRoles.length}`);
     console.log(`   Branches: ${createdBranches.length}`);
     console.log(`   Users: ${createdUsers.length}`);
     console.log(`   Menu Items: ${createdMenuItems.length}`);
-    console.log(`   Tables: ${createdTables.length}`);
-    console.log(`   Orders: ${createdOrders.length}`);
-    console.log(`   Revenue: ${revenueData.length}\n`);
+    console.log(`   Tables: ${createdTables.length}\n`);
     
-    console.log('🔑 Test Credentials (Password: 123456):');
+    console.log('📈 HISTORICAL DATA SUMMARY:');
+    console.log(`   Period: ${startDate.toDateString()} to ${today.toDateString()}`);
+    console.log(`   Historical Orders: ${orders.length} (${dineInCount} dine-in, ${parcelCount} parcel)`);
+    console.log(`   Current Orders: ${createdCurrentOrders.length}`);
+    console.log(`   Total Expenses: ${expenses.length}\n`);
+
+    const dineInRevenue = orders
+      .filter(o => o.type === 'dine-in')
+      .reduce((sum, o) => sum + (o.payment?.amount || 0), 0);
+    const parcelRevenue = orders
+      .filter(o => o.type === 'parcel')
+      .reduce((sum, o) => sum + (o.payment?.amount || 0), 0);
+    const totalRevenue = dineInRevenue + parcelRevenue;
+    const totalExpenses = expenses.reduce((sum, e) => sum + e.amount, 0);
+    const netProfit = totalRevenue - totalExpenses;
+
+    console.log('💰 FINANCIAL OVERVIEW:');
+    console.log(`   Dine-In Revenue: ${dineInRevenue.toLocaleString('en-IN', { style: 'currency', currency: 'INR' })}`);
+    console.log(`   Parcel Revenue: ${parcelRevenue.toLocaleString('en-IN', { style: 'currency', currency: 'INR' })}`);
+    console.log(`   Total Revenue: ${totalRevenue.toLocaleString('en-IN', { style: 'currency', currency: 'INR' })}`);
+    console.log(`   Total Expenses: ${totalExpenses.toLocaleString('en-IN', { style: 'currency', currency: 'INR' })}`);
+    console.log(`   Net Profit: ${netProfit.toLocaleString('en-IN', { style: 'currency', currency: 'INR' })}`);
+    console.log(`   Avg Order Value: ${(totalRevenue / orders.length).toLocaleString('en-IN', { style: 'currency', currency: 'INR' })}\n`);
+    
+    console.log('🔑 TEST CREDENTIALS (Password: 123456):');
     console.log('   Admin:    admin@restaurant.com');
     console.log('   Manager:  manager@restaurant.com');
     console.log('   Cashier:  cashier@restaurant.com');
     console.log('   Waiter:   waiter@restaurant.com');
     console.log('   Chef:     chef@restaurant.com\n');
     
-    console.log('💡 Quick Stats:');
+    console.log('💡 QUICK STATS:');
     const tableStats = {
       available: await Table.countDocuments({ status: 'available' }),
       occupied: await Table.countDocuments({ status: 'occupied' }),
@@ -711,29 +884,34 @@ const seedAll = async () => {
     console.log(`   Reserved Tables: ${tableStats.reserved}`);
     console.log(`   Total Capacity: ${createdTables.reduce((sum, t) => sum + t.capacity, 0)} seats\n`);
     
-    console.log('📋 Order Status Breakdown:');
-    console.log(`   Placed: ${createdOrders.filter(o => o.status === 'placed').length}`);
-    console.log(`   In Kitchen: ${createdOrders.filter(o => o.status === 'in-kitchen').length}`);
-    console.log(`   Ready: ${createdOrders.filter(o => o.status === 'ready').length}`);
-    console.log(`   Served: ${createdOrders.filter(o => o.status === 'served').length}\n`);
+    console.log('📋 CURRENT ORDER STATUS:');
+    console.log(`   Placed: ${createdCurrentOrders.filter(o => o.status === 'placed').length}`);
+    console.log(`   In Kitchen: ${createdCurrentOrders.filter(o => o.status === 'in-kitchen').length}`);
+    console.log(`   Ready: ${createdCurrentOrders.filter(o => o.status === 'ready').length}`);
+    console.log(`   Served: ${createdCurrentOrders.filter(o => o.status === 'served').length}\n`);
     
-    console.log('🍽️ Menu Breakdown:');
+    console.log('🍽️ MENU BREAKDOWN:');
     console.log(`   Snacks: ${createdMenuItems.filter(m => m.category === 'Snack').length}`);
     console.log(`   Meals: ${createdMenuItems.filter(m => m.category === 'Meal').length}`);
     console.log(`   Vegan: ${createdMenuItems.filter(m => m.category === 'Vegan').length}`);
     console.log(`   Drinks: ${createdMenuItems.filter(m => m.category === 'Drink').length}`);
     console.log(`   Desserts: ${createdMenuItems.filter(m => m.category === 'Dessert').length}\n`);
     
-    console.log('✨ You can now:');
+    console.log('✨ YOU CAN NOW:');
     console.log('   1. Login with any test account');
     console.log('   2. View orders in different stages');
-    console.log('   3. Create new orders');
-    console.log('   4. Test kitchen workflow');
-    console.log('   5. Process payments\n');
+    console.log('   3. Analyze historical revenue data');
+    console.log('   4. View expense reports');
+    console.log('   5. Test complete restaurant workflow\n');
 
     process.exit(0);
   } catch (error) {
-    console.error('❌ Seeding Error:', error);
+    console.error('❌ SEEDING FAILED:', error.message);
+    console.error(error.stack);
+    console.error('\n💡 TROUBLESHOOTING:');
+    console.error('   1. Ensure MongoDB is running.');
+    console.error('   2. Verify the MONGO_URI in your .env file.');
+    console.error('   3. Check that all required models are properly defined.');
     process.exit(1);
   }
 };

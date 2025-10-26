@@ -58,6 +58,7 @@ const Dashboard = () => {
       // Revenue from PAID orders - use totalAmount from your backend
       const paidOrderStats = orderStats.find(s => s._id === 'paid');
       const totalRevenue = paidOrderStats?.totalAmount || 0;
+      console.log("Total revenue",paidOrderStats);
       const paidOrdersCount = paidOrderStats?.count || 0;
       
       // Count today's orders (you can add this to backend later)

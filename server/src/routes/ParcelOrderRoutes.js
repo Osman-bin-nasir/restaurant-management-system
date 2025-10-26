@@ -7,7 +7,8 @@ import {
   markItemsReady,
   markOrderCompleted,
   getParcelKitchenQueue,
-  refundParcelOrder
+  refundParcelOrder,
+  getParcelOrderStats
 } from "../controllers/ParcelOrderController.js";
 import userAuth from "../middleware/userAuth.js";
 import { authorizePermissions } from "../middleware/authorize.js";
@@ -76,6 +77,13 @@ router.post(
   userAuth,
   authorizePermissions("billing:process"),
   refundParcelOrder
+);
+
+router.get(
+  "/stats",
+  userAuth,
+  authorizePermissions("orders:view"),
+  getParcelOrderStats
 );
 
 export default router;
