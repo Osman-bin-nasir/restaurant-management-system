@@ -57,6 +57,12 @@ const Sidebar = () => {
         path: '/admin/revenue-dashboard'
       },
       {
+        id: 'expenses',
+        label: 'Expense Management',
+        icon: DollarSign, // Using DollarSign as it fits expenses
+        path: '/admin/expenses'
+      },
+      {
         id: 'menu',
         label: 'Menu Management',
         icon: UtensilsCrossed,

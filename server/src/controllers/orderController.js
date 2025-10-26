@@ -105,7 +105,7 @@ export const createOrder = asyncHandler(async (req, res) => {
 
 // ====================== GET ALL ORDERS ======================
 export const getAllOrders = asyncHandler(async (req, res) => {
-  const { status, type, branchId } = req.query;
+  const { status, type, branchId, page = 1, limit = 10, searchTerm } = req.query;
   const userBranchId = req.user.branchId;
 
   // Build filter
@@ -113,18 +113,52 @@ export const getAllOrders = asyncHandler(async (req, res) => {
   if (status) filter.status = status;
   if (type) filter.type = type;
 
+  if (searchTerm) {
+    const searchRegex = new RegExp(searchTerm, 'i');
+    filter.$or = [
+      { orderNumber: searchRegex },
+      { customerName: searchRegex },
+    ];
+  }
+
   const orders = await Order.find(filter)
     .populate("items.menuItem", "name price")
     .populate("waiterId", "name email")
     .populate("cashierId", "name email")
     .populate("tableId", "tableNumber capacity")
     .populate("branchId", "name")
-    .sort({ createdAt: -1 });
+    .sort({ createdAt: -1 })
+    .skip((page - 1) * limit)
+    .limit(parseInt(limit));
+
+  const total = await Order.countDocuments(filter);
+
+  // Get stats based on the same filter
+  const stats = await Order.aggregate([
+    { $match: filter },
+    {
+      $group: {
+        _id: null,
+        total: { $sum: 1 },
+        placed: { $sum: { $cond: [{ $eq: ["$status", "placed"] }, 1, 0] } },
+        inKitchen: { $sum: { $cond: [{ $eq: ["$status", "in-kitchen"] }, 1, 0] } },
+        ready: { $sum: { $cond: [{ $eq: ["$status", "ready"] }, 1, 0] } },
+        served: { $sum: { $cond: [{ $eq: ["$status", "served"] }, 1, 0] } },
+        paid: { $sum: { $cond: [{ $eq: ["$status", "paid"] }, 1, 0] } },
+        totalRevenue: { $sum: { $cond: [{ $eq: ["$status", "paid"] }, "$totalAmount", 0] } },
+      }
+    },
+    { $project: { _id: 0 } }
+  ]);
 
   res.status(200).json({
     success: true,
     count: orders.length,
-    orders
+    total,
+    totalPages: Math.ceil(total / limit),
+    currentPage: parseInt(page),
+    orders,
+    stats: stats[0] || { total: 0, placed: 0, inKitchen: 0, ready: 0, served: 0, paid: 0, totalRevenue: 0 },
   });
 });
 

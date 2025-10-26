@@ -6,7 +6,8 @@ import {
   getRevenueComparison,
   getRevenueTrends,
   getRevenueKPIs,
-  getRevenueForecast
+  getRevenueForecast,
+  getRevenueSummary
 } from "../controllers/revenueController.js";
 import userAuth from "../middleware/userAuth.js";
 import { authorizePermissions } from "../middleware/authorize.js";
@@ -14,12 +15,20 @@ import { requireBranch } from "../middleware/branchAccess.js";
 
 const router = express.Router();
 
+// ✨ NEW: GET CONSOLIDATED REVENUE SUMMARY
+router.get(
+  "/summary",
+  userAuth,
+  authorizePermissions("reports:view"),
+  requireBranch,
+  getRevenueSummary
+);
+
 // 📉 GET REVENUE FORECAST
 router.get(
   "/forecast",
   userAuth,
   authorizePermissions("reports:view"),
-  requireBranch,
   getRevenueForecast
 );
 

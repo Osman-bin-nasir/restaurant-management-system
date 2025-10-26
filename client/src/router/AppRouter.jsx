@@ -31,6 +31,7 @@ import UserManagement from '../pages/Admin/UserManagement.jsx';
 import DailyReports from '../pages/Admin/DailyReports.jsx';
 import MonthlyReports from '../pages/Admin/MonthlyReports.jsx';
 import YearlyReports from '../pages/Admin/YearlyReports.jsx';
+import ExpenseManagement from '../pages/Admin/ExpenseManagement.jsx';
 import ManagerDashboard from '../pages/Manager/ManagerDashboard.jsx';
 
 // Cashier Pages
@@ -112,6 +113,7 @@ const AppRouter = () => {
             <Route path="revenue/daily" element={<DailyReports />} />
             <Route path="revenue/monthly" element={<MonthlyReports />} />
             <Route path="revenue/yearly" element={<YearlyReports />} />
+            <Route path="expenses" element={<ExpenseManagement />} />
           </Route>
 
           {/* Manager Routes */}

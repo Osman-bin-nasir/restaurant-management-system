@@ -733,6 +733,150 @@ export const getRevenueTrends = asyncHandler(async (req, res) => {
   res.status(200).json({
     success: true,
     period: `Last ${daysCount} days`,
-    trends: trendsWithNetProfit
-  });
-});
+        trends: trendsWithNetTProfit
+      });
+    });
+    
+    // ====================== GET CONSOLIDATED REVENUE SUMMARY ======================
+    export const getRevenueSummary = asyncHandler(async (req, res) => {
+      const { branchId } = req.user;
+      const { startDate, endDate } = req.query;
+    
+      if (!startDate || !endDate) {
+        throw new CustomError("Please provide both startDate and endDate.", 400);
+      }
+    
+      const start = new Date(startDate);
+      const end = new Date(endDate);
+      end.setHours(23, 59, 59, 999);
+    
+      const dateFilter = { createdAt: { $gte: start, $lte: end } };
+      const expenseDateFilter = { date: { $gte: start, $lte: end } };
+      const branchFilter = { branchId: new mongoose.Types.ObjectId(branchId) };
+    
+      // --- KPIs ---
+      const kpiPromise = Order.aggregate([
+        { $match: { ...branchFilter, status: "paid", ...dateFilter } },
+        {
+          $group: {
+            _id: null,
+            totalRevenue: { $sum: "$payment.amount" },
+            totalOrders: { $sum: 1 },
+            totalDiscount: { $sum: "$payment.discount" },
+          },
+        },
+        {
+          $project: {
+            _id: 0,
+            totalRevenue: 1,
+            totalOrders: 1,
+            totalDiscount: 1,
+            averageOrderValue: { $divide: ["$totalRevenue", "$totalOrders"] },
+          },
+        },
+      ]);
+    
+      const totalExpensesPromise = Expense.aggregate([
+        { $match: { ...branchFilter, ...expenseDateFilter } },
+        { $group: { _id: null, totalExpenses: { $sum: "$amount" } } },
+      ]);
+    
+      // --- Time Series Data ---
+      const revenueOverTimePromise = Order.aggregate([
+        { $match: { ...branchFilter, status: "paid", ...dateFilter } },
+        {
+          $group: {
+            _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } },
+            revenue: { $sum: "$payment.amount" },
+          },
+        },
+        { $sort: { _id: 1 } },
+      ]);
+    
+      const expensesOverTimePromise = Expense.aggregate([
+        { $match: { ...branchFilter, ...expenseDateFilter } },
+        {
+          $group: {
+            _id: { $dateToString: { format: "%Y-%m-%d", date: "$date" } },
+            expenses: { $sum: "$amount" },
+          },
+        },
+        { $sort: { _id: 1 } },
+      ]);
+    
+      // --- Breakdowns ---
+      const paymentMethodPromise = Order.aggregate([
+        { $match: { ...branchFilter, status: "paid", ...dateFilter } },
+        { $group: { _id: "$payment.method", total: { $sum: "$payment.amount" } } },
+      ]);
+    
+      const topItemsPromise = Order.aggregate([
+        { $match: { ...branchFilter, status: "paid", ...dateFilter } },
+        { $unwind: "$items" },
+        {
+          $group: {
+            _id: "$items.menuItem",
+            quantity: { $sum: "$items.quantity" },
+            revenue: { $sum: { $multiply: ["$items.quantity", "$items.priceAtOrder"] } },
+          },
+        },
+        { $sort: { revenue: -1 } },
+        { $limit: 5 },
+        {
+          $lookup: {
+            from: "menuitems",
+            localField: "_id",
+            foreignField: "_id",
+            as: "itemDetails",
+          },
+        },
+        { $unwind: "$itemDetails" },
+        { $project: { name: "$itemDetails.name", revenue: 1, quantity: 1, _id: 0 } },
+      ]);
+    
+      const [
+        kpiResult,
+        totalExpensesResult,
+        revenueOverTime,
+        expensesOverTime,
+        paymentMethods,
+        topItems,
+      ] = await Promise.all([
+        kpiPromise,
+        totalExpensesPromise,
+        revenueOverTimePromise,
+    expensesOverTimePromise,
+        paymentMethodPromise,
+        topItemsPromise,
+      ]);
+    
+      const kpis = kpiResult[0] || { totalRevenue: 0, totalOrders: 0, averageOrderValue: 0, totalDiscount: 0 };
+      const totalExpenses = totalExpensesResult[0]?.totalExpenses || 0;
+      kpis.netProfit = kpis.totalRevenue - totalExpenses;
+      kpis.totalExpenses = totalExpenses;
+    
+      // Combine revenue and expenses over time
+      const expensesMap = new Map(expensesOverTime.map(e => [e._id, e.expenses]));
+      const profitTrend = revenueOverTime.map(r => {
+        const expenses = expensesMap.get(r._id) || 0;
+        return {
+          date: r._id,
+          revenue: r.revenue,
+          expenses: expenses,
+          profit: r.revenue - expenses,
+        };
+      });
+    
+      res.status(200).json({
+        success: true,
+        kpis,
+        trends: {
+          profitTrend,
+        },
+        breakdowns: {
+          paymentMethods,
+          topItems,
+        },
+      });
+    });
+    
