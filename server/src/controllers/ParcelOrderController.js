@@ -130,6 +130,9 @@ export const getAllParcelOrders = asyncHandler(async (req, res) => {
 
   const total = await ParcelOrder.countDocuments(filter);
 
+  const startOfToday = new Date();
+  startOfToday.setHours(0, 0, 0, 0);
+
   // Stats are calculated on all orders of the branch, not just the filtered ones.
   const statsAggr = await ParcelOrder.aggregate([
     { $match: { branchId } },
@@ -142,22 +145,19 @@ export const getAllParcelOrders = asyncHandler(async (req, res) => {
         ready: { $sum: { $cond: [{ $eq: ["$orderStatus", "ready"] }, 1, 0] } },
         served: { $sum: { $cond: [{ $eq: ["$orderStatus", "completed"] }, 1, 0] } },
         paid: { $sum: { $cond: [{ $eq: ["$payment.status", "paid"] }, 1, 0] } },
+        todayOrders: { $sum: { $cond: [{ $gte: ["$createdAt", startOfToday] }, 1, 0] } },
         totalRevenue: { $sum: { $cond: [{ $eq: ["$payment.status", "paid"] }, "$totalAmount", 0] } },
       }
     },
     { $project: { _id: 0 } }
   ]);
 
-  const stats = statsAggr[0] || { total: 0, placed: 0, inKitchen: 0, ready: 0, served: 0, paid: 0, totalRevenue: 0 };
+  console.log(statsAggr)
+
+  const stats = statsAggr[0] || { total: 0, placed: 0, inKitchen: 0, ready: 0, served: 0, todayOrders: 0, paid: 0, totalRevenue: 0 };
 
   res.status(200).json({
-    success: true,
-    count: orders.length,
-    total,
-    totalPages: Math.ceil(total / limit),
-    currentPage: parseInt(page),
-    orders,
-    stats,
+    stats
   });
 });
 

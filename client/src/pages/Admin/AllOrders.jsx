@@ -36,35 +36,78 @@ const AllOrders = () => {
   const { user } = useAuth();
 
   const fetchOrders = useCallback(async (currentPage, isRefresh) => {
-    if (currentPage === 1) setLoading(true);
-    else setLoadingMore(true);
-    setError(null);
+  if (currentPage === 1) setLoading(true);
+  else setLoadingMore(true);
+  setError(null);
 
-    try {
-      const params = {
-        page: currentPage,
-        limit: 10,
-      };
-      if (filterStatus !== 'all') params.status = filterStatus;
-      if (filterType !== 'all') params.type = filterType;
-      if (debouncedSearchTerm) params.searchTerm = debouncedSearchTerm;
+  try {
+    const params = {
+      page: currentPage,
+      limit: 10,
+    };
+    if (filterStatus !== 'all') params.status = filterStatus;
+    if (filterType !== 'all') params.type = filterType;
+    if (debouncedSearchTerm) params.searchTerm = debouncedSearchTerm;
 
-      const { data } = await api.get('/orders', {
+    // Fetch both dine-in and parcel orders in parallel
+    const [dineInRes, parcelRes] = await Promise.all([
+      api.get('/orders', {
         params,
         headers: { Authorization: `Bearer ${user.token}` },
-      });
+      }),
+      api.get('/parcel', {
+        params,
+        headers: { Authorization: `Bearer ${user.token}` },
+      }),
+    ]);
 
-      const incoming = data.orders || [];
-      setOrders(prev => (currentPage === 1 || isRefresh) ? incoming : [...prev, ...incoming]);
-      setStats(data.stats || { total: 0, placed: 0, inKitchen: 0, ready: 0, served: 0, paid: 0, totalRevenue: 0 });
-      setHasMore(Boolean(data.currentPage && data.totalPages && data.currentPage < data.totalPages));
-    } catch (err) {
-      setError(err.response?.data?.message || 'Failed to fetch orders');
-    } finally {
-      if (currentPage === 1) setLoading(false);
-      else setLoadingMore(false);
-    }
-  }, [user?.token, filterStatus, filterType, debouncedSearchTerm]);
+    // Extract data safely
+    const dineInOrders = dineInRes.data?.orders?.map(o => ({ ...o, orderType: 'Dine-in' })) || [];
+    const parcelOrders = parcelRes.data?.orders?.map(o => ({ ...o, orderType: 'Parcel' })) || [];
+
+    // Merge both sets of orders
+    const combinedOrders = [...dineInOrders, ...parcelOrders]
+      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+    // Merge stats (optional, simple total sum logic)
+    const dineStats = dineInRes.data?.stats || {};
+    const parcelStats = parcelRes.data?.stats || {};
+    const mergedStats = {
+      total: (dineStats.total || 0) + (parcelStats.total || 0),
+      placed: (dineStats.placed || 0) + (parcelStats.placed || 0),
+      inKitchen: (dineStats.inKitchen || 0) + (parcelStats.inKitchen || 0),
+      ready: (dineStats.ready || 0) + (parcelStats.ready || 0),
+      served: (dineStats.served || 0) + (parcelStats.served || 0),
+      paid: (dineStats.paid || 0) + (parcelStats.paid || 0),
+      totalRevenue: (dineStats.totalRevenue || 0) + (parcelStats.totalRevenue || 0),
+    };
+
+    // Pagination handling (optional, merge logic)
+    const dinePage = dineInRes.data?.currentPage || 1;
+    const dineTotalPages = dineInRes.data?.totalPages || 1;
+    const parcelPage = parcelRes.data?.currentPage || 1;
+    const parcelTotalPages = parcelRes.data?.totalPages || 1;
+
+    const hasMorePages =
+      (dinePage < dineTotalPages) || (parcelPage < parcelTotalPages);
+
+    // Update state
+    setOrders(prev =>
+      currentPage === 1 || isRefresh
+        ? combinedOrders
+        : [...prev, ...combinedOrders]
+    );
+    setStats(mergedStats);
+    setHasMore(hasMorePages);
+  } catch (err) {
+    console.error(err);
+    setError(err.response?.data?.message || 'Failed to fetch orders');
+  } finally {
+    if (currentPage === 1) setLoading(false);
+    else setLoadingMore(false);
+  }
+}, [user?.token, filterStatus, filterType, debouncedSearchTerm]);
+
 
   useEffect(() => {
     setPage(1);
@@ -290,7 +333,7 @@ const AllOrders = () => {
                       <span className="text-sm font-bold text-gray-900">₹{((order.totalAmount ?? 0)).toFixed(2)}</span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-3 py-1 text-xs font-semibold rounded-full ${getStatusBadge(order.status)}`}>{order.status}</span>
+                      <span className={`px-3 py-1 text-xs font-semibold rounded-full ${getStatusBadge(order.payment?.status || order.status)}`}>{order.payment?.status || order.status}</span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
                       <div className="flex items-center gap-1">
@@ -347,8 +390,8 @@ const AllOrders = () => {
                 </div>
                 <div className="bg-gray-50 p-4 rounded-lg">
                   <p className="text-xs text-gray-600 font-medium mb-1">Status</p>
-                  <span className={`inline-block px-3 py-1 text-sm font-semibold rounded-full ${getStatusBadge(selectedOrder.status)}`}>
-                    {selectedOrder.status}
+                  <span className={`inline-block px-3 py-1 text-sm font-semibold rounded-full ${getStatusBadge(selectedOrder.payment?.status || selectedOrder.status)}`}>
+                    {selectedOrder.payment?.status || selectedOrder.status}
                   </span>
                 </div>
                 <div className="bg-gray-50 p-4 rounded-lg">
@@ -397,7 +440,7 @@ const AllOrders = () => {
               </div>
 
               {/* Actions */}
-              {selectedOrder.status !== 'cancelled' && selectedOrder.status !== 'paid' && (
+              {selectedOrder.status !== 'cancelled' && selectedOrder.payment?.status !== 'paid' && selectedOrder.status !== 'paid' && (
                 <div>
                   <h3 className="text-lg font-bold mb-3 text-gray-900">Update Status</h3>
                   <div className="flex flex-wrap gap-2">

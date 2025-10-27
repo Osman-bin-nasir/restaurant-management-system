@@ -12,6 +12,7 @@ import {
   Banknote,
   CreditCard as CardIcon,
   Printer,
+  ChevronDown,
 } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
 
@@ -29,7 +30,9 @@ const Billing = () => {
   const [notes, setNotes] = useState('');
   const [finalAmount, setFinalAmount] = useState(0);
   const [paymentSuccess, setPaymentSuccess] = useState(false);
-  const printedRef = useRef(false); // Prevent double print
+  const printedRef = useRef(false);
+
+  const TAX_RATE = 0.05; // 5% tax
 
   useEffect(() => {
     if (!orderId) {
@@ -58,6 +61,27 @@ const Billing = () => {
     }
   };
 
+  // Aggregate duplicate items
+  const getAggregatedItems = (items) => {
+    const itemMap = new Map();
+    
+    items.forEach(item => {
+      const key = item.menuItem._id;
+      if (itemMap.has(key)) {
+        const existing = itemMap.get(key);
+        existing.quantity += item.quantity;
+        // Combine notes if different
+        if (item.notes && item.notes !== existing.notes) {
+          existing.notes = existing.notes ? `${existing.notes}; ${item.notes}` : item.notes;
+        }
+      } else {
+        itemMap.set(key, { ...item });
+      }
+    });
+    
+    return Array.from(itemMap.values());
+  };
+
   const calculateFinalAmount = () => {
     if (!order) return;
     let discountAmount = 0;
@@ -66,8 +90,11 @@ const Billing = () => {
     } else {
       discountAmount = parseFloat(discount) || 0;
     }
-    const newAmount = Math.max(0, order.totalAmount - discountAmount);
-    setFinalAmount(newAmount);
+    const afterDiscount = Math.max(0, order.totalAmount - discountAmount);
+    const taxAmount = afterDiscount * TAX_RATE;
+    const beforeRoundOff = afterDiscount + taxAmount;
+    const roundedAmount = Math.round(beforeRoundOff);
+    setFinalAmount(roundedAmount);
   };
 
   const handleProcessPayment = async () => {
@@ -117,7 +144,6 @@ const Billing = () => {
     setTimeout(() => navigate('/cashier/dashboard'), 1000);
   };
 
-  // Auto-print once after success
   useEffect(() => {
     if (paymentSuccess && !printedRef.current) {
       printedRef.current = true;
@@ -127,13 +153,12 @@ const Billing = () => {
   }, [paymentSuccess]);
 
   const paymentMethods = [
-    { id: 'cash', name: 'Cash', icon: Banknote, color: 'green' },
-    { id: 'card', name: 'Card', icon: CardIcon, color: 'blue' },
-    { id: 'upi', name: 'UPI', icon: Smartphone, color: 'purple' },
-    { id: 'cheque', name: 'Cheque', icon: Receipt, color: 'orange' },
+    { id: 'cash', name: 'Cash', icon: Banknote },
+    { id: 'card', name: 'Card', icon: CardIcon },
+    { id: 'upi', name: 'UPI', icon: Smartphone },
+    { id: 'cheque', name: 'Cheque', icon: Receipt },
   ];
 
-  // LOADING
   if (loading) {
     return (
       <div className="flex items-center justify-center h-screen">
@@ -142,7 +167,6 @@ const Billing = () => {
     );
   }
 
-  // NOT FOUND
   if (!order) {
     return (
       <div className="flex items-center justify-center h-screen">
@@ -151,18 +175,21 @@ const Billing = () => {
     );
   }
 
-  // SUCCESS SCREEN WITH BILL ON SCREEN
   if (paymentSuccess) {
     const discountAmt =
       discountType === 'percentage'
         ? (order.totalAmount * discount) / 100
         : parseFloat(discount) || 0;
+    const afterDiscount = order.totalAmount - discountAmt;
+    const taxAmount = afterDiscount * TAX_RATE;
+    const beforeRoundOff = afterDiscount + taxAmount;
+    const roundOffAmount = Math.round(beforeRoundOff) - beforeRoundOff;
+    const aggregatedItems = getAggregatedItems(order.items);
 
     return (
       <div className="min-h-screen bg-gray-50">
         <Toaster position="top-center" />
 
-        {/* PRINT STYLES */}
         <style jsx>{`
           @media print {
             body * {
@@ -187,7 +214,6 @@ const Billing = () => {
 
         <div className="flex flex-col items-center justify-center p-6">
           <div className="bg-white rounded-xl shadow-lg max-w-2xl w-full overflow-hidden">
-            {/* Success Header */}
             <div className="bg-gradient-to-r from-green-500 to-green-600 text-white p-6 text-center">
               <CheckCircle className="mx-auto mb-2" size={56} />
               <h2 className="text-2xl font-bold">Payment Successful!</h2>
@@ -196,7 +222,6 @@ const Billing = () => {
               </p>
             </div>
 
-            {/* BILL DISPLAY */}
             <div id="printable-bill" className="p-6 bg-white">
               <div className="text-center mb-6">
                 <h1 className="text-2xl font-bold">Restaurant Name</h1>
@@ -222,7 +247,7 @@ const Billing = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {order.items.map((it, idx) => (
+                  {aggregatedItems.map((it, idx) => (
                     <tr key={idx} className="border-b">
                       <td className="py-1">{it.menuItem.name}</td>
                       <td className="text-center py-1">{it.quantity}</td>
@@ -247,6 +272,16 @@ const Billing = () => {
                     <span>-₹{discountAmt.toFixed(2)}</span>
                   </div>
                 )}
+                <div className="flex justify-between">
+                  <span>Tax (5%):</span>
+                  <span>₹{taxAmount.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span>Round Off:</span>
+                  <span className={roundOffAmount >= 0 ? 'text-green-600' : 'text-red-600'}>
+                    {roundOffAmount >= 0 ? '+' : ''}₹{roundOffAmount.toFixed(2)}
+                  </span>
+                </div>
                 <div className="flex justify-between font-bold text-lg border-t pt-1">
                   <span>Total Amount:</span>
                   <span className="text-orange-600">₹{finalAmount.toFixed(2)}</span>
@@ -264,7 +299,6 @@ const Billing = () => {
               </div>
             </div>
 
-            {/* ACTION BUTTONS */}
             <div className="no-print p-6 bg-gray-50 flex gap-3">
               <button
                 onClick={printBill}
@@ -286,197 +320,214 @@ const Billing = () => {
     );
   }
 
-  // MAIN PAYMENT FORM
+  const aggregatedItems = getAggregatedItems(order.items);
+
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
+    <div className="h-screen bg-gray-50 flex flex-col overflow-hidden">
       <Toaster position="top-center" />
 
-      <div className="mb-6">
+      {/* Header - Fixed */}
+      <div className="flex-shrink-0 px-6 pt-4 pb-3 bg-gray-50">
         <button
           onClick={() => navigate('/cashier/dashboard')}
-          className="flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-4 transition"
+          className="flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-2 transition"
         >
           <ArrowLeft size={18} />
           Back to Dashboard
         </button>
-        <h1 className="text-3xl font-bold text-gray-900">Process Payment</h1>
+        <h1 className="text-2xl font-bold text-gray-900">Process Payment</h1>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Order Summary */}
-        <div className="lg:col-span-2 bg-white p-6 rounded-xl shadow-md border border-gray-100">
-          <h2 className="text-xl font-bold mb-4 text-gray-900">Order Summary</h2>
+      {/* Main Content - No scroll on parent */}
+      <div className="flex-1 px-6 pb-6 overflow-hidden">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 h-full">
+          {/* Order Summary - Scrollable */}
+          <div className="lg:col-span-2 bg-white p-4 rounded-xl shadow-md border border-gray-100 flex flex-col overflow-auto">
+            <h2 className="text-lg font-bold mb-3 text-gray-900">Order Summary</h2>
 
-          <div className="space-y-4 mb-6">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <p className="text-sm text-gray-600 mb-1">Order Number</p>
-                <p className="font-mono font-bold text-gray-900">{order.orderNumber}</p>
+            {/* Order Info Grid */}
+            <div className="grid grid-cols-4 gap-2 mb-3">
+              <div className="bg-gray-50 p-2 rounded-lg">
+                <p className="text-xs text-gray-600 mb-1">Order #</p>
+                <p className="font-mono font-bold text-sm text-gray-900">{order.orderNumber}</p>
               </div>
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <p className="text-sm text-gray-600 mb-1">Customer</p>
-                <p className="font-semibold text-gray-900">{order.customerName}</p>
+              <div className="bg-gray-50 p-2 rounded-lg">
+                <p className="text-xs text-gray-600 mb-1">Customer</p>
+                <p className="font-semibold text-sm text-gray-900">{order.customerName}</p>
               </div>
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <p className="text-sm text-gray-600 mb-1">Table</p>
-                <p className="font-semibold text-gray-900">
+              <div className="bg-gray-50 p-2 rounded-lg">
+                <p className="text-xs text-gray-600 mb-1">Table</p>
+                <p className="font-semibold text-sm text-gray-900">
                   {order.tableId?.tableNumber || 'Parcel'}
                 </p>
               </div>
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <p className="text-sm text-gray-600 mb-1">Type</p>
-                <p className="font-semibold text-gray-900 capitalize">{order.type}</p>
+              <div className="bg-gray-50 p-2 rounded-lg">
+                <p className="text-xs text-gray-600 mb-1">Type</p>
+                <p className="font-semibold text-sm text-gray-900 capitalize">{order.type}</p>
               </div>
             </div>
-          </div>
 
-          <div className="mb-6">
-            <h3 className="font-bold mb-3 text-gray-900">Items</h3>
-            <div className="space-y-2">
-              {order.items.map((item, index) => (
-                <div key={index} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
-                  <div className="flex-1">
-                    <p className="font-semibold text-gray-900">{item.menuItem.name}</p>
-                    {item.notes && (
-                      <p className="text-sm text-gray-600 mt-1">Note: {item.notes}</p>
-                    )}
+            {/* Items */}
+            <div className="mb-3">
+              <h3 className="font-bold mb-2 text-gray-900 text-sm">Items</h3>
+              <div className="space-y-1.5">
+                {aggregatedItems.map((item, index) => (
+                  <div key={index} className="flex justify-between items-center p-2 bg-gray-50 rounded-lg">
+                    <div className="flex-1">
+                      <p className="font-semibold text-sm text-gray-900">{item.menuItem.name}</p>
+                      {item.notes && (
+                        <p className="text-xs text-gray-600 mt-0.5">Note: {item.notes}</p>
+                      )}
+                    </div>
+                    <div className="text-right ml-4">
+                      <p className="text-xs text-gray-600">Qty: {item.quantity}</p>
+                      <p className="font-bold text-sm text-gray-900">
+                        ₹{(item.menuItem.price * item.quantity).toFixed(2)}
+                      </p>
+                    </div>
                   </div>
-                  <div className="text-right ml-4">
-                    <p className="text-sm text-gray-600">Qty: {item.quantity}</p>
-                    <p className="font-bold text-gray-900">
-                      ₹{(item.menuItem.price * item.quantity).toFixed(2)}
-                    </p>
-                  </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
-          </div>
 
-          <div className="border-t border-gray-200 pt-4">
-            <h3 className="font-bold mb-3 text-gray-900 flex items-center gap-2">
-              <Percent size={18} />
-              Apply Discount (Optional)
-            </h3>
-            <div className="grid grid-cols-3 gap-3">
-              <select
-                value={discountType}
-                onChange={(e) => setDiscountType(e.target.value)}
-                className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-              >
-                <option value="fixed">Fixed (₹)</option>
-                <option value="percentage">Percentage (%)</option>
-              </select>
-              <input
-                type="number"
-                min="0"
-                max={discountType === 'percentage' ? 100 : order.totalAmount}
-                value={discount}
-                onChange={(e) => setDiscount(parseFloat(e.target.value) || 0)}
-                placeholder="0"
-                className="col-span-2 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+            {/* Discount Section */}
+            <div className="border-t border-gray-200 pt-3 mb-3">
+              <h3 className="font-bold mb-2 text-gray-900 text-sm flex items-center gap-2">
+                <Percent size={16} />
+                Discount (Optional)
+              </h3>
+              <div className="grid grid-cols-3 gap-2">
+                <select
+                  value={discountType}
+                  onChange={(e) => setDiscountType(e.target.value)}
+                  className="px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                >
+                  <option value="fixed">Fixed (₹)</option>
+                  <option value="percentage">Percentage (%)</option>
+                </select>
+                <input
+                  type="number"
+                  min="0"
+                  max={discountType === 'percentage' ? 100 : order.totalAmount}
+                  value={discount}
+                  onChange={(e) => setDiscount(parseFloat(e.target.value) || 0)}
+                  placeholder="0"
+                  className="col-span-2 px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                />
+              </div>
+            </div>
+
+            {/* Notes */}
+            <div>
+              <label className="block text-xs font-semibold text-gray-700 mb-1">
+                Payment Notes (Optional)
+              </label>
+              <textarea
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                placeholder="Add any payment notes..."
+                rows="2"
+                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
               />
             </div>
           </div>
 
-          <div className="mt-4">
-            <label className="block text-sm font-semibold text-gray-700 mb-2">
-              Payment Notes (Optional)
-            </label>
-            <textarea
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              placeholder="Add any payment notes..."
-              rows="2"
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-            />
-          </div>
-        </div>
+          {/* Payment Panel - Fixed, No Scroll */}
+          <div className="bg-white p-4 rounded-xl shadow-md border border-gray-100 flex flex-col overflow-hidden">
+            <h2 className="text-lg font-bold mb-3 text-gray-900">Payment Details</h2>
 
-        {/* Payment Panel */}
-        <div className="bg-white p-6 rounded-xl shadow-md border border-gray-100 h-fit sticky top-6">
-          <h2 className="text-xl font-bold mb-4 text-gray-900">Payment Method</h2>
-
-          <div className="space-y-3 mb-6">
-            {paymentMethods.map((method) => {
-              const Icon = method.icon;
-              const isSelected = paymentMethod === method.id;
-              return (
-                <label
-                  key={method.id}
-                  className={`flex items-center gap-3 p-4 rounded-lg border-2 cursor-pointer transition ${
-                    isSelected
-                      ? `border-${method.color}-500 bg-${method.color}-50`
-                      : 'border-gray-200 hover:border-gray-300'
-                  }`}
+            {/* Payment Method Dropdown */}
+            <div className="mb-4">
+              <label className="block text-xs font-semibold text-gray-700 mb-2">
+                Payment Method
+              </label>
+              <div className="relative">
+                <select
+                  value={paymentMethod}
+                  onChange={(e) => setPaymentMethod(e.target.value)}
+                  className="w-full px-4 py-3 text-sm border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 appearance-none bg-white font-semibold cursor-pointer"
                 >
-                  <input
-                    type="radio"
-                    name="paymentMethod"
-                    value={method.id}
-                    checked={isSelected}
-                    onChange={() => setPaymentMethod(method.id)}
-                    className="hidden"
-                  />
-                  <Icon
-                    className={isSelected ? `text-${method.color}-600` : 'text-gray-400'}
-                    size={24}
-                  />
-                  <span
-                    className={`font-semibold ${isSelected ? 'text-gray-900' : 'text-gray-700'}`}
-                  >
-                    {method.name}
-                  </span>
-                </label>
-              );
-            })}
-          </div>
-
-          <div className="bg-gray-50 rounded-lg p-4 space-y-3 mb-6">
-            <div className="flex justify-between text-sm">
-              <span className="text-gray-600">Subtotal:</span>
-              <span className="font-semibold text-gray-900">₹{order.totalAmount.toFixed(2)}</span>
+                  {paymentMethods.map((method) => (
+                    <option key={method.id} value={method.id}>
+                      {method.name}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none" size={20} />
+              </div>
             </div>
-            {discount > 0 && (
+
+            {/* Amount Breakdown */}
+            <div className="bg-gray-50 rounded-lg p-4 space-y-2 mb-4 flex-1">
               <div className="flex justify-between text-sm">
-                <span className="text-gray-600">Discount:</span>
-                <span className="font-semibold text-green-600">
-                  -₹{(discountType === 'percentage'
+                <span className="text-gray-600">Subtotal:</span>
+                <span className="font-semibold text-gray-900">₹{order.totalAmount.toFixed(2)}</span>
+              </div>
+              {discount > 0 && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-600">Discount:</span>
+                  <span className="font-semibold text-green-600">
+                    -₹{(discountType === 'percentage'
+                      ? (order.totalAmount * discount) / 100
+                      : parseFloat(discount)
+                    ).toFixed(2)}
+                    {discountType === 'percentage' && ` (${discount}%)`}
+                  </span>
+                </div>
+              )}
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-600">Tax (5%):</span>
+                <span className="font-semibold text-gray-900">
+                  ₹{((order.totalAmount - (discountType === 'percentage'
                     ? (order.totalAmount * discount) / 100
-                    : parseFloat(discount)
-                  ).toFixed(2)}
-                  {discountType === 'percentage' && ` (${discount}%)`}
+                    : parseFloat(discount) || 0)) * TAX_RATE).toFixed(2)}
                 </span>
               </div>
-            )}
-            <div className="border-t border-gray-200 pt-3 flex justify-between">
-              <span className="font-bold text-gray-900">Total Amount:</span>
-              <span className="font-bold text-2xl text-orange-600">
-                ₹{finalAmount.toFixed(2)}
-              </span>
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-600">Round Off:</span>
+                <span className="font-semibold text-gray-900">
+                  {(() => {
+                    const afterDiscount = order.totalAmount - (discountType === 'percentage'
+                      ? (order.totalAmount * discount) / 100
+                      : parseFloat(discount) || 0);
+                    const taxAmt = afterDiscount * TAX_RATE;
+                    const beforeRound = afterDiscount + taxAmt;
+                    const roundOff = Math.round(beforeRound) - beforeRound;
+                    return `${roundOff >= 0 ? '+' : ''}₹${roundOff.toFixed(2)}`;
+                  })()}
+                </span>
+              </div>
+              <div className="border-t border-gray-200 pt-2 flex justify-between">
+                <span className="font-bold text-gray-900">Total Amount:</span>
+                <span className="font-bold text-xl text-orange-600">
+                  ₹{finalAmount.toFixed(2)}
+                </span>
+              </div>
             </div>
+
+            {/* Process Button */}
+            <button
+              onClick={handleProcessPayment}
+              disabled={processing}
+              className="w-full bg-gradient-to-r from-green-500 to-green-600 text-white py-3 rounded-xl font-bold hover:from-green-600 hover:to-green-700 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg"
+            >
+              {processing ? (
+                <>
+                  <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-white"></div>
+                  Processing...
+                </>
+              ) : (
+                <>
+                  <CheckCircle size={20} />
+                  Process Payment ₹{finalAmount.toFixed(2)}
+                </>
+              )}
+            </button>
+
+            <p className="text-xs text-gray-500 text-center mt-2">
+              Payment will be recorded and table will be cleared
+            </p>
           </div>
-
-          <button
-            onClick={handleProcessPayment}
-            disabled={processing}
-            className="w-full bg-gradient-to-r from-green-500 to-green-600 text-white py-4 rounded-xl font-bold hover:from-green-600 hover:to-green-700 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg"
-          >
-            {processing ? (
-              <>
-                <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-white"></div>
-                Processing...
-              </>
-            ) : (
-              <>
-                <CheckCircle size={20} />
-                Process Payment ₹{finalAmount.toFixed(2)}
-              </>
-            )}
-          </button>
-
-          <p className="text-xs text-gray-500 text-center mt-4">
-            Payment will be recorded and table will be cleared
-          </p>
         </div>
       </div>
     </div>

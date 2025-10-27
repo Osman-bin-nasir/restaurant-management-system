@@ -41,13 +41,14 @@ const Dashboard = () => {
       setError(null);
 
       // Fetch multiple stats in parallel
-      const [ordersRes, tablesRes] = await Promise.all([
+      const [ordersRes, tablesRes, parcelRes] = await Promise.all([
         axios.get('/orders').catch(() => ({ data: { stats: null } })),
-        axios.get('/tables/stats').catch(() => ({ data: { stats: null } }))
+        axios.get('/tables/stats').catch(() => ({ data: { stats: null } })),
+        axios.get('/parcel').catch(() => ({ data: { stats: null } }))
       ]);
 
-      console.log('Orders Stats:', ordersRes.data);
-      console.log('Tables Stats:', tablesRes.data);
+      // console.log('Orders Stats:', ordersRes.data);
+      // console.log('Tables Stats:', tablesRes.data);
 
       // ✅ Calculate stats from your existing backend response
       const statsData = ordersRes.data?.stats || {};
@@ -55,16 +56,21 @@ const Dashboard = () => {
       // Total orders (all statuses)
       const totalOrders = statsData.total || 0;
 
-      // Revenue from PAID orders - use totalAmount from your backend
-      const totalRevenue = statsData.totalRevenue || 0;
       const paidOrdersCount = statsData.paid || 0;
-
+      // Get parcel stats
+      const parcelStats = parcelRes.data?.stats || {};
+      console.log(parcelStats)
+      
       // Count today's orders (you can add this to backend later)
-      const todayOrders = statsData.todayOrders || 0;
-
-
+      const todayOrders = (statsData.todayOrders || 0) + (parcelStats.todayOrders || 0);
+      
+      
       // Get table stats
       const tableStats = tablesRes.data?.stats || {};
+      
+      
+      // Revenue from PAID orders - use totalAmount from your backend
+      const totalRevenue = (statsData.totalRevenue || 0) + (parcelStats.totalRevenue || 0);
 
       setStats({
         totalOrders: totalOrders,
