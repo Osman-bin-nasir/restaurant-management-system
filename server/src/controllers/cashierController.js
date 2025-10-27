@@ -26,9 +26,11 @@ export const processPayment = asyncHandler(async (req, res) => {
     throw new CustomError("Order already paid", 400);
   }
 
-  // Allow payment for served or ready orders
-  if (!["served", "ready"].includes(order.status)) {
-    throw new CustomError("Order must be served or ready before payment", 400);
+  // Allow payment for served or ready orders (dine-in only)
+  if(order.type === 'dine-in') {
+    if (!["served", "ready"].includes(order.status)) {
+      throw new CustomError("Order must be served or ready before payment", 400);
+    }
   }
 
   // Validate discount
@@ -38,30 +40,40 @@ export const processPayment = asyncHandler(async (req, res) => {
 
   const finalAmount = order.totalAmount - discount;
 
-  // Mark all items as served if not already
-  order.items.forEach(item => {
-    if (item.status !== 'served') {
-      item.status = 'served';
-      item.servedTime = new Date();
-      item.statusHistory.push({
-        status: 'served',
-        timestamp: new Date(),
-        updatedBy: cashierId
-      });
-    }
-  });
+  // Mark all items as served if not already (only for dine-in)
+  if (order.type === 'dine-in') {
+    order.items.forEach(item => {
+      if (item.status !== 'served') {
+        item.status = 'served';
+        item.servedTime = new Date();
+        item.statusHistory.push({
+          status: 'served',
+          timestamp: new Date(),
+          updatedBy: cashierId
+        });
+      }
+    });
+  }
 
   // Update order payment details
-  order.status = "paid";
   order.cashierId = cashierId;
   order.payment = {
     method: paymentMethod,
     amount: finalAmount,
     originalAmount: order.totalAmount,
     discount: discount,
+    status: "paid", // ✅ Mark payment as paid for both types
     paidAt: new Date(),
     notes: notes || ""
   };
+
+  // ✅ KEY FIX: For parcel orders, keep status as 'pending' or current status
+  // so it shows in kitchen, but mark payment as paid
+  if(order.type === "dine-in") {
+    order.status = "paid";
+  } 
+  // For parcel orders, don't change the main status to "paid"
+  // Leave it as is (pending/preparing/ready) so kitchen can see it
 
   await order.save();
 
@@ -82,11 +94,10 @@ export const processPayment = asyncHandler(async (req, res) => {
 
   res.status(200).json({
     success: true,
-    message: "Payment processed successfully. Table has been freed.",
+    message: "Payment processed successfully" + (order.tableId ? ". Table has been freed." : ""),
     order: populatedOrder
   });
 });
-
 // ====================== GENERATE BILL (ENHANCED WITH AGGREGATION) ======================
 export const generateBill = asyncHandler(async (req, res) => {
   const { orderId } = req.params;

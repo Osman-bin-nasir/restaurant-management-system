@@ -70,7 +70,7 @@ export const createParcelOrder = asyncHandler(async (req, res) => {
     discountType: discountType || 'fixed',
     orderStatus: 'placed',
     payment: {
-      status: 'paid', // ✨ IMMEDIATE PAYMENT
+      status: 'paid', // IMMEDIATE PAYMENT
       method: paymentMethod,
       paidAt: new Date()
     },
