@@ -37,11 +37,27 @@ const RevenueDashboard = () => {
         startDate: dateRange.startDate,
         endDate: dateRange.endDate,
       };
-      const response = await api.get('/revenue/summary', {
-        headers: { Authorization: `Bearer ${user.token}` },
-        params,
-      });
-      setData(response.data);
+
+      const [summaryRes, parcelRes] = await Promise.all([
+        api.get('/revenue/summary', {
+          headers: { Authorization: `Bearer ${user.token}` },
+          params,
+        }),
+        api.get('/parcel', {
+          headers: { Authorization: `Bearer ${user.token}` },
+          params: { ...params, limit: 1 }, // We only need stats, so limit to 1
+        }),
+      ]);
+
+      const summaryData = summaryRes.data;
+      const parcelStats = parcelRes.data.stats;
+
+      if (summaryData && parcelStats) {
+        summaryData.kpis.totalRevenue = (summaryData.kpis.totalRevenue || 0) + (parcelStats.totalRevenue || 0);
+        summaryData.kpis.totalOrders = (summaryData.kpis.totalOrders || 0) + (parcelStats.total || 0);
+      }
+
+      setData(summaryData);
     } catch (err) {
       console.error('Error fetching revenue summary:', err);
       setError(err.response?.data?.message || 'Failed to fetch revenue data. Please try again.');
