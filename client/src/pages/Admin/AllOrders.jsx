@@ -35,6 +35,22 @@ const AllOrders = () => {
   const [showModal, setShowModal] = useState(false);
   const { user } = useAuth();
 
+  // ESC key handler for modal
+  useEffect(() => {
+    const handleEscKey = (event) => {
+      if (event.keyCode === 27 && showModal) {
+        setShowModal(false);
+        setSelectedOrder(null);
+      }
+    };
+
+    document.addEventListener('keydown', handleEscKey);
+    
+    return () => {
+      document.removeEventListener('keydown', handleEscKey);
+    };
+  }, [showModal]);
+
   const fetchOrders = useCallback(async (currentPage, isRefresh) => {
   if (currentPage === 1) setLoading(true);
   else setLoadingMore(true);
@@ -142,6 +158,36 @@ const AllOrders = () => {
     setShowModal(true);
   };
 
+  // Function to aggregate items by name and sum quantities
+  const aggregateItems = (items) => {
+    const aggregated = {};
+    
+    items.forEach(item => {
+      const itemName = item.menuItem?.name;
+      if (!itemName) return;
+      
+      if (aggregated[itemName]) {
+        aggregated[itemName].quantity += item.quantity;
+        aggregated[itemName].totalPrice += (item.menuItem?.price || 0) * item.quantity;
+      } else {
+        aggregated[itemName] = {
+          name: itemName,
+          quantity: item.quantity,
+          price: item.menuItem?.price || 0,
+          totalPrice: (item.menuItem?.price || 0) * item.quantity,
+          notes: item.notes
+        };
+      }
+    });
+    
+    return Object.values(aggregated);
+  };
+
+  const closeModal = () => {
+    setShowModal(false);
+    setSelectedOrder(null);
+  };
+
   const updateOrderStatus = async (orderId, newStatus) => {
     try {
       await api.patch(`/orders/${orderId}/all-items/status`, { newStatus }, { headers: { Authorization: `Bearer ${user.token}` } });
@@ -161,8 +207,7 @@ const AllOrders = () => {
     try {
       await api.patch(`/orders/${orderId}/cancel`, { reason: 'Cancelled by admin' }, { headers: { Authorization: `Bearer ${user.token}` } });
       await fetchOrders(1, true);
-      setShowModal(false);
-      setSelectedOrder(null);
+      closeModal();
     } catch (err) {
       alert(`Error: ${err.response?.data?.message || err.message}`);
     }
@@ -292,7 +337,6 @@ const AllOrders = () => {
           <table className="w-full">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
-                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Order #</th>
                 <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Customer</th>
                 <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Type</th>
                 <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Table</th>
@@ -301,23 +345,24 @@ const AllOrders = () => {
                 <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Amount</th>
                 <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Status</th>
                 <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Time</th>
-                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Actions</th>
+                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Order #</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-100">
               {orders.length === 0 && !loading ? (
                 <tr>
-                  <td colSpan="10" className="px-6 py-12 text-center text-gray-500">
+                  <td colSpan="9" className="px-6 py-12 text-center text-gray-500">
                     <Search className="w-12 h-12 mx-auto text-gray-300" />
                     <p className="text-lg mt-2">No orders found</p>
                   </td>
                 </tr>
               ) : (
                 orders.map((order) => (
-                  <tr key={order._id} className="hover:bg-gray-50 transition">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="font-mono text-sm font-semibold text-gray-900">{order.orderNumber}</span>
-                    </td>
+                  <tr 
+                    key={order._id} 
+                    className="hover:bg-gray-50 transition cursor-pointer"
+                    onClick={() => viewOrderDetails(order)}
+                  >
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className="text-sm font-medium text-gray-900">{order.customerName}</span>
                     </td>
@@ -342,10 +387,8 @@ const AllOrders = () => {
                       </div>
                       <div className="text-xs text-gray-500 mt-0.5">{new Date(order.createdAt).toLocaleDateString('en-IN')}</div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm">
-                      <button onClick={() => viewOrderDetails(order)} className="text-orange-600 hover:text-orange-700 font-semibold flex items-center gap-1 transition">
-                        <Eye className="w-4 h-4" />View
-                      </button>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className="font-mono text-sm font-semibold text-gray-900">{order.orderNumber}</span>
                     </td>
                   </tr>
                 ))
@@ -374,7 +417,7 @@ const AllOrders = () => {
             <div className="p-6 border-b border-gray-200 flex items-center justify-between sticky top-0 bg-white rounded-t-xl">
               <h2 className="text-2xl font-bold text-gray-900">Order Details</h2>
               <button
-                onClick={() => { setShowModal(false); setSelectedOrder(null); }}
+                onClick={closeModal}
                 className="text-gray-400 hover:text-gray-600 transition"
               >
                 <XCircle className="w-6 h-6" />
@@ -420,19 +463,19 @@ const AllOrders = () => {
                 </div>
               </div>
 
-              {/* Order Items */}
+              {/* Order Items - Aggregated */}
               <div>
                 <h3 className="text-lg font-bold mb-3 text-gray-900">Order Items</h3>
                 <div className="space-y-2">
-                  {selectedOrder.items?.map((item, index) => (
+                  {aggregateItems(selectedOrder.items || []).map((item, index) => (
                     <div key={index} className="flex justify-between items-center p-4 bg-gray-50 rounded-lg border border-gray-100">
                       <div className="flex-1">
-                        <p className="font-semibold text-gray-900">{item.menuItem?.name}</p>
+                        <p className="font-semibold text-gray-900">{item.name} × {item.quantity}</p>
                         {item.notes && <p className="text-sm text-gray-600 mt-1">Note: {item.notes}</p>}
                       </div>
                       <div className="text-right">
-                        <p className="text-sm text-gray-600">Qty: {item.quantity}</p>
-                        <p className="font-bold text-gray-900">₹{(((item.menuItem?.price ?? 0) * item.quantity)).toFixed(2)}</p>
+                        <p className="text-sm text-gray-600">₹{item.price.toFixed(2)} each</p>
+                        <p className="font-bold text-gray-900">₹{item.totalPrice.toFixed(2)}</p>
                       </div>
                     </div>
                   ))}

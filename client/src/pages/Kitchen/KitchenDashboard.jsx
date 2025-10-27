@@ -181,7 +181,7 @@ const KitchenDashboard = () => {
   const handleMarkReady = async (orderId, itemIds, isParcel = false) => {
     try {
       if (isParcel) {
-        await axios.patch(`/parcel/${orderId}/items/ready`, {
+        await axios.patch(`/parcel/${orderId}/complete`, {
           orderId,
           itemIds
         });

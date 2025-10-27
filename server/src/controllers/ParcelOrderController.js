@@ -155,6 +155,12 @@ export const getAllParcelOrders = asyncHandler(async (req, res) => {
   const stats = statsAggr[0] || { total: 0, placed: 0, inKitchen: 0, ready: 0, served: 0, todayOrders: 0, paid: 0, totalRevenue: 0 };
 
   res.status(200).json({
+    success: true,
+    count: orders.length,
+    total,
+    totalPages: Math.ceil(total / limit),
+    currentPage: parseInt(page),
+    orders,
     stats
   });
 });
@@ -260,9 +266,9 @@ export const markOrderCompleted = asyncHandler(async (req, res) => {
   const order = await ParcelOrder.findById(orderId);
   if (!order) throw new CustomError("Order not found", 404);
 
-  if (order.orderStatus !== 'ready') {
-    throw new CustomError("Order must be ready before completion", 400);
-  }
+  // if (order.orderStatus !== 'ready') {
+  //   throw new CustomError("Order must be ready before completion", 400);
+  // }
 
   // Mark all items as completed
   order.items.forEach(item => {
