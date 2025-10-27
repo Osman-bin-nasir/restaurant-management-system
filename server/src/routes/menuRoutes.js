@@ -6,7 +6,7 @@ import {
   updateMenuItem,
   deleteMenuItem
 } from "../controllers/menuController.js";
-
+import upload from '../config/multer.js'
 import userAuth from "../middleware/userAuth.js";
 import { authorizePermissions } from "../middleware/authorize.js";
 
@@ -17,8 +17,8 @@ router.get("/", getAllMenuItems);
 router.get("/:id", getMenuById);
 
 // Protected admin/staff routes
-router.post("/", userAuth, authorizePermissions("menu:create"), createMenuItem);
-router.patch("/:id", userAuth, authorizePermissions("menu:update"), updateMenuItem);
+router.post("/", userAuth, authorizePermissions("menu:create"), upload.single("image"), createMenuItem);
+router.patch("/:id", userAuth, authorizePermissions("menu:update"), upload.single("image"), updateMenuItem);
 router.delete("/:id", userAuth, authorizePermissions("menu:delete"), deleteMenuItem);
 
 export default router;

@@ -5,8 +5,23 @@ export const createMenuItem = async (req, res, next) => {
   try {
     const { name, category, price, description, branchId } = req.body;
 
-    const newItem = await Menu.create({ name, category, price, description, branchId });
-    res.status(201).json({ success: true, message: "Menu item created", data: newItem });
+    // Cloudinary upload result automatically attached by multer
+    const imageUrl = req.file ? req.file.path : null;
+
+    const newItem = await Menu.create({
+      name,
+      category,
+      price,
+      description,
+      branchId,
+      image: imageUrl, // add this field in your model if not present
+    });
+
+    res.status(201).json({
+      success: true,
+      message: "Menu item created",
+      data: newItem,
+    });
   } catch (error) {
     next(error);
   }
@@ -33,8 +48,18 @@ export const getMenuById = async (req, res, next) => {
 
 export const updateMenuItem = async (req, res, next) => {
   try {
-    const menu = await Menu.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    const { name, category, price, description, branchId } = req.body;
+
+    const updateData = { name, category, price, description, branchId };
+
+    if (req.file) {
+      updateData.image = req.file.path; // new image uploaded
+    }
+
+    const menu = await Menu.findByIdAndUpdate(req.params.id, updateData, { new: true });
+
     if (!menu) return next(new CustomError("Menu item not found", 404));
+
     res.json({ success: true, message: "Menu updated", data: menu });
   } catch (error) {
     next(error);
