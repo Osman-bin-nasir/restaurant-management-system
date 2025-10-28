@@ -53,6 +53,7 @@ import TableOrders from '../pages/Waiter/TableOrders.jsx';
 import MyOrders from '../pages/Waiter/MyOrders.jsx';
 import CreateOrder from '../pages/Waiter/CreateOrder.jsx';
 import WaiterTableDetails from '../pages/Waiter/WaiterTableDetails.jsx';
+import ParcelBilling from '../pages/Cashier/ParcelBilling.jsx';
 
 const AppRouter = () => {
   const { user } = useAuth();
@@ -141,6 +142,7 @@ const AppRouter = () => {
           >
             <Route path="dashboard" element={<CashierDashboard />} />
             <Route path="billing" element={<Billing />} />
+            <Route path="parcel-billing" element={<ParcelBilling />} />
             <Route path="pending-bills" element={<PendingBills />} />
             <Route path="daily-summary" element={<DailySummary />} />
             <Route path="create-order" element={<CashierCreateOrder />} />

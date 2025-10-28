@@ -59,7 +59,7 @@ router.patch(
 router.patch(
   "/:orderId/complete",
   userAuth,
-  authorizePermissions("billing:process"),
+  authorizePermissions("kitchen:update"),
   markOrderCompleted
 );
 
