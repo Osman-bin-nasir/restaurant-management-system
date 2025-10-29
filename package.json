@@ -14,6 +14,10 @@
     },
     "dependencies": {
         "date-fns": "^4.1.0",
-        "recharts": "^3.3.0"
+        "express-mongo-sanitize": "^2.2.0",
+        "express-rate-limit": "^8.1.0",
+        "helmet": "^8.1.0",
+        "recharts": "^3.3.0",
+        "xss-clean": "^0.1.4"
     }
 }
