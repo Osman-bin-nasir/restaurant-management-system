@@ -6,7 +6,7 @@ const storage = new CloudinaryStorage({
   cloudinary,
   params: {
     folder: 'restaurant-menu', // folder name in Cloudinary
-    allowed_formats: ['jpg', 'jpeg', 'png', 'webp'],
+    allowed_formats: ['jpg', 'jpeg', 'png', 'webp', 'avif'],
   },
 });
 

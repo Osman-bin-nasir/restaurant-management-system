@@ -391,7 +391,7 @@ const Billing = () => {
             </div>
 
             {/* Discount Section */}
-            <div className="border-t border-gray-200 pt-3 mb-3">
+            {/* <div className="border-t border-gray-200 pt-3 mb-3">
               <h3 className="font-bold mb-2 text-gray-900 text-sm flex items-center gap-2">
                 <Percent size={16} />
                 Discount (Optional)
@@ -415,7 +415,7 @@ const Billing = () => {
                   className="col-span-2 px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
                 />
               </div>
-            </div>
+            </div> */}
 
             {/* Notes */}
             <div>
@@ -463,7 +463,7 @@ const Billing = () => {
                 <span className="text-gray-600">Subtotal:</span>
                 <span className="font-semibold text-gray-900">₹{order.totalAmount.toFixed(2)}</span>
               </div>
-              {discount > 0 && (
+              {/* {discount > 0 && (
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-600">Discount:</span>
                   <span className="font-semibold text-green-600">
@@ -474,7 +474,7 @@ const Billing = () => {
                     {discountType === 'percentage' && ` (${discount}%)`}
                   </span>
                 </div>
-              )}
+              )} */}
               <div className="flex justify-between text-sm">
                 <span className="text-gray-600">Tax (5%):</span>
                 <span className="font-semibold text-gray-900">

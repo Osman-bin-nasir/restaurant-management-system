@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Table2, Users, CheckCircle, Clock, ShoppingBag, ArrowLeft, Plus, Minus, X, Trash2 } from 'lucide-react';
+import { Table2, Users, CheckCircle, Clock, ShoppingBag, ArrowLeft, Plus, Minus, X, Trash2, Search } from 'lucide-react';
 import axios from '../../api/axios';
 import { getStatusBadge } from '../Admin/TableManagement.jsx';
 import toast, { Toaster } from 'react-hot-toast';
@@ -16,6 +16,20 @@ const WaiterTableDetails = () => {
   const [showOrderModal, setShowOrderModal] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [searchTerm, setSearchTerm] = useState('');
+
+  // Add ESC key handler
+  useEffect(() => {
+    const handleEsc = (event) => {
+      if (event.keyCode === 27 && showOrderModal) {
+        setShowOrderModal(false);
+      }
+    };
+    window.addEventListener('keydown', handleEsc);
+    return () => {
+      window.removeEventListener('keydown', handleEsc);
+    };
+  }, [showOrderModal]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -58,6 +72,11 @@ const WaiterTableDetails = () => {
 
     fetchData();
   }, [id]);
+
+  // Filter menu items based on search term
+  const filteredMenuItems = menuItems.filter(item =>
+    item.name.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   const handleOpenModal = () => {
     if (currentOrder) {
@@ -165,15 +184,15 @@ const WaiterTableDetails = () => {
       ),
       {
         position: 'top-center',
-        duration: Infinity, // Stay until dismissed
+        duration: Infinity,
         style: {
-          background: 'transparent', // Remove default toast background
-          boxShadow: 'none', // Remove default shadow (handled by toast content)
-          padding: 0, // Remove default padding
-          margin: 'auto', // Center horizontally
-          top: '50%', // Center vertically
-          transform: 'translateY(-50%)', // Adjust for vertical centering
-          maxWidth: '90vw', // Responsive width
+          background: 'transparent',
+          boxShadow: 'none',
+          padding: 0,
+          margin: 'auto',
+          top: '50%',
+          transform: 'translateY(-50%)',
+          maxWidth: '90vw',
         },
       }
     );
@@ -477,77 +496,83 @@ const WaiterTableDetails = () => {
 
       {showOrderModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-5xl max-h-[90vh] overflow-hidden flex flex-col">
-            <div className="bg-gradient-to-r from-orange-500 to-orange-600 text-white p-6 flex items-center justify-between">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-[95vw] h-[95vh] overflow-hidden flex flex-col">
+            {/* Header - Reduced height */}
+            <div className="bg-gradient-to-r from-orange-500 to-orange-600 text-white p-4 flex items-center justify-between">
               <div>
-                <h2 className="text-2xl font-bold mb-1">
+                <h2 className="text-xl font-bold mb-1">
                   {currentOrder ? `Add Items to Order ${currentOrder.orderNumber}` : 'Create Order'} - Table {table.tableNumber}
                 </h2>
-                <p className="text-white/90 text-sm">Capacity: {table.capacity} persons</p>
+                <p className="text-white/90 text-xs">Capacity: {table.capacity} persons</p>
               </div>
               <button
                 onClick={() => setShowOrderModal(false)}
                 className="bg-white/20 hover:bg-white/30 p-2 rounded-xl transition"
               >
-                <X size={24} />
+                <X size={20} />
               </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto flex">
-              <div className="flex-1 p-6 bg-gray-50">
-                <h3 className="text-lg font-bold text-gray-900 mb-4">Select Items</h3>
-                <div className="grid grid-cols-2 gap-4">
-                  {menuItems.map((item) => {
-                    const inCart = cart.find((c) => c._id === item._id);
-                    return (
-                      <div
-                        key={item._id}
-                        className="bg-white rounded-2xl shadow-md overflow-hidden hover:shadow-xl transition group"
-                      >
-                        <div className="relative h-32 overflow-hidden bg-gray-200">
-                          <img
-                            src={item.image}
-                            alt={item.name}
-                            className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
-                          />
-                          <div className="absolute top-2 right-2 bg-orange-500 text-white px-3 py-1 rounded-full text-sm font-bold shadow-lg">
-                            ₹{item.price}
-                          </div>
-                        </div>
-                        <div className="p-4">
-                          <h4 className="font-bold text-gray-900 mb-2">{item.name}</h4>
-                          {inCart ? (
-                            <div className="flex items-center justify-between bg-orange-50 rounded-lg p-2">
-                              <button
-                                onClick={() => updateQuantity(item._id, inCart.quantity - 1)}
-                                className="w-8 h-8 bg-orange-500 text-white rounded-lg flex items-center justify-center hover:bg-orange-600 transition"
-                              >
-                                <Minus size={16} />
-                              </button>
-                              <span className="font-bold text-gray-900 text-lg">{inCart.quantity}</span>
-                              <button
-                                onClick={() => updateQuantity(item._id, inCart.quantity + 1)}
-                                className="w-8 h-8 bg-orange-500 text-white rounded-lg flex items-center justify-center hover:bg-orange-600 transition"
-                              >
-                                <Plus size={16} />
-                              </button>
+            {/* Main Content */}
+            <div className="flex-1 flex overflow-hidden">
+              {/* Menu Items - Left Side */}
+              <div className="flex-1 p-6 bg-gray-50 overflow-y-auto">
+                <div className="flex items-center justify-between mb-6">
+                  <h3 className="text-lg font-bold text-gray-900">Select Items</h3>
+                  <div className="relative w-64">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
+                    <input
+                      type="text"
+                      placeholder="Search menu items..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition"
+                    />
+                  </div>
+                </div>
+                
+                <div className="grid grid-cols-4 gap-4">
+                  {filteredMenuItems.length === 0 ? (
+                    <div className="col-span-4 text-center py-12">
+                      <p className="text-gray-500 text-lg">No items found</p>
+                      <p className="text-gray-400 text-sm mt-2">
+                        {searchTerm ? `No items matching "${searchTerm}"` : 'No menu items available'}
+                      </p>
+                    </div>
+                  ) : (
+                    filteredMenuItems.map((item) => {
+                      const inCart = cart.find((c) => c._id === item._id);
+                      return (
+                        <div
+                          key={item._id}
+                          className="bg-white rounded-2xl shadow-md p-6 hover:shadow-xl transition cursor-pointer relative group border-2 border-gray-200 hover:border-orange-500"
+                          onClick={() => addToCart(item)}
+                        >
+                          {/* Quantity Badge */}
+                          {inCart && (
+                            <div className="absolute -top-2 -right-2 bg-orange-500 text-white rounded-full w-8 h-8 flex items-center justify-center text-sm font-bold shadow-lg">
+                              {inCart.quantity}
                             </div>
-                          ) : (
-                            <button
-                              onClick={() => addToCart(item)}
-                              className="w-full bg-orange-500 text-white py-2 rounded-lg font-semibold hover:bg-orange-600 transition flex items-center justify-center gap-2"
-                            >
-                              <Plus size={16} />
-                              Add
-                            </button>
                           )}
+                          
+                          {/* Item Name */}
+                          <h4 className="font-bold text-gray-900 text-center text-lg mb-2">{item.name}</h4>
+                          
+                          {/* Price */}
+                          <div className="text-center">
+                            <span className="text-orange-600 font-bold text-lg">₹{item.price}</span>
+                          </div>
+                          
+                          {/* Hover Effect Indicator */}
+                          <div className="absolute inset-0 rounded-2xl border-2 border-transparent group-hover:border-orange-500 transition-all duration-200 pointer-events-none" />
                         </div>
-                      </div>
-                    );
-                  })}
+                      );
+                    })
+                  )}
                 </div>
               </div>
 
+              {/* Cart - Right Fixed Side */}
               <div className="w-96 bg-white border-l border-gray-200 flex flex-col">
                 <div className="p-6 border-b border-gray-200">
                   <h3 className="text-lg font-bold text-gray-900 mb-4">
@@ -563,6 +588,7 @@ const WaiterTableDetails = () => {
                   />
                 </div>
 
+                {/* Cart Items - Scrollable */}
                 <div className="flex-1 overflow-y-auto p-6 space-y-3">
                   {cart.length === 0 ? (
                     <div className="text-center py-12">
@@ -584,18 +610,45 @@ const WaiterTableDetails = () => {
                             ₹{(item.price * item.quantity).toFixed(2)}
                           </span>
                         </div>
-                        <button
-                          onClick={() => updateQuantity(item._id, 0)}
-                          className="text-red-500 hover:text-red-600 text-xs font-semibold flex items-center gap-1"
-                        >
-                          <Trash2 size={12} />
-                          Remove
-                        </button>
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                updateQuantity(item._id, item.quantity - 1);
+                              }}
+                              className="w-6 h-6 bg-gray-300 text-gray-700 rounded flex items-center justify-center hover:bg-gray-400 transition"
+                            >
+                              <Minus size={12} />
+                            </button>
+                            <span className="font-semibold text-gray-900 mx-2">{item.quantity}</span>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                updateQuantity(item._id, item.quantity + 1);
+                              }}
+                              className="w-6 h-6 bg-orange-500 text-white rounded flex items-center justify-center hover:bg-orange-600 transition"
+                            >
+                              <Plus size={12} />
+                            </button>
+                          </div>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              updateQuantity(item._id, 0);
+                            }}
+                            className="text-red-500 hover:text-red-600 text-xs font-semibold flex items-center gap-1"
+                          >
+                            <Trash2 size={12} />
+                            Remove
+                          </button>
+                        </div>
                       </div>
                     ))
                   )}
                 </div>
 
+                {/* Cart Footer */}
                 <div className="p-6 border-t border-gray-200 bg-gray-50">
                   <div className="flex items-center justify-between text-lg font-bold mb-4">
                     <span className="text-gray-900">{currentOrder ? 'New Items Total:' : 'Total:'}</span>

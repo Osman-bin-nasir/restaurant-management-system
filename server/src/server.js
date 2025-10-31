@@ -1,9 +1,5 @@
 import express from 'express';
 import connectDB from './config/db.js';
-import helmet from 'helmet';
-import rateLimit from 'express-rate-limit';
-import mongoSanitize from 'express-mongo-sanitize';
-import xss from 'xss-clean';
 import 'dotenv/config'
 import cookieParser from 'cookie-parser';
 import cors from 'cors';
@@ -40,21 +36,11 @@ const app = express();
 connectDB();
 
 const allowedOrigins = ['http://localhost:5173']
-
-app.use(helmet());
-app.use(mongoSanitize());
-app.use(xss());
-
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100 // limit each IP to 100 requests per windowMs
-});
-app.use('/api/', limiter);
+app.use(cors({origin: allowedOrigins, credentials: true}))
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
-app.use(cors({origin: allowedOrigins, credentials: true}))
 
 // Error Handler
 

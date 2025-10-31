@@ -14,7 +14,7 @@ export const createMenuItem = async (req, res, next) => {
       price,
       description,
       branchId,
-      image: imageUrl, // add this field in your model if not present
+      image: imageUrl,
     });
 
     res.status(201).json({
