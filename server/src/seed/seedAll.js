@@ -1,7 +1,6 @@
 import mongoose from 'mongoose';
 import dotenv from 'dotenv';
 import bcrypt from 'bcryptjs';
-
 // Models
 import Role from '../models/Role.js';
 import Permission from '../models/Permissions.js';
@@ -10,29 +9,24 @@ import User from '../models/User.js';
 import MenuItem from '../models/MenuItem.js';
 import Table from '../models/Table.js';
 import Order from '../models/Order.js';
+import ParcelOrder from '../models/ParcelOrder.js';
 import Revenue from '../models/Revenue.js';
 import Expense from '../models/Expense.js';
-
 dotenv.config({ path: './server/.env' });
 
 /**
  * =================================================================
- * 🎯 COMPREHENSIVE RESTAURANT SEED SCRIPT
+ * 🎯 PROFIT-OPTIMIZED RESTAURANT SEED SCRIPT
  * =================================================================
- * Creates complete restaurant data including:
- * - Permissions, Roles, Users, Branches
- * - Menu Items, Tables
- * - Exactly 50 historical orders (30 dine-in, 20 parcel) with realistic patterns
- * - Expenses with recurring and one-off costs
- * - Revenue analytics data
+ * Creates complete restaurant data with guaranteed profitability:
+ * - Increased order volume (8-12 orders per day instead of 3)
+ * - Optimized expense structure
+ * - Balanced revenue vs costs
  * =================================================================
  */
 
 // --- REVENUE SEED CONFIGURATION ---
-const DAYS_TO_SEED = 90;
-const TOTAL_ORDERS = 50;
-const DINE_IN_ORDERS = 30;
-const PARCEL_ORDERS = 20;
+const DAYS_TO_SEED = 92; // Aug 1 to Oct 31, 2025
 const BATCH_SIZE = 200;
 
 const seedAll = async () => {
@@ -50,6 +44,7 @@ const seedAll = async () => {
       MenuItem.deleteMany({}),
       Table.deleteMany({}),
       Order.deleteMany({}),
+      ParcelOrder.deleteMany({}),
       Revenue.deleteMany({}),
       Expense.deleteMany({})
     ]);
@@ -63,63 +58,63 @@ const seedAll = async () => {
       { name: 'users:create', description: 'Create new users' },
       { name: 'users:update', description: 'Update user details' },
       { name: 'users:delete', description: 'Delete users' },
-      
+     
       // Roles & Permissions
       { name: 'permissions:view', description: 'View roles & permissions' },
       { name: 'permissions:create', description: 'Create roles & permissions' },
       { name: 'permissions:update', description: 'Update roles & permissions' },
       { name: 'permissions:delete', description: 'Delete roles & permissions' },
-      
+     
       // Branches
       { name: 'branches:view', description: 'View branches' },
       { name: 'branches:create', description: 'Create branches' },
       { name: 'branches:update', description: 'Update branches' },
       { name: 'branches:delete', description: 'Delete branches' },
-      
+     
       // Orders
       { name: 'orders:view', description: 'View orders' },
       { name: 'orders:create', description: 'Create orders' },
       { name: 'orders:update', description: 'Update order status' },
       { name: 'orders:delete', description: 'Delete/cancel orders' },
-      
+     
       // Menu
       { name: 'menu:view', description: 'View menu items' },
       { name: 'menu:create', description: 'Add menu items' },
       { name: 'menu:update', description: 'Update menu items' },
       { name: 'menu:delete', description: 'Delete menu items' },
-      
+     
       // Inventory
       { name: 'inventory:view', description: 'View inventory' },
       { name: 'inventory:create', description: 'Add inventory items' },
       { name: 'inventory:update', description: 'Update inventory' },
       { name: 'inventory:delete', description: 'Delete inventory items' },
-      
+     
       // Tables
       { name: 'tables:view', description: 'View table status' },
       { name: 'tables:create', description: 'Create tables' },
       { name: 'tables:update', description: 'Update table status' },
       { name: 'tables:manage', description: 'Merge/split tables' },
-      
+     
       // Billing
       { name: 'billing:view', description: 'View bills' },
       { name: 'billing:create', description: 'Generate bills' },
       { name: 'billing:process', description: 'Process payments' },
       { name: 'billing:discount', description: 'Apply discounts' },
-      
+     
       // Reports
       { name: 'reports:view', description: 'View reports' },
       { name: 'reports:generate', description: 'Generate reports' },
       { name: 'reports:export', description: 'Export reports' },
-      
+     
       // Kitchen
       { name: 'kitchen:view', description: 'View kitchen orders' },
       { name: 'kitchen:update', description: 'Update order cooking status' },
-      
+     
       // Expenses
       { name: 'expenses:view', description: 'View expenses' },
       { name: 'expenses:create', description: 'Add expenses' },
       { name: 'expenses:approve', description: 'Approve expenses' },
-      
+     
       // Attendance
       { name: 'attendance:view', description: 'View attendance' },
       { name: 'attendance:mark', description: 'Mark attendance' }
@@ -216,7 +211,7 @@ const seedAll = async () => {
     // ==================== 4. CREATE USERS ====================
     console.log('👤 Creating users...');
     const hashedPassword = await bcrypt.hash('123456', 10);
-    
+   
     const users = [
       {
         name: 'Super Admin',
@@ -350,7 +345,7 @@ const seedAll = async () => {
         ingredients: ['Flour', 'Butter', 'Yeast'],
         branchId: mainBranch._id
       },
-      
+     
       // Meals
       {
         name: 'Chicken Biryani',
@@ -374,7 +369,7 @@ const seedAll = async () => {
         ingredients: ['Chicken', 'Butter', 'Cream', 'Tomato', 'Spices'],
         branchId: mainBranch._id
       },
-      
+     
       // Vegan
       {
         name: 'Paneer Butter Masala',
@@ -387,18 +382,7 @@ const seedAll = async () => {
         ingredients: ['Paneer', 'Tomato', 'Cream', 'Butter', 'Spices'],
         branchId: mainBranch._id
       },
-      {
-        name: 'Dal Makhani',
-        category: 'Vegan',
-        price: 249,
-        description: 'Creamy black lentils slow-cooked overnight',
-        image: 'https://images.unsplash.com/photo-1626500154744-456578634906?ixlib=rb-4.0.3',
-        cookingTime: 15,
-        availability: true,
-        ingredients: ['Black Lentils', 'Butter', 'Cream', 'Spices'],
-        branchId: mainBranch._id
-      },
-      
+     
       // Drinks
       {
         name: 'Mango Lassi',
@@ -444,7 +428,7 @@ const seedAll = async () => {
         ingredients: ['Tea', 'Milk', 'Spices', 'Sugar'],
         branchId: mainBranch._id
       },
-      
+     
       // Desserts
       {
         name: 'Ice Cream Sundae',
@@ -456,17 +440,6 @@ const seedAll = async () => {
         availability: true,
         ingredients: ['Ice Cream', 'Chocolate Sauce', 'Nuts'],
         branchId: mainBranch._id
-      },
-      {
-        name: 'Cake',
-        category: 'Dessert',
-        price: 599,
-        description: 'Delicious cake',
-        image: 'https://images.unsplash.com/photo-1621303837174-89787a7d4729?w=500',
-        cookingTime: 10,
-        availability: true,
-        ingredients: ['Flour', 'Sugar'],
-        branchId: mainBranch._id
       }
     ];
 
@@ -476,7 +449,7 @@ const seedAll = async () => {
     // ==================== 6. CREATE TABLES ====================
     console.log('🪑 Creating tables...');
     const tables = [];
-    
+   
     for (let i = 1; i <= 8; i++) {
       tables.push({
         tableNumber: i,
@@ -487,7 +460,7 @@ const seedAll = async () => {
         mergedWith: []
       });
     }
-    
+   
     for (let i = 9; i <= 16; i++) {
       tables.push({
         tableNumber: i,
@@ -498,7 +471,7 @@ const seedAll = async () => {
         mergedWith: []
       });
     }
-    
+   
     for (let i = 17; i <= 20; i++) {
       tables.push({
         tableNumber: i,
@@ -509,7 +482,7 @@ const seedAll = async () => {
         mergedWith: []
       });
     }
-    
+   
     for (let i = 21; i <= 22; i++) {
       tables.push({
         tableNumber: i,
@@ -525,16 +498,13 @@ const seedAll = async () => {
     console.log(`✅ Created ${createdTables.length} tables\n`);
 
     // ==================== 7. GENERATE HISTORICAL ORDERS & EXPENSES ====================
-    console.log(`📊 Generating ${TOTAL_ORDERS} historical orders (30 dine-in, 20 parcel)...`);
+    console.log(`📊 Generating historical orders from August 1, 2025 to October 31, 2025...`);
     console.log('⏳ This may take a moment...');
 
-    const today = new Date();
-    const startDate = new Date();
-    startDate.setDate(today.getDate() - DAYS_TO_SEED);
-
-    const orders = [];
-    let dineInCount = 0;
-    let parcelCount = 0;
+    const today = new Date('2025-11-01');
+    const startDate = new Date('2025-08-01');
+    const dineInOrders = [];
+    const parcelOrders = [];
     let orderCounter = 1;
 
     // Helper functions
@@ -554,57 +524,49 @@ const seedAll = async () => {
       return 'cash';
     };
 
-    // Weighted menu items
+    // Weighted menu items (higher probability for higher-priced items)
     const popularMenuItems = createdMenuItems.flatMap(item => {
-      const weight = item.category === 'Meal' ? 3 : item.category === 'Snack' ? 2 : 1;
+      let weight = 1;
+      if (item.price > 300) weight = 4; // High-priced items (meals)
+      else if (item.price > 200) weight = 3; // Medium-priced items
+      else if (item.price > 100) weight = 2; // Lower-priced items
       return Array(weight).fill(item);
     });
 
-    // Distribute orders across days
-    const ordersPerDay = Math.ceil(TOTAL_ORDERS / DAYS_TO_SEED);
-    let remainingDineIn = DINE_IN_ORDERS;
-    let remainingParcel = PARCEL_ORDERS;
+    // Customer data for parcel
+    const customerNames = ['Amit Kumar', 'Priya Sharma', 'Rohan Verma', 'Deepak Patel', 'Neha Singh', 'Rajesh Gupta', 'Sonia Mehra', 'Vikram Joshi'];
+    const getRandomCustomerName = () => getRandomItem(customerNames);
+    const getRandomPhone = () => '+91-' + (Math.floor(Math.random() * 9000000000) + 1000000000).toString();
 
-    for (let d = 0; d < DAYS_TO_SEED && orders.length < TOTAL_ORDERS; d++) {
+    // Generate orders: 6-8 dine-in + 2-4 parcel per day (8-12 total orders per day)
+    for (let d = 0; d < DAYS_TO_SEED; d++) {
       const currentDate = new Date(startDate);
       currentDate.setDate(currentDate.getDate() + d);
+      
+      const isWeekend = currentDate.getDay() === 0 || currentDate.getDay() === 6;
+      
+      // More orders on weekends
+      const dineInOrdersPerDay = isWeekend ? getRandomInt(8, 12) : getRandomInt(6, 9);
+      const parcelOrdersPerDay = isWeekend ? getRandomInt(3, 5) : getRandomInt(2, 4);
+      
+      const totalOrdersPerDay = dineInOrdersPerDay + parcelOrdersPerDay;
 
-      // Calculate how many orders to create on this day
-      let dayOrders = Math.min(ordersPerDay, TOTAL_ORDERS - orders.length);
-      let dayDineIn = 0;
-      let dayParcel = 0;
+      if (d % 15 === 0) console.log(`📅 Processing Day ${d + 1}/${DAYS_TO_SEED}... (${totalOrdersPerDay} orders)`);
 
-      // Prioritize fulfilling the dine-in and parcel quotas
-      if (remainingDineIn > 0 || remainingParcel > 0) {
-        while (dayOrders > 0 && (remainingDineIn > 0 || remainingParcel > 0)) {
-          if (remainingDineIn > 0 && (remainingParcel === 0 || Math.random() < 0.6)) {
-            // 60% chance to prioritize dine-in if both are available
-            dayDineIn++;
-            remainingDineIn--;
-            dayOrders--;
-          } else if (remainingParcel > 0) {
-            dayParcel++;
-            remainingParcel--;
-            dayOrders--;
-          }
-        }
-      }
-
-      if (d % 10 === 0) console.log(`📅 Processing Day ${d + 1}/${DAYS_TO_SEED}... (${dayDineIn + dayParcel} orders)`);
-
-      // Generate orders for the day
-      for (let i = 0; i < dayDineIn + dayParcel; i++) {
-        const isDineIn = i < dayDineIn;
-        const hour = Math.random() < 0.5 ? getRandomInt(12, 15) : getRandomInt(18, 22);
+      // Generate dine-in orders
+      for (let i = 0; i < dineInOrdersPerDay; i++) {
+        const hour = Math.random() < 0.6 ? getRandomInt(12, 15) : getRandomInt(18, 22);
         const minute = getRandomInt(0, 59);
         const orderDate = new Date(currentDate);
         orderDate.setHours(hour, minute);
 
-        const numItems = getRandomInt(1, 5);
+        // More items per order (2-6 items)
+        const numItems = getRandomInt(2, 6);
         let totalAmount = 0;
+        
         const orderItems = Array.from({ length: numItems }, () => {
           const menuItem = getRandomItem(popularMenuItems);
-          const quantity = getRandomInt(1, 2);
+          const quantity = getRandomInt(1, 3); // Higher quantities
           totalAmount += menuItem.price * quantity;
           return {
             menuItem: menuItem._id,
@@ -618,14 +580,15 @@ const seedAll = async () => {
           };
         });
 
-        const hasDiscount = Math.random() < 0.2;
-        const discount = hasDiscount ? totalAmount * getRandomFloat(0.05, 0.15) : 0;
+        // Less frequent discounts (10% chance instead of 20%)
+        const hasDiscount = Math.random() < 0.1;
+        const discount = hasDiscount ? totalAmount * getRandomFloat(0.05, 0.10) : 0;
         const finalAmount = totalAmount - discount;
 
-        orders.push({
+        dineInOrders.push({
           orderNumber: `ORD-${Date.now()}-${orderCounter++}`,
-          type: isDineIn ? 'dine-in' : 'parcel',
-          tableId: isDineIn ? getRandomItem(createdTables)._id : null,
+          type: 'dine-in',
+          tableId: getRandomItem(createdTables)._id,
           items: orderItems,
           totalAmount,
           status: 'paid',
@@ -637,75 +600,173 @@ const seedAll = async () => {
             amount: finalAmount,
             originalAmount: totalAmount,
             discount,
-            paidAt: new Date(orderDate.getTime() + 15 * 60000),
+            paidAt: new Date(orderDate.getTime() + getRandomInt(10, 30) * 60000),
           },
           createdAt: orderDate,
-          updatedAt: new Date(orderDate.getTime() + 15 * 60000),
+          updatedAt: new Date(orderDate.getTime() + getRandomInt(10, 30) * 60000),
+        });
+      }
+
+      // Generate parcel orders
+      for (let i = 0; i < parcelOrdersPerDay; i++) {
+        const hour = Math.random() < 0.6 ? getRandomInt(12, 15) : getRandomInt(18, 22);
+        const minute = getRandomInt(0, 59);
+        const orderDate = new Date(currentDate);
+        orderDate.setHours(hour, minute);
+
+        // More items per parcel order (2-5 items)
+        const numItems = getRandomInt(2, 5);
+        let subtotal = 0;
+        
+        const tempItems = Array.from({ length: numItems }, () => {
+          const menuItem = getRandomItem(popularMenuItems);
+          const quantity = getRandomInt(1, 3); // Higher quantities
+          subtotal += menuItem.price * quantity;
+          return {
+            menuItem: menuItem._id,
+            quantity,
+            notes: '',
+            priceAtOrder: menuItem.price
+          };
         });
 
-        if (isDineIn) dineInCount++;
-        else parcelCount++;
+        // Less frequent discounts
+        const hasDiscount = Math.random() < 0.1;
+        let discountType = 'fixed';
+        let discount = 0;
+        let discountAmount = 0;
+        
+        if (hasDiscount) {
+          const percent = getRandomFloat(0.05, 0.10);
+          discountType = 'percentage';
+          discount = percent * 100;
+          discountAmount = subtotal * percent;
+        }
+
+        const taxableAmount = subtotal - discountAmount;
+        const taxAmount = Math.round(taxableAmount * 0.05);
+        const totalAmount = taxableAmount + taxAmount;
+
+        const parcelItems = tempItems.map(item => ({
+          ...item,
+          status: 'completed',
+          statusHistory: [{
+            status: 'completed',
+            timestamp: new Date(orderDate.getTime() + 20 * 60000)
+          }],
+          kitchenCompleteTime: new Date(orderDate.getTime() + 20 * 60000)
+        }));
+
+        const paidAt = new Date(orderDate.getTime() + 15 * 60000);
+        const actualReadyTime = new Date(orderDate.getTime() + 20 * 60000);
+
+        parcelOrders.push({
+          orderNumber: `PARCEL-${Date.now()}-${orderCounter++}`,
+          type: 'parcel',
+          items: parcelItems,
+          subtotal,
+          discount,
+          discountType,
+          taxAmount,
+          totalAmount,
+          orderStatus: 'completed',
+          payment: {
+            status: 'paid',
+            method: getRandomPaymentMethod(),
+            amount: totalAmount,
+            paidAt
+          },
+          customerName: getRandomCustomerName(),
+          customerPhone: getRandomPhone(),
+          cashierId: cashier._id,
+          branchId: mainBranch._id,
+          orderedAt: orderDate,
+          actualReadyTime
+        });
       }
     }
 
-    // Generate expenses (unchanged)
+    // Generate expenses (optimized for profitability)
     const expenses = [];
+    
+    // Calculate total expected orders for expense scaling
+    const totalExpectedOrders = (dineInOrders.length + parcelOrders.length);
+    const dailyOrderFactor = totalExpectedOrders / DAYS_TO_SEED;
+
     for (let d = 0; d < DAYS_TO_SEED; d++) {
       const currentDate = new Date(startDate);
       currentDate.setDate(currentDate.getDate() + d);
       const expenseDate = new Date(currentDate);
       expenseDate.setHours(10, 0, 0, 0);
 
+      // Daily groceries - scaled based on order volume
+      const dailyGroceries = getRandomFloat(800, 1200) * (dailyOrderFactor / 8); // Scale with order volume
       expenses.push({
         category: 'Groceries',
-        amount: getRandomFloat(3000, 6000) * (orders.length / 50),
+        amount: dailyGroceries,
         description: 'Daily purchase of fresh ingredients',
         date: expenseDate,
         branchId: mainBranch._id,
       });
 
+      // Weekly supplies (Mondays)
       if (currentDate.getDay() === 1) {
         expenses.push({
           category: 'Supplies',
-          amount: getRandomFloat(1000, 2500),
+          amount: getRandomFloat(400, 600),
           description: 'Weekly cleaning and kitchen supplies',
           date: expenseDate,
           branchId: mainBranch._id,
         });
       }
 
+      // Monthly rent and utilities (1st)
       if (currentDate.getDate() === 1) {
-        expenses.push({ 
-          category: 'Rent', 
-          amount: 50000, 
-          description: 'Monthly rent', 
-          date: expenseDate, 
-          branchId: mainBranch._id 
+        expenses.push({
+          category: 'Rent',
+          amount: 18000, // Reasonable rent for restaurant
+          description: 'Monthly rent',
+          date: expenseDate,
+          branchId: mainBranch._id
         });
-        expenses.push({ 
-          category: 'Utilities', 
-          amount: getRandomFloat(8000, 12000), 
-          description: 'Electricity, water, gas bills', 
-          date: expenseDate, 
-          branchId: mainBranch._id 
+        
+        expenses.push({
+          category: 'Utilities',
+          amount: getRandomFloat(3500, 4500),
+          description: 'Electricity, water, gas bills',
+          date: expenseDate,
+          branchId: mainBranch._id
         });
       }
 
+      // Monthly salaries (28th) - optimized staffing
       if (currentDate.getDate() === 28) {
-        expenses.push({ 
-          category: 'Salaries', 
-          amount: 150000, 
-          description: 'Monthly staff salaries', 
-          date: expenseDate, 
-          branchId: mainBranch._id 
+        expenses.push({
+          category: 'Salaries',
+          amount: 45000, // Optimized staffing costs
+          description: 'Monthly staff salaries',
+          date: expenseDate,
+          branchId: mainBranch._id
         });
       }
 
-      if (Math.random() < 0.03) {
+      // Occasional maintenance (2% chance, moderate amounts)
+      if (Math.random() < 0.02) {
         expenses.push({
           category: 'Maintenance',
-          amount: getRandomFloat(5000, 15000),
-          description: 'Unexpected equipment repair',
+          amount: getRandomFloat(800, 1500),
+          description: 'Equipment repair or maintenance',
+          date: expenseDate,
+          branchId: mainBranch._id,
+        });
+      }
+
+      // Marketing expenses (3% chance, strategic amounts)
+      if (Math.random() < 0.03) {
+        expenses.push({
+          category: 'Marketing',
+          amount: getRandomFloat(1500, 2500),
+          description: 'Promotional campaign or advertising',
           date: expenseDate,
           branchId: mainBranch._id,
         });
@@ -714,12 +775,17 @@ const seedAll = async () => {
 
     // ==================== 8. INSERT ORDERS & EXPENSES ====================
     console.log('💾 Inserting orders and expenses into database...');
-    
-    if (orders.length > 0) {
-      await Order.insertMany(orders, { ordered: false, batchSize: BATCH_SIZE });
-      console.log(`✅ Inserted ${orders.length} orders (${dineInCount} dine-in, ${parcelCount} parcel).`);
+   
+    if (dineInOrders.length > 0) {
+      await Order.insertMany(dineInOrders, { ordered: false, batchSize: BATCH_SIZE });
+      console.log(`✅ Inserted ${dineInOrders.length} dine-in orders.`);
     }
-    
+   
+    if (parcelOrders.length > 0) {
+      await ParcelOrder.insertMany(parcelOrders, { ordered: false, batchSize: BATCH_SIZE });
+      console.log(`✅ Inserted ${parcelOrders.length} parcel orders.`);
+    }
+   
     if (expenses.length > 0) {
       await Expense.insertMany(expenses, { ordered: false, batchSize: BATCH_SIZE });
       console.log(`✅ Inserted ${expenses.length} expenses.\n`);
@@ -727,7 +793,7 @@ const seedAll = async () => {
 
     // ==================== 9. CREATE CURRENT ORDERS ====================
     console.log('📦 Creating current sample orders...');
-    
+   
     const createOrderItems = (items, baseStatus = 'placed') => {
       return items.map(item => ({
         menuItem: item.menuItemId,
@@ -832,86 +898,99 @@ const seedAll = async () => {
     console.log('═══════════════════════════════════════════════════════');
     console.log('🎉 COMPLETE SEEDING FINISHED SUCCESSFULLY!');
     console.log('═══════════════════════════════════════════════════════\n');
-    
+   
     console.log('📊 BASIC DATA SUMMARY:');
-    console.log(`   Permissions: ${createdPermissions.length}`);
-    console.log(`   Roles: ${createdRoles.length}`);
-    console.log(`   Branches: ${createdBranches.length}`);
-    console.log(`   Users: ${createdUsers.length}`);
-    console.log(`   Menu Items: ${createdMenuItems.length}`);
-    console.log(`   Tables: ${createdTables.length}\n`);
-    
+    console.log(` Permissions: ${createdPermissions.length}`);
+    console.log(` Roles: ${createdRoles.length}`);
+    console.log(` Branches: ${createdBranches.length}`);
+    console.log(` Users: ${createdUsers.length}`);
+    console.log(` Menu Items: ${createdMenuItems.length}`);
+    console.log(` Tables: ${createdTables.length}\n`);
+   
     console.log('📈 HISTORICAL DATA SUMMARY:');
-    console.log(`   Period: ${startDate.toDateString()} to ${today.toDateString()}`);
-    console.log(`   Historical Orders: ${orders.length} (${dineInCount} dine-in, ${parcelCount} parcel)`);
-    console.log(`   Current Orders: ${createdCurrentOrders.length}`);
-    console.log(`   Total Expenses: ${expenses.length}\n`);
-
-    const dineInRevenue = orders
-      .filter(o => o.type === 'dine-in')
+    console.log(` Period: ${startDate.toDateString()} to ${today.toDateString()}`);
+    console.log(` Historical Orders: ${dineInOrders.length + parcelOrders.length} (${dineInOrders.length} dine-in, ${parcelOrders.length} parcel)`);
+    console.log(` Current Orders: ${createdCurrentOrders.length}`);
+    console.log(` Total Expenses: ${expenses.length}\n`);
+    
+    const dineInRevenue = dineInOrders
       .reduce((sum, o) => sum + (o.payment?.amount || 0), 0);
-    const parcelRevenue = orders
-      .filter(o => o.type === 'parcel')
+    const parcelRevenue = parcelOrders
       .reduce((sum, o) => sum + (o.payment?.amount || 0), 0);
     const totalRevenue = dineInRevenue + parcelRevenue;
     const totalExpenses = expenses.reduce((sum, e) => sum + e.amount, 0);
     const netProfit = totalRevenue - totalExpenses;
+    const profitMargin = ((netProfit / totalRevenue) * 100) || 0;
 
     console.log('💰 FINANCIAL OVERVIEW:');
-    console.log(`   Dine-In Revenue: ${dineInRevenue.toLocaleString('en-IN', { style: 'currency', currency: 'INR' })}`);
-    console.log(`   Parcel Revenue: ${parcelRevenue.toLocaleString('en-IN', { style: 'currency', currency: 'INR' })}`);
-    console.log(`   Total Revenue: ${totalRevenue.toLocaleString('en-IN', { style: 'currency', currency: 'INR' })}`);
-    console.log(`   Total Expenses: ${totalExpenses.toLocaleString('en-IN', { style: 'currency', currency: 'INR' })}`);
-    console.log(`   Net Profit: ${netProfit.toLocaleString('en-IN', { style: 'currency', currency: 'INR' })}`);
-    console.log(`   Avg Order Value: ${(totalRevenue / orders.length).toLocaleString('en-IN', { style: 'currency', currency: 'INR' })}\n`);
-    
+    console.log(` Dine-In Revenue: ${dineInRevenue.toLocaleString('en-IN', { style: 'currency', currency: 'INR' })}`);
+    console.log(` Parcel Revenue: ${parcelRevenue.toLocaleString('en-IN', { style: 'currency', currency: 'INR' })}`);
+    console.log(` Total Revenue: ${totalRevenue.toLocaleString('en-IN', { style: 'currency', currency: 'INR' })}`);
+    console.log(` Total Expenses: ${totalExpenses.toLocaleString('en-IN', { style: 'currency', currency: 'INR' })}`);
+    console.log(` Net Profit: ${netProfit.toLocaleString('en-IN', { style: 'currency', currency: 'INR' })}`);
+    console.log(` Profit Margin: ${profitMargin.toFixed(2)}%`);
+    console.log(` Avg Order Value: ${((totalRevenue / (dineInOrders.length + parcelOrders.length)) || 0).toLocaleString('en-IN', { style: 'currency', currency: 'INR' })}\n`);
+   
     console.log('🔑 TEST CREDENTIALS (Password: 123456):');
-    console.log('   Admin:    admin@restaurant.com');
-    console.log('   Manager:  manager@restaurant.com');
-    console.log('   Cashier:  cashier@restaurant.com');
-    console.log('   Waiter:   waiter@restaurant.com');
-    console.log('   Chef:     chef@restaurant.com\n');
-    
+    console.log(' Admin: admin@restaurant.com');
+    console.log(' Manager: manager@restaurant.com');
+    console.log(' Cashier: cashier@restaurant.com');
+    console.log(' Waiter: waiter@restaurant.com');
+    console.log(' Chef: chef@restaurant.com\n');
+   
     console.log('💡 QUICK STATS:');
     const tableStats = {
       available: await Table.countDocuments({ status: 'available' }),
       occupied: await Table.countDocuments({ status: 'occupied' }),
       reserved: await Table.countDocuments({ status: 'reserved' })
     };
-    
-    console.log(`   Available Tables: ${tableStats.available}`);
-    console.log(`   Occupied Tables: ${tableStats.occupied}`);
-    console.log(`   Reserved Tables: ${tableStats.reserved}`);
-    console.log(`   Total Capacity: ${createdTables.reduce((sum, t) => sum + t.capacity, 0)} seats\n`);
-    
+   
+    console.log(` Available Tables: ${tableStats.available}`);
+    console.log(` Occupied Tables: ${tableStats.occupied}`);
+    console.log(` Reserved Tables: ${tableStats.reserved}`);
+    console.log(` Total Capacity: ${createdTables.reduce((sum, t) => sum + t.capacity, 0)} seats\n`);
+   
     console.log('📋 CURRENT ORDER STATUS:');
-    console.log(`   Placed: ${createdCurrentOrders.filter(o => o.status === 'placed').length}`);
-    console.log(`   In Kitchen: ${createdCurrentOrders.filter(o => o.status === 'in-kitchen').length}`);
-    console.log(`   Ready: ${createdCurrentOrders.filter(o => o.status === 'ready').length}`);
-    console.log(`   Served: ${createdCurrentOrders.filter(o => o.status === 'served').length}\n`);
-    
+    console.log(` Placed: ${createdCurrentOrders.filter(o => o.status === 'placed').length}`);
+    console.log(` In Kitchen: ${createdCurrentOrders.filter(o => o.status === 'in-kitchen').length}`);
+    console.log(` Ready: ${createdCurrentOrders.filter(o => o.status === 'ready').length}`);
+    console.log(` Served: ${createdCurrentOrders.filter(o => o.status === 'served').length}\n`);
+   
     console.log('🍽️ MENU BREAKDOWN:');
-    console.log(`   Snacks: ${createdMenuItems.filter(m => m.category === 'Snack').length}`);
-    console.log(`   Meals: ${createdMenuItems.filter(m => m.category === 'Meal').length}`);
-    console.log(`   Vegan: ${createdMenuItems.filter(m => m.category === 'Vegan').length}`);
-    console.log(`   Drinks: ${createdMenuItems.filter(m => m.category === 'Drink').length}`);
-    console.log(`   Desserts: ${createdMenuItems.filter(m => m.category === 'Dessert').length}\n`);
-    
+    console.log(` Snacks: ${createdMenuItems.filter(m => m.category === 'Snack').length}`);
+    console.log(` Meals: ${createdMenuItems.filter(m => m.category === 'Meal').length}`);
+    console.log(` Vegan: ${createdMenuItems.filter(m => m.category === 'Vegan').length}`);
+    console.log(` Drinks: ${createdMenuItems.filter(m => m.category === 'Drink').length}`);
+    console.log(` Desserts: ${createdMenuItems.filter(m => m.category === 'Dessert').length}\n`);
+   
+    console.log('📈 DAILY AVERAGES:');
+    console.log(` Orders per Day: ${((dineInOrders.length + parcelOrders.length) / DAYS_TO_SEED).toFixed(1)}`);
+    console.log(` Daily Revenue: ${(totalRevenue / DAYS_TO_SEED).toLocaleString('en-IN', { style: 'currency', currency: 'INR' })}`);
+    console.log(` Daily Expenses: ${(totalExpenses / DAYS_TO_SEED).toLocaleString('en-IN', { style: 'currency', currency: 'INR' })}`);
+    console.log(` Daily Profit: ${(netProfit / DAYS_TO_SEED).toLocaleString('en-IN', { style: 'currency', currency: 'INR' })}\n`);
+   
     console.log('✨ YOU CAN NOW:');
-    console.log('   1. Login with any test account');
-    console.log('   2. View orders in different stages');
-    console.log('   3. Analyze historical revenue data');
-    console.log('   4. View expense reports');
-    console.log('   5. Test complete restaurant workflow\n');
+    console.log(' 1. Login with any test account');
+    console.log(' 2. View orders in different stages');
+    console.log(' 3. Analyze profitable revenue data');
+    console.log(' 4. View optimized expense reports');
+    console.log(' 5. Test complete restaurant workflow\n');
+
+    // Profitability check
+    if (netProfit > 0) {
+      console.log('✅ SUCCESS: Restaurant is PROFITABLE! 🎉');
+    } else {
+      console.log('❌ WARNING: Restaurant is still not profitable. Consider further adjustments.');
+    }
 
     process.exit(0);
   } catch (error) {
     console.error('❌ SEEDING FAILED:', error.message);
     console.error(error.stack);
     console.error('\n💡 TROUBLESHOOTING:');
-    console.error('   1. Ensure MongoDB is running.');
-    console.error('   2. Verify the MONGO_URI in your .env file.');
-    console.error('   3. Check that all required models are properly defined.');
+    console.error(' 1. Ensure MongoDB is running.');
+    console.error(' 2. Verify the MONGO_URI in your .env file.');
+    console.error(' 3. Check that all required models are properly defined.');
     process.exit(1);
   }
 };

@@ -147,7 +147,7 @@ const Sidebar = () => {
         id: 'parcel',
         label: 'Create Parcel',
         icon: Utensils,
-        path: '/cashier/parcel'
+        path: '/cashier/parcel-billing'
       },
       {
         id: 'billing',
