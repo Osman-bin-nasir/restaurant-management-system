@@ -2,8 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { subDays, format } from 'date-fns';
 import api from '../../api/axios';
 import { useAuth } from '../../contexts/AuthContext.jsx';
-import { FaSun, FaMoon } from 'react-icons/fa';
-import { AlertTriangle, TrendingUp, TrendingDown, DollarSign, ShoppingCart, Users, BarChart2 } from 'lucide-react';
+import { AlertTriangle, TrendingUp, TrendingDown, DollarSign, ShoppingCart } from 'lucide-react';
 
 // Import new components
 import DateRangeFilter from '../../components/revenue/DateRangeFilter';
@@ -18,7 +17,6 @@ const RevenueDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const { user } = useAuth();
-  const [isDarkMode, setIsDarkMode] = useState(() => document.documentElement.classList.contains('dark'));
 
   const [dateRange, setDateRange] = useState(() => {
     const endDate = new Date();
@@ -33,10 +31,13 @@ const RevenueDashboard = () => {
     setLoading(true);
     setError(null);
     try {
-      const params = {
-        startDate: dateRange.startDate,
-        endDate: dateRange.endDate,
-      };
+      const params = {};
+      if (dateRange.startDate) {
+        params.startDate = dateRange.startDate;
+      }
+      if (dateRange.endDate) {
+        params.endDate = dateRange.endDate;
+      }
 
       const [summaryRes, parcelRes] = await Promise.all([
         api.get('/revenue/summary', {
@@ -72,11 +73,6 @@ const RevenueDashboard = () => {
     }
   }, [fetchData, user?.token]);
 
-  const toggleDarkMode = () => {
-    setIsDarkMode(!isDarkMode);
-    document.documentElement.classList.toggle('dark');
-  };
-
   const kpiData = [
     { title: 'Total Revenue', value: data?.kpis.totalRevenue, icon: DollarSign, color: 'text-green-500' },
     { title: 'Net Profit', value: data?.kpis.netProfit, icon: TrendingUp, color: 'text-blue-500' },
@@ -85,19 +81,12 @@ const RevenueDashboard = () => {
   ];
 
   return (
-    <div className={`p-4 sm:p-6 min-h-screen ${isDarkMode ? 'dark bg-gray-900' : 'bg-gray-50'}`}>
+    <div className="p-4 sm:p-6 min-h-screen bg-gray-50">
       <header className="flex flex-wrap justify-between items-center gap-4 mb-6">
         <div>
-          <h1 className="text-3xl font-bold text-gray-800 dark:text-white">Revenue Dashboard</h1>
-          <p className="text-gray-500 dark:text-gray-400">An overview of your business's financial performance.</p>
+          <h1 className="text-3xl font-bold text-gray-800">Revenue Dashboard</h1>
+          <p className="text-gray-500">An overview of your business's financial performance.</p>
         </div>
-        <button
-          onClick={toggleDarkMode}
-          className="p-2 rounded-full bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
-          title={isDarkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
-        >
-          {isDarkMode ? <FaSun className="text-yellow-400" /> : <FaMoon className="text-gray-600" />}
-        </button>
       </header>
 
       <DateRangeFilter onDateChange={setDateRange} initialRange={dateRange} />
@@ -107,10 +96,10 @@ const RevenueDashboard = () => {
           <Loader />
         </div>
       ) : error ? (
-        <div className="p-6 my-6 bg-red-100 dark:bg-red-900/20 rounded-lg text-center">
+        <div className="p-6 my-6 bg-red-100 rounded-lg text-center">
           <AlertTriangle className="mx-auto h-12 w-12 text-red-500" />
-          <h3 className="mt-2 text-lg font-semibold text-red-800 dark:text-red-300">Loading Failed</h3>
-          <p className="mt-1 text-red-600 dark:text-red-400">{error}</p>
+          <h3 className="mt-2 text-lg font-semibold text-red-800">Loading Failed</h3>
+          <p className="mt-1 text-red-600">{error}</p>
           <button
             onClick={fetchData}
             className="mt-4 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
@@ -126,12 +115,12 @@ const RevenueDashboard = () => {
           </div>
 
           {/* Main Chart */}
-          <ProfitTrendChart data={data.trends.profitTrend} isDarkMode={isDarkMode} />
+          <ProfitTrendChart data={data.trends.profitTrend} />
 
           {/* Breakdowns */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="lg:col-span-1">
-              <BreakdownPieChart data={data.breakdowns.paymentMethods} isDarkMode={isDarkMode} />
+              <BreakdownPieChart data={data.breakdowns.paymentMethods} />
             </div>
             <div className="lg:col-span-2">
               <TopItemsTable data={data.breakdowns.topItems} />

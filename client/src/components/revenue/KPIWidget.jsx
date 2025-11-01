@@ -26,7 +26,7 @@ const KPIWidget = ({ title, value, previousValue, formatAsCurrency = true }) => 
   const changeColor = {
     up: 'text-green-500',
     down: 'text-red-500',
-    neutral: 'text-gray-500 dark:text-gray-400',
+    neutral: 'text-gray-500',
   };
 
   const ChangeIcon = {
@@ -38,14 +38,14 @@ const KPIWidget = ({ title, value, previousValue, formatAsCurrency = true }) => 
   const Icon = ChangeIcon[direction];
 
   return (
-    <div className="bg-white dark:bg-gray-800 p-5 rounded-xl shadow-md hover:shadow-lg transition-shadow duration-300 ease-in-out">
-      <h3 className="text-md font-medium text-gray-500 dark:text-gray-400 truncate">{title}</h3>
-      <p className="text-3xl font-bold text-gray-800 dark:text-white mt-2">{formatValue(value)}</p>
+    <div className="bg-white p-5 rounded-xl shadow-md hover:shadow-lg transition-shadow duration-300 ease-in-out">
+      <h3 className="text-md font-medium text-gray-500 truncate">{title}</h3>
+      <p className="text-3xl font-bold text-gray-800 mt-2">{formatValue(value)}</p>
       {percentage !== null && (
         <div className={`flex items-center mt-2 text-sm ${changeColor[direction]}`}>
           <Icon className="h-4 w-4 mr-1" />
           <span>{percentage}%</span>
-          <span className="ml-1 text-gray-500 dark:text-gray-400">vs prev. period</span>
+          <span className="ml-1 text-gray-500">vs prev. period</span>
         </div>
       )}
     </div>

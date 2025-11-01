@@ -733,7 +733,7 @@ export const getRevenueTrends = asyncHandler(async (req, res) => {
   res.status(200).json({
     success: true,
     period: `Last ${daysCount} days`,
-        trends: trendsWithNetTProfit
+        trends: trendsWithNetProfit
       });
     });
     
@@ -742,17 +742,17 @@ export const getRevenueTrends = asyncHandler(async (req, res) => {
       const { branchId } = req.user;
       const { startDate, endDate } = req.query;
     
-      if (!startDate || !endDate) {
-        throw new CustomError("Please provide both startDate and endDate.", 400);
-      }
-    
-      const start = new Date(startDate);
-      const end = new Date(endDate);
-      end.setHours(23, 59, 59, 999);
-    
-      const dateFilter = { createdAt: { $gte: start, $lte: end } };
-      const expenseDateFilter = { date: { $gte: start, $lte: end } };
+      let dateFilter = {};
+      let expenseDateFilter = {};
       const branchFilter = { branchId: new mongoose.Types.ObjectId(branchId) };
+    
+      if (startDate && endDate) {
+        const start = new Date(startDate);
+        const end = new Date(endDate);
+        end.setHours(23, 59, 59, 999);
+        dateFilter = { createdAt: { $gte: start, $lte: end } };
+        expenseDateFilter = { date: { $gte: start, $lte: end } };
+      }
     
       // --- KPIs ---
       const kpiPromise = Order.aggregate([

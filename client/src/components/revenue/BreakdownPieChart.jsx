@@ -17,8 +17,8 @@ const COLORS = {
 const CustomTooltip = ({ active, payload }) => {
   if (active && payload && payload.length) {
     return (
-      <div className="p-3 bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-lg shadow-lg">
-        <p className="label text-gray-800 dark:text-white">
+      <div className="p-3 bg-white border rounded-lg shadow-lg">
+        <p className="label text-gray-800">
           {`${payload[0].name}: ${payload[0].value.toLocaleString('en-IN', { style: 'currency', currency: 'INR' })} (${payload[0].payload.percent}%)`}
         </p>
       </div>
@@ -27,7 +27,7 @@ const CustomTooltip = ({ active, payload }) => {
   return null;
 };
 
-const BreakdownPieChart = ({ data, isDarkMode }) => {
+const BreakdownPieChart = ({ data }) => {
   const total = data.reduce((sum, entry) => sum + entry.total, 0);
   const chartData = data.map(entry => ({
     name: entry._id.charAt(0).toUpperCase() + entry._id.slice(1),
@@ -36,19 +36,29 @@ const BreakdownPieChart = ({ data, isDarkMode }) => {
   }));
 
   return (
-    <div className="h-80 bg-white dark:bg-gray-800 p-6 rounded-xl shadow-md">
-      <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-4">Payment Methods</h3>
-      <ResponsiveContainer width="100%" height="100%">
-        <PieChart>
+    <div className="h-96 bg-white p-6 rounded-xl shadow-md">
+      <h3 className="text-lg font-semibold text-gray-800 mb-4">Payment Methods</h3>
+      <ResponsiveContainer width="100%" height="90%">
+        <PieChart margin={{ top: 0, right: 20, left: 20, bottom: 0 }}>
           <Tooltip content={<CustomTooltip />} />
-          <Legend iconType="circle" />
+          <Legend 
+            iconType="circle" 
+            layout="vertical"
+            verticalAlign="middle"
+            align="right"
+            wrapperStyle={{
+              paddingLeft: "20px",
+              fontSize: "14px"
+            }}
+          />
           <Pie
             data={chartData}
             dataKey="value"
             nameKey="name"
-            cx="50%"
+            cx="40%"
             cy="50%"
-            outerRadius={80}
+            innerRadius={40}
+            outerRadius={70}
             labelLine={false}
             label={({ name, percent }) => `${name} ${percent}%`}
           >
