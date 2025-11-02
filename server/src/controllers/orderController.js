@@ -1,3 +1,4 @@
+import { getIo } from "../utils/socket.js";
 import mongoose from "mongoose";
 import Order from "../models/Order.js";
 import MenuItem from "../models/MenuItem.js";
@@ -95,6 +96,9 @@ export const createOrder = asyncHandler(async (req, res) => {
     .populate("waiterId", "name")
     .populate("tableId", "tableNumber capacity")
     .populate("branchId", "name");
+
+  // Emit a socket event for the new order
+  getIo().emit("newOrder", populatedOrder);
 
   res.status(201).json({
     success: true,
