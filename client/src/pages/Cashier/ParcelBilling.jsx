@@ -7,12 +7,11 @@ import {
   Percent,
   Smartphone,
   Banknote,
-  CreditCard as CardIcon,
+  CreditCard,
   Receipt,
   Printer,
   ChevronDown,
   Package,
-  Phone,
   User,
   ShoppingBag,
   Trash2,
@@ -26,7 +25,6 @@ const ParcelBilling = () => {
   const [menuItems, setMenuItems] = useState([]);
   const [selectedItems, setSelectedItems] = useState([]);
   const [customerName, setCustomerName] = useState('');
-  const [customerPhone, setCustomerPhone] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('cash');
   const [discount, setDiscount] = useState(0);
   const [discountType, setDiscountType] = useState('fixed');
@@ -46,13 +44,12 @@ const ParcelBilling = () => {
     try {
       const { data } = await axios.get('/menu');
       console.log(data)
-      // Handle different possible response structures
       const items = data.MenuItems;
       setMenuItems(items.filter(item => item.availability));
     } catch (err) {
       toast.error('Failed to fetch menu items');
       console.error(err);
-      setMenuItems([]); // Set empty array on error to prevent crash
+      setMenuItems([]);
     }
   };
 
@@ -120,7 +117,6 @@ const ParcelBilling = () => {
   const handleProcessPayment = async () => {
     if (processing) return;
 
-    // Validation
     if (!customerName.trim()) {
       toast.error('Customer name is required');
       return;
@@ -156,7 +152,7 @@ const ParcelBilling = () => {
           notes: item.notes
         })),
         customerName: customerName.trim(),
-        customerPhone: customerPhone.trim(),
+        customerPhone: '',
         paymentMethod,
         discount: discountType === 'percentage'
           ? (subtotal * discount) / 100
@@ -197,12 +193,11 @@ const ParcelBilling = () => {
 
   const paymentMethods = [
     { id: 'cash', name: 'Cash', icon: Banknote },
-    { id: 'card', name: 'Card', icon: CardIcon },
+    { id: 'card', name: 'Card', icon: CreditCard },
     { id: 'upi', name: 'UPI', icon: Smartphone },
     { id: 'cheque', name: 'Cheque', icon: Receipt },
   ];
 
-  // Filter menu items based on search
   const filteredMenuItems = menuItems.filter(item =>
     item.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
@@ -268,7 +263,6 @@ const ParcelBilling = () => {
 
               <div className="grid grid-cols-2 gap-2 text-sm mb-4">
                 <div><strong>Customer:</strong> {createdOrder.customerName}</div>
-                <div><strong>Phone:</strong> {createdOrder.customerPhone || 'N/A'}</div>
                 <div><strong>Order Type:</strong> Parcel</div>
                 <div><strong>Payment:</strong> {paymentMethod.toUpperCase()}</div>
               </div>
@@ -354,29 +348,34 @@ const ParcelBilling = () => {
   }
 
   return (
-    <div className="h-screen bg-gray-50 flex flex-col overflow-hidden">
+    <div className="h-screen bg-gray-50 flex overflow-hidden">
       <Toaster position="top-center" />
 
-      {/* Header */}
-      <div className="flex-shrink-0 px-6 pt-4 pb-3 bg-gray-50">
-        <button
-          onClick={() => navigate('/cashier/dashboard')}
-          className="flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-2 transition"
-        >
-          <ArrowLeft size={18} />
-          Back to Dashboard
-        </button>
-        <div className="flex items-center gap-2">
-          <Package className="text-orange-600" size={28} />
-          <h1 className="text-2xl font-bold text-gray-900">Create Parcel Order</h1>
+      {/* Menu Items Section */}
+      <div className="flex-1 flex flex-col overflow-hidden">
+        {/* Header - Compact with button on right */}
+        <div className="flex-shrink-0 px-6 py-3 bg-gray-50 border-b border-gray-200">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <Package className="text-orange-600" size={28} />
+              <div>
+                <h1 className="text-xl font-bold text-gray-900">Create Parcel Order</h1>
+                <p className="text-xs text-gray-600 mt-0.5">Add items and process payment</p>
+              </div>
+            </div>
+            <button
+              onClick={() => navigate('/cashier/dashboard')}
+              className="flex items-center gap-2 text-gray-600 hover:text-gray-900 transition px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-100"
+            >
+              <ArrowLeft size={18} />
+              Back to Dashboard
+            </button>
+          </div>
         </div>
-      </div>
 
-      {/* Main Content */}
-      <div className="flex-1 px-6 pb-6 overflow-hidden">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 h-full">
-          {/* Menu Items Selection */}
-          <div className="lg:col-span-2 bg-white p-4 rounded-xl shadow-md border border-gray-100 flex flex-col overflow-hidden">
+        {/* Menu Items - Now has more space */}
+        <div className="flex-1 px-6 pb-6 pt-4 overflow-hidden">
+          <div className="bg-white p-4 rounded-xl shadow-md border border-gray-100 h-full flex flex-col overflow-hidden">
             <div className="mb-3">
               <h2 className="text-lg font-bold text-gray-900 mb-2">Select Items</h2>
               <input
@@ -389,7 +388,7 @@ const ParcelBilling = () => {
             </div>
 
             <div className="flex-1 overflow-auto mb-3">
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
                 {filteredMenuItems.map((item) => (
                   <button
                     key={item._id}
@@ -404,96 +403,31 @@ const ParcelBilling = () => {
               </div>
             </div>
 
-            {/* Selected Items */}
-            <div className="border-t pt-3">
-              <h3 className="font-bold mb-2 text-gray-900 text-sm">Selected Items ({selectedItems.length})</h3>
-              {selectedItems.length === 0 ? (
-                <p className="text-sm text-gray-500 text-center py-4">No items selected</p>
-              ) : (
-                <div className="space-y-2 max-h-48 overflow-auto">
-                  {selectedItems.map((item, index) => (
-                    <div key={index} className="flex items-center gap-2 p-2 bg-gray-50 rounded-lg">
-                      <div className="flex-1">
-                        <p className="font-semibold text-sm text-gray-900">{item.menuItem.name}</p>
-                        <input
-                          type="text"
-                          placeholder="Add notes..."
-                          value={item.notes}
-                          onChange={(e) => updateNotes(index, e.target.value)}
-                          className="w-full mt-1 px-2 py-1 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-orange-500"
-                        />
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <button
-                          onClick={() => updateQuantity(index, item.quantity - 1)}
-                          className="w-6 h-6 bg-gray-200 rounded hover:bg-gray-300 flex items-center justify-center"
-                        >
-                          -
-                        </button>
-                        <span className="w-8 text-center font-semibold text-sm">{item.quantity}</span>
-                        <button
-                          onClick={() => updateQuantity(index, item.quantity + 1)}
-                          className="w-6 h-6 bg-gray-200 rounded hover:bg-gray-300 flex items-center justify-center"
-                        >
-                          <Plus size={14} />
-                        </button>
-                      </div>
-                      <div className="text-right">
-                        <p className="font-bold text-sm text-gray-900">
-                          ₹{(item.menuItem.price * item.quantity).toFixed(2)}
-                        </p>
-                      </div>
-                      <button
-                        onClick={() => removeItem(index)}
-                        className="text-red-500 hover:text-red-700"
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    </div>
+            {/* Payment Method Section */}
+            <div className="border-t pt-3 mb-3">
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                Payment Method
+              </label>
+              <div className="relative">
+                <select
+                  value={paymentMethod}
+                  onChange={(e) => setPaymentMethod(e.target.value)}
+                  className="w-full px-4 py-2 text-sm border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 appearance-none bg-white font-semibold"
+                >
+                  {paymentMethods.map((method) => (
+                    <option key={method.id} value={method.id}>
+                      {method.name}
+                    </option>
                   ))}
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Payment Panel */}
-          <div className="bg-white p-4 rounded-xl shadow-md border border-gray-100 flex flex-col overflow-auto">
-            <h2 className="text-lg font-bold mb-3 text-gray-900">Payment Details</h2>
-
-            {/* Customer Info */}
-            <div className="mb-3 space-y-2">
-              <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-1">
-                  <User className="inline mr-1" size={14} />
-                  Customer Name *
-                </label>
-                <input
-                  type="text"
-                  value={customerName}
-                  onChange={(e) => setCustomerName(e.target.value)}
-                  placeholder="Enter customer name"
-                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-1">
-                  <Phone className="inline mr-1" size={14} />
-                  Phone (Optional)
-                </label>
-                <input
-                  type="tel"
-                  value={customerPhone}
-                  onChange={(e) => setCustomerPhone(e.target.value)}
-                  placeholder="Enter phone number"
-                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-                />
+                </select>
+                <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none" size={18} />
               </div>
             </div>
 
-            {/* Discount */}
-            <div className="mb-3">
-              <label className="text-xs font-semibold text-gray-700 mb-1 flex items-center gap-1">
-                <Percent size={14} />
+            {/* Discount Section */}
+            <div className="border-t pt-3">
+              <label className="text-sm font-semibold text-gray-700 mb-2 flex items-center gap-1">
+                <Percent size={16} />
                 Discount (Optional)
               </label>
               <div className="grid grid-cols-3 gap-2">
@@ -516,37 +450,110 @@ const ParcelBilling = () => {
                 />
               </div>
             </div>
+          </div>
+        </div>
+      </div>
 
-            {/* Payment Method */}
-            <div className="mb-3">
-              <label className="block text-xs font-semibold text-gray-700 mb-2">
-                Payment Method
+      {/* Payment Panel - Full Height */}
+      <div className="w-96 bg-white shadow-2xl border-l border-gray-200 flex flex-col overflow-hidden">
+        {/* Payment Panel Header */}
+        <div className="flex-shrink-0 bg-gradient-to-r from-orange-500 to-orange-600 text-white p-4">
+          <h2 className="text-xl font-bold">Payment Details</h2>
+        </div>
+
+        {/* Main Content Area - Takes available space */}
+        <div className="flex-1 flex flex-col overflow-hidden">
+          {/* Scrollable Content */}
+          <div className="flex-1 overflow-auto p-4 space-y-4">
+            {/* Customer Info */}
+            <div>
+              <label className="block text-xs font-semibold text-gray-700 mb-1">
+                <User className="inline mr-1" size={14} />
+                Customer Name *
               </label>
-              <div className="relative">
-                <select
-                  value={paymentMethod}
-                  onChange={(e) => setPaymentMethod(e.target.value)}
-                  className="w-full px-4 py-2 text-sm border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 appearance-none bg-white font-semibold"
-                >
-                  {paymentMethods.map((method) => (
-                    <option key={method.id} value={method.id}>
-                      {method.name}
-                    </option>
-                  ))}
-                </select>
-                <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none" size={18} />
-              </div>
+              <input
+                type="text"
+                value={customerName}
+                onChange={(e) => setCustomerName(e.target.value)}
+                placeholder="Enter customer name"
+                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+              />
             </div>
 
+            {/* Selected Items */}
+            <div>
+              <h3 className="font-bold mb-2 text-gray-900 text-sm flex items-center gap-2">
+                <ShoppingBag size={16} />
+                Selected Items ({selectedItems.length})
+              </h3>
+              {selectedItems.length === 0 ? (
+                <div className="text-center py-8 text-gray-400">
+                  <ShoppingBag size={48} className="mx-auto mb-2 opacity-50" />
+                  <p className="text-sm">No items selected</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {selectedItems.map((item, index) => (
+                    <div key={index} className="bg-gray-50 rounded-lg p-3 border border-gray-200">
+                      <div className="flex items-start justify-between mb-2">
+                        <div className="flex-1">
+                          <p className="font-semibold text-sm text-gray-900">{item.menuItem.name}</p>
+                          <p className="text-xs text-gray-500">{item.menuItem.category}</p>
+                        </div>
+                        <button
+                          onClick={() => removeItem(index)}
+                          className="text-red-500 hover:text-red-700 ml-2"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                      
+                      <input
+                        type="text"
+                        placeholder="Add notes..."
+                        value={item.notes}
+                        onChange={(e) => updateNotes(index, e.target.value)}
+                        className="w-full mb-2 px-2 py-1 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-orange-500"
+                      />
+                      
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-1">
+                          <button
+                            onClick={() => updateQuantity(index, item.quantity - 1)}
+                            className="w-7 h-7 bg-gray-200 rounded hover:bg-gray-300 flex items-center justify-center font-bold"
+                          >
+                            -
+                          </button>
+                          <span className="w-10 text-center font-semibold text-sm">{item.quantity}</span>
+                          <button
+                            onClick={() => updateQuantity(index, item.quantity + 1)}
+                            className="w-7 h-7 bg-gray-200 rounded hover:bg-gray-300 flex items-center justify-center"
+                          >
+                            <Plus size={14} />
+                          </button>
+                        </div>
+                        <p className="font-bold text-sm text-orange-600">
+                          ₹{(item.menuItem.price * item.quantity).toFixed(2)}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Fixed Bottom Section - Always at bottom */}
+          <div className="flex-shrink-0 p-4 space-y-4 bg-white border-t border-gray-200">
             {/* Amount Breakdown */}
-            <div className="bg-gray-50 rounded-lg p-3 space-y-1.5 mb-3 flex-1">
+            <div className="bg-gradient-to-br from-orange-50 to-orange-100 rounded-lg p-4 space-y-2 border border-orange-200">
               <div className="flex justify-between text-sm">
-                <span className="text-gray-600">Subtotal:</span>
+                <span className="text-gray-700">Subtotal:</span>
                 <span className="font-semibold text-gray-900">₹{calculateSubtotal().toFixed(2)}</span>
               </div>
               {discount > 0 && (
                 <div className="flex justify-between text-sm">
-                  <span className="text-gray-600">Discount:</span>
+                  <span className="text-gray-700">Discount:</span>
                   <span className="font-semibold text-green-600">
                     -₹{(discountType === 'percentage'
                       ? (calculateSubtotal() * discount) / 100
@@ -557,7 +564,7 @@ const ParcelBilling = () => {
                 </div>
               )}
               <div className="flex justify-between text-sm">
-                <span className="text-gray-600">Tax (5%):</span>
+                <span className="text-gray-700">Tax (5%):</span>
                 <span className="font-semibold text-gray-900">
                   ₹{((calculateSubtotal() - (discountType === 'percentage'
                     ? (calculateSubtotal() * discount) / 100
@@ -565,7 +572,7 @@ const ParcelBilling = () => {
                 </span>
               </div>
               <div className="flex justify-between text-sm">
-                <span className="text-gray-600">Round Off:</span>
+                <span className="text-gray-700">Round Off:</span>
                 <span className="font-semibold text-gray-900">
                   {(() => {
                     const subtotal = calculateSubtotal();
@@ -579,9 +586,9 @@ const ParcelBilling = () => {
                   })()}
                 </span>
               </div>
-              <div className="border-t border-gray-200 pt-1.5 flex justify-between">
+              <div className="border-t-2 border-orange-300 pt-2 flex justify-between">
                 <span className="font-bold text-gray-900">Total Amount:</span>
-                <span className="font-bold text-xl text-orange-600">
+                <span className="font-bold text-2xl text-orange-600">
                   ₹{calculateFinalAmount().toFixed(2)}
                 </span>
               </div>
@@ -591,7 +598,7 @@ const ParcelBilling = () => {
             <button
               onClick={handleProcessPayment}
               disabled={processing || selectedItems.length === 0 || !customerName.trim()}
-              className="w-full bg-gradient-to-r from-green-500 to-green-600 text-white py-3 rounded-xl font-bold hover:from-green-600 hover:to-green-700 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg"
+              className="w-full bg-gradient-to-r from-green-500 to-green-600 text-white py-4 rounded-xl font-bold hover:from-green-600 hover:to-green-700 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg text-lg"
             >
               {processing ? (
                 <>
@@ -600,12 +607,11 @@ const ParcelBilling = () => {
                 </>
               ) : (
                 <>
-                  <ShoppingBag size={20} />
+                  <ShoppingBag size={22} />
                   Create & Pay ₹{calculateFinalAmount().toFixed(2)}
                 </>
               )}
             </button>
-
             <p className="text-xs text-gray-500 text-center mt-2">
               Order will be sent to kitchen immediately
             </p>
