@@ -39,23 +39,52 @@ const RevenueDashboard = () => {
         params.endDate = dateRange.endDate;
       }
 
-      const [summaryRes, parcelRes] = await Promise.all([
+      const [summaryRes, parcelRevenueRes] = await Promise.all([
         api.get('/revenue/summary', {
           headers: { Authorization: `Bearer ${user.token}` },
           params,
         }),
-        api.get('/parcel', {
+        api.get('/parcel-revenue/summary', { // Changed endpoint
           headers: { Authorization: `Bearer ${user.token}` },
-          params: { ...params, limit: 1 }, // We only need stats, so limit to 1
+          params, // No need to limit, we need all data for the date range
         }),
       ]);
 
       const summaryData = summaryRes.data;
-      const parcelStats = parcelRes.data.stats;
+      const parcelRevenueData = parcelRevenueRes.data;
 
-      if (summaryData && parcelStats) {
-        summaryData.kpis.totalRevenue = (summaryData.kpis.totalRevenue || 0) + (parcelStats.totalRevenue || 0);
-        summaryData.kpis.totalOrders = (summaryData.kpis.totalOrders || 0) + (parcelStats.total || 0);
+      if (summaryData && parcelRevenueData) {
+        // Combine KPIs
+        const parcelTotalRevenue = parcelRevenueData.revenueOverTime.reduce((acc, cur) => acc + cur.revenue, 0);
+        summaryData.kpis.totalRevenue = (summaryData.kpis.totalRevenue || 0) + parcelTotalRevenue;
+        // Note: We don't have a total parcel order count here, so we'll need to adjust if that's needed.
+
+        // Combine profit trends
+        const parcelRevenueMap = new Map(parcelRevenueData.revenueOverTime.map(item => [item._id, item.revenue]));
+
+        summaryData.trends.profitTrend = summaryData.trends.profitTrend.map(trend => {
+          const parcelRevenue = parcelRevenueMap.get(trend.date) || 0;
+          return {
+            ...trend,
+            revenue: trend.revenue + parcelRevenue,
+            profit: trend.profit + parcelRevenue, // Assuming parcel orders don't have separate expenses tracked here
+          };
+        });
+
+        // Add dates from parcel orders that might not be in table orders
+        parcelRevenueData.revenueOverTime.forEach(item => {
+          if (!summaryData.trends.profitTrend.some(trend => trend.date === item._id)) {
+            summaryData.trends.profitTrend.push({
+              date: item._id,
+              revenue: item.revenue,
+              expenses: 0, // Assuming no separate expenses for parcel orders
+              profit: item.revenue,
+            });
+          }
+        });
+
+        // Sort the trend data by date
+        summaryData.trends.profitTrend.sort((a, b) => new Date(a.date) - new Date(b.date));
       }
 
       setData(summaryData);

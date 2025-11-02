@@ -18,6 +18,7 @@ import cashierRoutes from "./routes/cashierRoutes.js";
 import revenueRoutes from "./routes/revenueRoutes.js"
 import expenseRoutes from "./routes/expenseRoutes.js";
 import parcelOrderRoutes from "./routes/ParcelOrderRoutes.js";
+import parcelRevenueRoutes from "./routes/parcelRevenueRoutes.js";
 
 // Import all models to ensure they are registered with Mongoose
 import './models/Branch.js';
@@ -55,6 +56,7 @@ app.use('/api/tables', tableRoutes);
 app.use('/api/menu',menuRouter);
 app.use('/api/orders',orderRoutes);
 app.use('/api/parcel', parcelOrderRoutes);
+app.use('/api/parcel-revenue', parcelRevenueRoutes);
 app.use('/api/kitchen', kitchenRoutes);
 app.use('/api/cashier', cashierRoutes);
 app.use('/api/revenue', revenueRoutes);
