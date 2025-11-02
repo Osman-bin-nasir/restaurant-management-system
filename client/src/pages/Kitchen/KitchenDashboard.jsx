@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
+import { useSocket } from '../../contexts/SocketContext';
 import {
   ChefHat,
   Clock,
@@ -100,6 +101,7 @@ const mergeOrdersByStatus = (tableOrders, parcelOrders) => {
 
 const KitchenDashboard = () => {
   const { user } = useAuth();
+  const socket = useSocket();
   const [stats, setStats] = useState({
     table: { newItems: 0, inProgress: 0, completedToday: 0 },
     parcel: { placed: 0, inKitchen: 0 },
@@ -155,9 +157,23 @@ const KitchenDashboard = () => {
 
   useEffect(() => {
     fetchKitchenData();
-    const interval = setInterval(() => fetchKitchenData(), 15000); // Poll every 15 seconds
-    return () => clearInterval(interval);
   }, []);
+
+  useEffect(() => {
+    if (socket) {
+      socket.on('newOrder', (newOrder) => {
+        if (newOrder.type === 'dine-in') {
+          setTableQueue(prevQueue => ({ ...prevQueue, newItems: [...prevQueue.newItems, ...newOrder.items] }));
+        } else if (newOrder.type === 'parcel') {
+          setParcelQueue(prevQueue => ({ ...prevQueue, placed: [...prevQueue.placed, ...newOrder.items] }));
+        }
+      });
+
+      return () => {
+        socket.off('newOrder');
+      };
+    }
+  }, [socket]);
 
   const handleStartCooking = async (orderId, itemIds, isParcel = false) => {
     try {

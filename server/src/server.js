@@ -1,4 +1,6 @@
 import express from 'express';
+import http from 'http';
+import { initSocket } from './utils/socket.js';
 import connectDB from './config/db.js';
 import 'dotenv/config'
 import cookieParser from 'cookie-parser';
@@ -34,6 +36,9 @@ import './models/User.js';
 
 
 const app = express();
+const server = http.createServer(app);
+initSocket(server);
+
 connectDB();
 
 const allowedOrigins = ['http://localhost:5173']
@@ -67,6 +72,6 @@ app.use("/api/permissions", permissionRoutes);
 
 app.use(errorHandler);
 
-app.listen(process.env.PORT || 3000, () => {
+server.listen(process.env.PORT || 3000, () => {
     console.log("App is listening on port: 3000")
 })
