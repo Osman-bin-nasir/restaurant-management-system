@@ -1,6 +1,7 @@
 import Order from "../models/Order.js";
 import MenuItem from "../models/MenuItem.js";
 import CustomError from "../utils/customError.js";
+import { getIo } from "../utils/socket.js";
 import { asyncHandler } from "../middleware/asyncHandler.js";
 
 // ====================== GET KITCHEN QUEUE (ITEM-BASED) ======================
@@ -134,6 +135,10 @@ export const startCookingItems = asyncHandler(async (req, res) => {
       }
       await order.save();
 
+      // Emit a socket event for the order update
+      const updatedOrder = await Order.findById(orderId).populate('items.menuItem', 'name price').populate('tableId', 'tableNumber').populate('waiterId', 'name');
+      getIo().emit("orderUpdated", updatedOrder);
+
       results.push({
         orderId,
         startedCount: itemsToStart.length,
@@ -194,6 +199,10 @@ export const markItemsReady = asyncHandler(async (req, res) => {
       }
 
       await order.save();
+
+      // Emit a socket event for the order update
+      const updatedOrder = await Order.findById(orderId).populate('items.menuItem', 'name price').populate('tableId', 'tableNumber').populate('waiterId', 'name');
+      getIo().emit("orderUpdated", updatedOrder);
 
       results.push({
         orderId,

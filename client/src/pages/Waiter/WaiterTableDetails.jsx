@@ -5,9 +5,12 @@ import axios from '../../api/axios';
 import { getStatusBadge } from '../Admin/TableManagement.jsx';
 import toast, { Toaster } from 'react-hot-toast';
 
+import { useSocket } from '../../contexts/SocketContext';
+
 const WaiterTableDetails = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const socket = useSocket();
   const [table, setTable] = useState(null);
   const [menuItems, setMenuItems] = useState([]);
   const [cart, setCart] = useState([]);
@@ -31,47 +34,64 @@ const WaiterTableDetails = () => {
     };
   }, [showOrderModal]);
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setLoading(true);
-        const [tableRes, menuRes] = await Promise.all([
-          axios.get(`/tables/${id}`),
-          axios.get('/menu/')
-        ]);
-        if (tableRes.data.success) {
-          setTable(tableRes.data.table);
-          setMenuItems(menuRes.data.MenuItems);
-          if (tableRes.data.table.currentOrderId) {
-            const orderRes = await axios.get(`/orders/${tableRes.data.table.currentOrderId._id}`);
-            if (orderRes.data.success) {
-              setCurrentOrder(orderRes.data.order);
-              setCustomerName(orderRes.data.order.customerName);
-              const cartItems = orderRes.data.order.items.map(item => ({
-                _id: item.menuItem._id,
-                name: item.menuItem.name,
-                price: item.menuItem.price,
-                quantity: item.quantity,
-                notes: item.notes,
-                original: orderRes.data.order.status !== 'placed'
-              }));
-              setCart(cartItems);
-            }
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+      const [tableRes, menuRes] = await Promise.all([
+        axios.get(`/tables/${id}`),
+        axios.get('/menu/')
+      ]);
+      if (tableRes.data.success) {
+        setTable(tableRes.data.table);
+        setMenuItems(menuRes.data.MenuItems);
+        if (tableRes.data.table.currentOrderId) {
+          const orderRes = await axios.get(`/orders/${tableRes.data.table.currentOrderId._id}`);
+          if (orderRes.data.success) {
+            setCurrentOrder(orderRes.data.order);
+            setCustomerName(orderRes.data.order.customerName);
+            const cartItems = orderRes.data.order.items.map(item => ({
+              _id: item.menuItem._id,
+              name: item.menuItem.name,
+              price: item.menuItem.price,
+              quantity: item.quantity,
+              notes: item.notes,
+              original: orderRes.data.order.status !== 'placed'
+            }));
+            setCart(cartItems);
           }
-        } else {
-          throw new Error('Failed to fetch table details');
         }
-      } catch (err) {
-        const errorMessage = err.response?.status === 404 ? 'Table or order not found' : err.message || 'Error fetching table details';
-        setError(errorMessage);
-        toast.error(errorMessage);
-      } finally {
-        setLoading(false);
+      } else {
+        throw new Error('Failed to fetch table details');
       }
-    };
+    } catch (err) {
+      const errorMessage = err.response?.status === 404 ? 'Table or order not found' : err.message || 'Error fetching table details';
+      setError(errorMessage);
+      toast.error(errorMessage);
+    } finally {
+      setLoading(false);
+    }
+  };
 
+  useEffect(() => {
     fetchData();
   }, [id]);
+
+  useEffect(() => {
+    if (socket && currentOrder) {
+      const handleOrderUpdate = (updatedOrder) => {
+        if (updatedOrder._id === currentOrder._id) {
+          setCurrentOrder(updatedOrder);
+          toast.success('Order has been updated!');
+        }
+      };
+
+      socket.on('orderUpdated', handleOrderUpdate);
+
+      return () => {
+        socket.off('orderUpdated', handleOrderUpdate);
+      };
+    }
+  }, [socket, currentOrder]);
 
   // Filter menu items based on search term
   const filteredMenuItems = menuItems.filter(item =>
