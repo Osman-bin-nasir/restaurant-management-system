@@ -277,6 +277,9 @@ export const updateItemStatus = asyncHandler(async (req, res) => {
     .populate("waiterId", "name")
     .populate("tableId", "tableNumber");
 
+  // Emit a socket event for the order update
+  getIo().emit("orderUpdated", updatedOrder);
+
   res.status(200).json({
     success: true,
     message: `${itemsToUpdate.length} item(s) updated to ${newStatus}`,
@@ -317,6 +320,9 @@ export const updateAllItemsStatus = asyncHandler(async (req, res) => {
 
   const updatedOrder = await Order.findById(orderId).populate("items.menuItem", "name price");
 
+  // Emit a socket event to notify clients of the update
+  getIo().emit("orderUpdated", updatedOrder);
+
   console.log('order after update:', updatedOrder);
 
   res.status(200).json({
@@ -353,6 +359,9 @@ export const markOrderAsPaid = asyncHandler(async (req, res) => {
   }
 
   const updatedOrder = await Order.findById(orderId).populate("items.menuItem", "name price");
+
+  // Emit a socket event to notify clients of the update
+  getIo().emit("orderUpdated", updatedOrder);
 
   res.status(200).json({
     success: true,
@@ -503,6 +512,9 @@ export const addItemsToOrder = asyncHandler(async (req, res) => {
     .populate("items.menuItem", "name price")
     .populate("tableId", "tableNumber");
 
+  // Emit a socket event to notify clients of the update
+  getIo().emit("orderUpdated", updatedOrder);
+
   res.status(200).json({
     success: true,
     message: `Order updated successfully`,
@@ -558,6 +570,9 @@ export const removeItemFromOrder = asyncHandler(async (req, res) => {
     .populate("items.menuItem", "name price")
     .populate("waiterId", "name")
     .populate("tableId", "tableNumber");
+
+  // Emit a socket event to notify clients of the update
+  getIo().emit("orderUpdated", updatedOrder);
 
   res.status(200).json({
     success: true,
@@ -615,9 +630,16 @@ export const bulkUpdateItemStatus = asyncHandler(async (req, res) => {
       order.updateOrderStatus();
       await order.save();
 
+      // Emit a socket event for each updated order
+      const updatedOrder = await Order.findById(update.orderId).populate(
+        "items.menuItem",
+        "name price cookingTime"
+      );
+      getIo().emit("orderUpdated", updatedOrder);
+
       results.push({
         orderId: update.orderId,
-        updatedCount: itemsToUpdate.length
+        updatedCount: itemsToUpdate.length,
       });
     } catch (error) {
       errors.push({
@@ -701,6 +723,9 @@ export const cancelOrderItems = asyncHandler(async (req, res) => {
   const updatedOrder = await Order.findById(orderId)
     .populate("items.menuItem", "name price");
 
+  // Emit a socket event to notify clients of the update
+  getIo().emit("orderUpdated", updatedOrder);
+
   res.status(200).json({
     success: true,
     message: `${itemsToCancel.length} item(s) cancelled`,
@@ -753,6 +778,9 @@ export const cancelOrder = asyncHandler(async (req, res) => {
     .populate("items.menuItem", "name price")
     .populate("tableId", "tableNumber");
 
+  // Emit a socket event to notify clients of the update
+  getIo().emit("orderUpdated", updatedOrder);
+
   res.status(200).json({
     success: true,
     message: "Order cancelled successfully",
@@ -775,6 +803,9 @@ export const assignCashier = asyncHandler(async (req, res) => {
    .populate("cashierId", "name email");
 
   if (!order) throw new CustomError("Order not found", 404);
+
+  // Emit a socket event to notify clients of the update
+  getIo().emit("orderUpdated", order);
 
   res.status(200).json({
     success: true,

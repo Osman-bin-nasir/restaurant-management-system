@@ -99,6 +99,32 @@ const mergeOrdersByStatus = (tableOrders, parcelOrders) => {
 
 // ====================== MAIN COMPONENT ======================
 
+const updateOrderQueues = (prevQueue, updatedOrder) => {
+  const newItems = prevQueue.newItems.filter(item => item.orderId !== updatedOrder.orderId);
+  const inProgress = prevQueue.inProgress.filter(item => item.orderId !== updatedOrder.orderId);
+  updatedOrder.items.forEach(item => {
+    if (item.status === 'placed') {
+      newItems.push(item);
+    } else if (item.status === 'in-kitchen') {
+      inProgress.push(item);
+    }
+  });
+  return { newItems, inProgress };
+};
+
+const updateParcelQueues = (prevQueue, updatedOrder) => {
+  const placed = prevQueue.placed.filter(item => item.orderId !== updatedOrder.orderId);
+  const inKitchen = prevQueue.inKitchen.filter(item => item.orderId !== updatedOrder.orderId);
+  updatedOrder.items.forEach(item => {
+    if (item.status === 'placed') {
+      placed.push(item);
+    } else if (item.status === 'in-kitchen') {
+      inKitchen.push(item);
+    }
+  });
+  return { placed, inKitchen };
+};
+
 const KitchenDashboard = () => {
   const { user } = useAuth();
   const socket = useSocket();
@@ -169,8 +195,17 @@ const KitchenDashboard = () => {
         }
       });
 
+      socket.on('orderUpdated', (updatedOrder) => {
+        if (updatedOrder.type === 'dine-in') {
+          setTableQueue(prevQueue => updateOrderQueues(prevQueue, updatedOrder));
+        } else if (updatedOrder.type === 'parcel') {
+          setParcelQueue(prevQueue => updateParcelQueues(prevQueue, updatedOrder));
+        }
+      });
+
       return () => {
         socket.off('newOrder');
+        socket.off('orderUpdated');
       };
     }
   }, [socket]);
