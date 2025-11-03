@@ -18,7 +18,7 @@ export const getKitchenQueue = asyncHandler(async (req, res) => {
 
   const orders = await Order.find({
     branchId,
-    status: { $in: statuses }
+    "items.status": { $in: statuses }
   })
     .populate("items.menuItem", "name cookingTime category")
     .populate("waiterId", "name")
