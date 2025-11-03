@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import axios from '../../api/axios';
 import toast, { Toaster } from 'react-hot-toast';
+import { useSocket } from '../../contexts/SocketContext';
 
 const CashierDashboard = () => {
   const { user } = useAuth();
@@ -34,12 +35,44 @@ const CashierDashboard = () => {
   const [filterType, setFilterType] = useState('all');
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [showBillModal, setShowBillModal] = useState(false);
+  const socket = useSocket();
 
   useEffect(() => {
     fetchCashierData();
     const interval = setInterval(fetchCashierData, 30000); // Refresh every 30s
     return () => clearInterval(interval);
   }, []);
+
+  useEffect(() => {
+    if (socket) {
+      socket.on('billPending', (newBill) => {
+        setPendingOrders((prevOrders) => [newBill, ...prevOrders]);
+        toast.success(`New bill for Order ${newBill.orderNumber} is pending!`);
+      });
+
+      socket.on('orderUpdated', (updatedOrder) => {
+        // Remove order from pending if its status is paid or cancelled
+        if (updatedOrder.status === 'paid' || updatedOrder.status === 'cancelled') {
+          setPendingOrders((prevOrders) =>
+            prevOrders.filter((order) => order._id !== updatedOrder._id)
+          );
+          toast.success(`Order ${updatedOrder.orderNumber} has been ${updatedOrder.status}!`);
+        } else {
+          // If order is updated but still pending, update its details
+          setPendingOrders((prevOrders) =>
+            prevOrders.map((order) =>
+              order._id === updatedOrder._id ? updatedOrder : order
+            )
+          );
+        }
+      });
+
+      return () => {
+        socket.off('billPending');
+        socket.off('orderUpdated');
+      };
+    }
+  }, [socket]);
 
   const fetchCashierData = async () => {
     try {

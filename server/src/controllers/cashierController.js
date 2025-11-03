@@ -1,3 +1,4 @@
+import { getIo } from "../utils/socket.js";
 import Order from "../models/Order.js";
 import User from "../models/User.js";
 import Table from "../models/Table.js";
@@ -26,11 +27,8 @@ export const processPayment = asyncHandler(async (req, res) => {
     throw new CustomError("Order already paid", 400);
   }
 
-  // Allow payment for served or ready orders (dine-in only)
-  if(order.type === 'dine-in') {
-    if (!["served", "ready"].includes(order.status)) {
-      throw new CustomError("Order must be served or ready before payment", 400);
-    }
+  if (order.status !== "served") {
+    throw new CustomError("Order must be fully served before processing payment.", 400);
   }
 
   // Validate discount
@@ -39,21 +37,6 @@ export const processPayment = asyncHandler(async (req, res) => {
   }
 
   const finalAmount = order.totalAmount - discount;
-
-  // Mark all items as served if not already (only for dine-in)
-  if (order.type === 'dine-in') {
-    order.items.forEach(item => {
-      if (item.status !== 'served') {
-        item.status = 'served';
-        item.servedTime = new Date();
-        item.statusHistory.push({
-          status: 'served',
-          timestamp: new Date(),
-          updatedBy: cashierId
-        });
-      }
-    });
-  }
 
   // Update order payment details
   order.cashierId = cashierId;
@@ -77,20 +60,23 @@ export const processPayment = asyncHandler(async (req, res) => {
 
   await order.save();
 
-  // ✅ Automatically clear table if it's a dine-in order
-  if (order.tableId) {
-    await Table.findByIdAndUpdate(order.tableId._id, {
-      status: "available",
-      currentOrderId: null
-    });
-    console.log(`✅ Table ${order.tableId.tableNumber} cleared after payment for order ${order.orderNumber}`);
-  }
-
   const populatedOrder = await Order.findById(orderId)
     .populate("items.menuItem", "name price")
     .populate("waiterId", "name")
     .populate("cashierId", "name")
     .populate("tableId", "tableNumber");
+
+  getIo().emit("orderUpdated", populatedOrder);
+
+  // ✅ Automatically clear table if it's a dine-in order
+  if (order.tableId) {
+    const updatedTable = await Table.findByIdAndUpdate(order.tableId._id, {
+      status: "available",
+      currentOrderId: null
+    }, { new: true });
+    getIo().emit("tableUpdated", updatedTable);
+    console.log(`✅ Table ${order.tableId.tableNumber} cleared after payment for order ${order.orderNumber}`);
+  }
 
   res.status(200).json({
     success: true,
@@ -181,7 +167,7 @@ export const getPendingBills = asyncHandler(async (req, res) => {
   const { status, sortBy = "createdAt", type } = req.query;
 
   // Default to ready and served orders
-  const validStatuses = ["ready", "served"];
+  const validStatuses = ["served"];
   const statuses = status ? status.split(",").filter(s => validStatuses.includes(s)) : validStatuses;
 
   const filter = {

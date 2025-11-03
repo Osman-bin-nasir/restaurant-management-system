@@ -1,3 +1,4 @@
+import { getIo } from "../utils/socket.js";
 import Table from "../models/Table.js";
 import Order from "../models/Order.js";
 import Branch from "../models/Branch.js";
@@ -528,6 +529,9 @@ export const clearTable = asyncHandler(async (req, res) => {
   table.status = "available";
   table.currentOrderId = null;
   await table.save();
+
+  // Emit a socket event to notify clients of the update
+  getIo().emit("tableUpdated", table);
 
   res.status(200).json({
     success: true,

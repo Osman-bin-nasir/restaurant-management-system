@@ -2,12 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { CreditCard, DollarSign, Receipt, RefreshCw, Search } from 'lucide-react';
 import axios from '../../api/axios';
 import { useNavigate } from 'react-router-dom';
+import { useSocket } from '../../contexts/SocketContext';
 
 const PendingBills = () => {
   const [bills, setBills] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const navigate = useNavigate();
+  const socket = useSocket();
 
   const fetchPendingBills = async () => {
     try {
@@ -24,6 +26,43 @@ const PendingBills = () => {
   useEffect(() => {
     fetchPendingBills();
   }, []);
+
+  useEffect(() => {
+    if (socket) {
+      const handleBillPending = (newBill) => {
+        setBills((prevBills) => {
+          const existingBill = prevBills.find(bill => bill.orderId === newBill.orderId);
+          if (existingBill) {
+            return prevBills.map(bill => bill.orderId === newBill.orderId ? newBill : bill);
+          } else {
+            return [newBill, ...prevBills];
+          }
+        });
+      };
+
+      const handleBillRemoved = ({ orderId }) => {
+        setBills((prevBills) => prevBills.filter(bill => bill.orderId !== orderId));
+      };
+
+      const handleOrderUpdated = (updatedOrder) => {
+        if (updatedOrder.status === 'served') {
+          handleBillPending(updatedOrder);
+        } else {
+          handleBillRemoved({ orderId: updatedOrder._id });
+        }
+      };
+
+      socket.on('billPending', handleBillPending);
+      socket.on('billRemoved', handleBillRemoved);
+      socket.on('orderUpdated', handleOrderUpdated);
+
+      return () => {
+        socket.off('billPending', handleBillPending);
+        socket.off('billRemoved', handleBillRemoved);
+        socket.off('orderUpdated', handleOrderUpdated);
+      };
+    }
+  }, [socket]);
 
   const filteredBills = bills.filter(bill =>
     bill.orderNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||

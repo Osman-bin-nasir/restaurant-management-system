@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Search, Filter, RefreshCw, Eye, XCircle, Clock, DollarSign, Loader2 } from 'lucide-react';
 import api from '../../api/axios';
 import { useAuth } from '../../contexts/AuthContext';
+import { useSocket } from '../../contexts/SocketContext';
 
 // Custom hook for debounce
 const useDebounce = (value, delay) => {
@@ -34,6 +35,7 @@ const AllOrders = () => {
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [showModal, setShowModal] = useState(false);
   const { user } = useAuth();
+  const socket = useSocket();
 
   // ESC key handler for modal
   useEffect(() => {
@@ -129,6 +131,28 @@ const AllOrders = () => {
     setPage(1);
     fetchOrders(1, true);
   }, [filterStatus, filterType, debouncedSearchTerm, fetchOrders]);
+
+  useEffect(() => {
+    if (socket) {
+      const handleOrderUpdated = (updatedOrder) => {
+        setOrders((prevOrders) =>
+          prevOrders.map((order) =>
+            order._id === updatedOrder._id ? updatedOrder : order
+          )
+        );
+        // If the updated order is the one currently selected in the modal, update it too
+        setSelectedOrder((prevSelectedOrder) =>
+          prevSelectedOrder?._id === updatedOrder._id ? updatedOrder : prevSelectedOrder
+        );
+      };
+
+      socket.on('orderUpdated', handleOrderUpdated);
+
+      return () => {
+        socket.off('orderUpdated', handleOrderUpdated);
+      };
+    }
+  }, [socket]);
 
   const handleLoadMore = () => {
     const nextPage = page + 1;

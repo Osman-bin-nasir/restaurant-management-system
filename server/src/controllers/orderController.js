@@ -442,67 +442,6 @@ export const addItemsToOrder = asyncHandler(async (req, res) => {
     throw new CustomError("Cannot add items to paid or cancelled orders", 400);
   }
 
-  // Validate and process items
-  let additionalAmount = 0;
-
-  for (const newItem of items) {
-    const menuItem = await MenuItem.findById(newItem.menuItem);
-    if (!menuItem) throw new CustomError(`Menu item not found: ${newItem.menuItem}`, 404);
-
-    if (!menuItem.availability) {
-      throw new CustomError(`${menuItem.name} is currently unavailable`, 400);
-    }
-
-    // Check if the menuItem already exists in the order
-    const existingItem = order.items.find(
-      (item) => item.menuItem.toString() === newItem.menuItem.toString()
-    );
-
-    if (existingItem) {
-      // ✅ Treat incoming quantity as "add this many new items"
-      const quantityToAdd = newItem.quantity;
-
-      if (quantityToAdd > 0) {
-        for (let i = 0; i < quantityToAdd; i++) {
-          order.items.push({
-            menuItem: newItem.menuItem,
-            quantity: 1, // Each new item tracked separately
-            notes: newItem.notes || '',
-            status: 'placed',
-            priceAtOrder: menuItem.price,
-            statusHistory: [
-              {
-                status: 'placed',
-                timestamp: new Date(),
-                updatedBy: req.user.id,
-                note: 'Additional item added to existing order'
-              },
-            ],
-          });
-        }
-
-        additionalAmount += menuItem.price * quantityToAdd;
-      }
-    } else {
-      // ✅ New item - add with "placed" status
-      order.items.push({
-        menuItem: newItem.menuItem,
-        quantity: newItem.quantity,
-        notes: newItem.notes || '',
-        status: 'placed',
-        priceAtOrder: menuItem.price,
-        statusHistory: [
-          {
-            status: 'placed',
-            timestamp: new Date(),
-            updatedBy: req.user.id,
-          },
-        ],
-      });
-      additionalAmount += menuItem.price * newItem.quantity;
-    }
-  }
-
   order.totalAmount += additionalAmount;
   order.updateOrderStatus();
 
@@ -557,14 +496,6 @@ export const removeItemFromOrder = asyncHandler(async (req, res) => {
   order.updateOrderStatus();
 
   await order.save();
-
-  // If all items are removed, the order is cancelled. Free up the table.
-  if (order.status === 'cancelled' && order.tableId) {
-    await Table.findByIdAndUpdate(order.tableId, {
-      status: "available",
-      currentOrderId: null
-    });
-  }
 
   const updatedOrder = await Order.findById(orderId)
     .populate("items.menuItem", "name price")

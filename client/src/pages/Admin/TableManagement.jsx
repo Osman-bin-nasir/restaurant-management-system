@@ -14,6 +14,7 @@ import {
   Search
 } from 'lucide-react';
 import axios from '../../api/axios';
+import { useSocket } from '../../contexts/SocketContext';
 
 const TrendingUp = ({ size = 24, className = '' }) => (
   <svg
@@ -47,10 +48,27 @@ const TableManagementSystem = () => {
   const [currentOrder, setCurrentOrder] = useState(null);
   const [isOrderDirty, setIsOrderDirty] = useState(false);
   const navigate = useNavigate();
+  const socket = useSocket();
 
   useEffect(() => {
     fetchData();
   }, []);
+
+  useEffect(() => {
+    if (socket) {
+      socket.on('tableUpdated', (updatedTable) => {
+        setTables((prevTables) =>
+          prevTables.map((table) =>
+            table._id === updatedTable._id ? updatedTable : table
+          )
+        );
+      });
+
+      return () => {
+        socket.off('tableUpdated');
+      };
+    }
+  }, [socket]);
 
   const fetchData = async () => {
     try {

@@ -77,21 +77,32 @@ const WaiterTableDetails = () => {
   }, [id]);
 
   useEffect(() => {
-    if (socket && currentOrder) {
+    if (socket) {
       const handleOrderUpdate = (updatedOrder) => {
-        if (updatedOrder._id === currentOrder._id) {
+        if (currentOrder && updatedOrder._id === currentOrder._id) {
           setCurrentOrder(updatedOrder);
           toast.success('Order has been updated!');
         }
       };
 
+      const handleTableUpdate = (updatedTable) => {
+        if (table && updatedTable._id === table._id) {
+          setTable(updatedTable);
+          if (updatedTable.status === 'available') {
+            toast.success(`Table ${updatedTable.tableNumber} is now available!`);
+          }
+        }
+      };
+
       socket.on('orderUpdated', handleOrderUpdate);
+      socket.on('tableUpdated', handleTableUpdate);
 
       return () => {
         socket.off('orderUpdated', handleOrderUpdate);
+        socket.off('tableUpdated', handleTableUpdate);
       };
     }
-  }, [socket, currentOrder]);
+  }, [socket, currentOrder, table]);
 
   // Filter menu items based on search term
   const filteredMenuItems = menuItems.filter(item =>
