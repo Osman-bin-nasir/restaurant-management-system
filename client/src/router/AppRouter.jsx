@@ -45,7 +45,6 @@ import CashierParcelOrder from '../pages/Cashier/CashierParcelOrder.jsx';
 
 // Kitchen Pages
 import KitchenDashboard from '../pages/Kitchen/KitchenDashboard.jsx';
-import ParcelOrderQueue from '../pages/Kitchen/ParcelOrderQueue.jsx';
 
 // Waiter Pages
 import WaiterDashboard from '../pages/Waiter/WaiterDashboard.jsx';
@@ -159,7 +158,6 @@ const AppRouter = () => {
             }
           >
             <Route path="dashboard" element={<KitchenDashboard />} />
-            <Route path="parcel-queue" element={<ParcelOrderQueue />} />
           </Route>
 
           {/* Waiter Routes */}
