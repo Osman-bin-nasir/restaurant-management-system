@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Package, Clock, RefreshCw, Flame, CheckCircle, User, ChefHat, AlertTriangle, Plus, Minus } from 'lucide-react';
+import axios from '../../api/axios';
+import { useSocket } from '../../contexts/SocketContext';
 
 const ParcelOrderQueue = () => {
   const [queue, setQueue] = useState({ placed: [], inKitchen: [] });
@@ -8,77 +10,19 @@ const ParcelOrderQueue = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [selectedItems, setSelectedItems] = useState([]);
   const [toasts, setToasts] = useState([]);
+  const socket = useSocket();
 
-  // Mock data for demonstration
   useEffect(() => {
-    // Simulating API call
-    const mockData = {
-      placed: [
-        {
-          itemId: '1',
-          orderId: 'order1',
-          orderNumber: 'P001',
-          customerName: 'John Doe',
-          menuItem: { name: 'Margherita Pizza', cookingTime: 15 },
-          quantity: 2,
-          notes: 'Extra cheese, no onions',
-          estimatedReadyTime: new Date(Date.now() + 10 * 60000).toISOString()
-        },
-        {
-          itemId: '2',
-          orderId: 'order1',
-          orderNumber: 'P001',
-          customerName: 'John Doe',
-          menuItem: { name: 'Garlic Bread', cookingTime: 8 },
-          quantity: 1,
-          notes: '',
-          estimatedReadyTime: new Date(Date.now() + 8 * 60000).toISOString()
-        },
-        {
-          itemId: '3',
-          orderId: 'order2',
-          orderNumber: 'P002',
-          customerName: 'Jane Smith',
-          menuItem: { name: 'Chicken Burger', cookingTime: 12 },
-          quantity: 3,
-          notes: 'Well done',
-          estimatedReadyTime: new Date(Date.now() + 3 * 60000).toISOString()
-        }
-      ],
-      inKitchen: [
-        {
-          itemId: '4',
-          orderId: 'order3',
-          orderNumber: 'P003',
-          customerName: 'Bob Wilson',
-          menuItem: { name: 'Pasta Alfredo', cookingTime: 20 },
-          quantity: 1,
-          notes: '',
-          estimatedReadyTime: new Date(Date.now() + 15 * 60000).toISOString()
-        },
-        {
-          itemId: '5',
-          orderId: 'order3',
-          orderNumber: 'P003',
-          customerName: 'Bob Wilson',
-          menuItem: { name: 'Caesar Salad', cookingTime: 5 },
-          quantity: 2,
-          notes: 'No croutons',
-          estimatedReadyTime: new Date(Date.now() + 5 * 60000).toISOString()
-        }
-      ]
-    };
+    fetchQueue();
 
-    setTimeout(() => {
-      setQueue(mockData);
-      setStats({
-        placed: mockData.placed.length,
-        inKitchen: mockData.inKitchen.length,
-        total: mockData.placed.length + mockData.inKitchen.length
-      });
-      setLoading(false);
-    }, 1000);
-  }, []);
+    if (socket) {
+      socket.on('orderUpdated', fetchQueue);
+
+      return () => {
+        socket.off('orderUpdated', fetchQueue);
+      };
+    }
+  }, [socket]);
 
   const showToast = (message, type = 'success') => {
     const id = Date.now();
@@ -90,17 +34,71 @@ const ParcelOrderQueue = () => {
 
   const fetchQueue = async () => {
     setRefreshing(true);
-    // Simulate refresh
-    setTimeout(() => {
+    setLoading(true);
+    try {
+      const { data } = await axios.get('/kitchen/queue', { params: { status: 'placed,in-kitchen' } });
+      if (data.success) {
+        setQueue({
+          placed: data.queue.newItems || [],
+          inKitchen: [...(data.queue.inProgress || []), ...(data.queue.almostReady || [])]
+        });
+        setStats(data.stats);
+      }
+    } catch (error) {
+      console.error('Failed to fetch kitchen queue:', error);
+      showToast('Failed to load queue', 'error');
+    } finally {
+      setLoading(false);
       setRefreshing(false);
-      showToast('Queue refreshed');
-    }, 500);
+    }
   };
 
   const handleStartPreparing = async () => {
-    if (selectedItems.length === 0) return;
-    showToast(`${selectedItems.length} item(s) started preparing`);
-    setSelectedItems([]);
+    const itemsToStart = selectedItems.filter(item =>
+      queue.placed.some(placedItem => placedItem.itemId === item.itemId)
+    );
+
+    if (itemsToStart.length === 0) {
+      showToast('No new items selected to start', 'error');
+      return;
+    }
+
+    const itemsByOrder = itemsToStart.reduce((acc, item) => {
+      if (!acc[item.orderId]) {
+        acc[item.orderId] = [];
+      }
+      acc[item.orderId].push(item.itemId);
+      return acc;
+    }, {});
+
+    const itemsPayload = Object.keys(itemsByOrder).map(orderId => ({
+      orderId,
+      itemIds: itemsByOrder[orderId]
+    }));
+
+    try {
+      await axios.post('/kitchen/items/start-cooking', { items: itemsPayload });
+
+      // Optimistic update
+      setQueue(prev => {
+        const newPlaced = prev.placed.filter(item => !itemsToStart.some(i => i.itemId === item.itemId));
+        const movedItems = prev.placed
+          .filter(item => itemsToStart.some(i => i.itemId === item.itemId))
+          .map(item => ({ ...item, status: 'in-kitchen' }));
+        
+        return {
+          placed: newPlaced,
+          inKitchen: [...prev.inKitchen, ...movedItems]
+        };
+      });
+
+      showToast(`${itemsToStart.length} item(s) moved to In Kitchen`);
+      setSelectedItems([]);
+
+    } catch (error) {
+      console.error('Failed to start cooking:', error);
+      showToast('Error starting items', 'error');
+    }
   };
 
   const handleMarkReady = async () => {
@@ -141,6 +139,7 @@ const ParcelOrderQueue = () => {
   };
 
   const getTimeRemaining = (estimatedTime) => {
+    if (!estimatedTime) return { text: '-', urgent: false };
     const diff = new Date(estimatedTime) - new Date();
     const minutes = Math.floor(diff / 60000);
     if (minutes < 0) return { text: 'OVERDUE', urgent: true };
@@ -161,7 +160,7 @@ const ParcelOrderQueue = () => {
       orderNumber: items[0].orderNumber,
       customerName: items[0].customerName,
       items,
-      minTime: Math.min(...items.map(i => new Date(i.estimatedReadyTime)))
+      minTime: Math.min(...items.filter(i => i.estimatedCompletionTime).map(i => new Date(i.estimatedCompletionTime)))
     })).sort((a, b) => a.minTime - b.minTime);
   };
 
@@ -247,7 +246,7 @@ const ParcelOrderQueue = () => {
         <div className="p-4 space-y-3">
           {order.items.map((item, index) => {
             const isSelected = selectedItems.some(si => si.itemId === item.itemId);
-            const timeInfo = getTimeRemaining(item.estimatedReadyTime);
+            const timeInfo = getTimeRemaining(item.estimatedCompletionTime);
 
             return (
               <div

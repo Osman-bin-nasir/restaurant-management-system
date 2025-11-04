@@ -45,30 +45,26 @@ const CashierDashboard = () => {
 
   useEffect(() => {
     if (socket) {
-      socket.on('billPending', (newBill) => {
-        setPendingOrders((prevOrders) => [newBill, ...prevOrders]);
-        toast.success(`New bill for Order ${newBill.orderNumber} is pending!`);
-      });
 
       socket.on('orderUpdated', (updatedOrder) => {
-        // Remove order from pending if its status is paid or cancelled
-        if (updatedOrder.status === 'paid' || updatedOrder.status === 'cancelled') {
-          setPendingOrders((prevOrders) =>
-            prevOrders.filter((order) => order._id !== updatedOrder._id)
-          );
-          toast.success(`Order ${updatedOrder.orderNumber} has been ${updatedOrder.status}!`);
+        if (updatedOrder.status === 'served') {
+            setPendingOrders((prevOrders) => {
+                const existingOrder = prevOrders.find(order => order._id === updatedOrder._id);
+                if (existingOrder) {
+                    return prevOrders.map(order => order._id === updatedOrder._id ? updatedOrder : order);
+                } else {
+                    return [updatedOrder, ...prevOrders];
+                }
+            });
         } else {
-          // If order is updated but still pending, update its details
-          setPendingOrders((prevOrders) =>
-            prevOrders.map((order) =>
-              order._id === updatedOrder._id ? updatedOrder : order
-            )
-          );
+            setPendingOrders((prevOrders) =>
+                prevOrders.filter((order) => order._id !== updatedOrder._id)
+            );
         }
       });
 
       return () => {
-        socket.off('billPending');
+        
         socket.off('orderUpdated');
       };
     }
@@ -78,7 +74,7 @@ const CashierDashboard = () => {
     try {
       const [statsRes, ordersRes] = await Promise.all([
         axios.get('/cashier/stats/today'),
-        axios.get('/orders', { params: { status: 'served,ready' } })
+        axios.get('/orders', { params: { status: 'served' } })
       ]);
 
       setStats(statsRes.data?.stats || {

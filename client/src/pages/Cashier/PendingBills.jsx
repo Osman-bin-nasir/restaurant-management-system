@@ -30,12 +30,29 @@ const PendingBills = () => {
   useEffect(() => {
     if (socket) {
       const handleBillPending = (newBill) => {
+        const mappedBill = {
+          orderId: newBill._id,
+          orderNumber: newBill.orderNumber,
+          tableNumber: newBill.tableId?.tableNumber || "Parcel",
+          customerName: newBill.customerName,
+          type: newBill.type,
+          items: newBill.items.map(item => ({
+            name: item.menuItem?.name,
+            quantity: item.quantity,
+            price: item.menuItem?.price
+          })),
+          totalAmount: newBill.totalAmount,
+          status: newBill.status,
+          waiterId: newBill.waiterId?.name,
+          createdAt: newBill.createdAt
+        };
+
         setBills((prevBills) => {
-          const existingBill = prevBills.find(bill => bill.orderId === newBill.orderId);
+          const existingBill = prevBills.find(bill => bill.orderId === mappedBill.orderId);
           if (existingBill) {
-            return prevBills.map(bill => bill.orderId === newBill.orderId ? newBill : bill);
+            return prevBills.map(bill => bill.orderId === mappedBill.orderId ? mappedBill : bill);
           } else {
-            return [newBill, ...prevBills];
+            return [mappedBill, ...prevBills];
           }
         });
       };
@@ -52,12 +69,10 @@ const PendingBills = () => {
         }
       };
 
-      socket.on('billPending', handleBillPending);
       socket.on('billRemoved', handleBillRemoved);
       socket.on('orderUpdated', handleOrderUpdated);
 
       return () => {
-        socket.off('billPending', handleBillPending);
         socket.off('billRemoved', handleBillRemoved);
         socket.off('orderUpdated', handleOrderUpdated);
       };
