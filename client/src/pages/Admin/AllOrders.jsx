@@ -1,26 +1,24 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { Search, Filter, RefreshCw, Eye, XCircle, Clock, DollarSign, Loader2 } from 'lucide-react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { Search, Filter, RefreshCw, XCircle, Clock, DollarSign, Loader2 } from 'lucide-react';
 import api from '../../api/axios';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSocket } from '../../contexts/SocketContext';
 
-// Custom hook for debounce
+// Custom debounce hook
 const useDebounce = (value, delay) => {
   const [debouncedValue, setDebouncedValue] = useState(value);
   useEffect(() => {
-    const handler = setTimeout(() => {
-      setDebouncedValue(value);
-    }, delay);
-    return () => {
-      clearTimeout(handler);
-    };
+    const handler = setTimeout(() => setDebouncedValue(value), delay);
+    return () => clearTimeout(handler);
   }, [value, delay]);
   return debouncedValue;
 };
 
 const AllOrders = () => {
   const [orders, setOrders] = useState([]);
-  const [stats, setStats] = useState({ total: 0, placed: 0, inKitchen: 0, ready: 0, served: 0, paid: 0, totalRevenue: 0 });
+  const [stats, setStats] = useState({
+    total: 0, placed: 0, inKitchen: 0, ready: 0, served: 0, paid: 0, totalRevenue: 0
+  });
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [page, setPage] = useState(1);
@@ -37,7 +35,7 @@ const AllOrders = () => {
   const { user } = useAuth();
   const socket = useSocket();
 
-  // ESC key handler for modal
+  // ESC key closes modal
   useEffect(() => {
     const handleEscKey = (event) => {
       if (event.keyCode === 27 && showModal) {
@@ -45,120 +43,114 @@ const AllOrders = () => {
         setSelectedOrder(null);
       }
     };
-
     document.addEventListener('keydown', handleEscKey);
-    
-    return () => {
-      document.removeEventListener('keydown', handleEscKey);
-    };
+    return () => document.removeEventListener('keydown', handleEscKey);
   }, [showModal]);
 
-  const fetchOrders = useCallback(async (currentPage, isRefresh) => {
-  if (currentPage === 1) setLoading(true);
-  else setLoadingMore(true);
-  setError(null);
+  // Fetch orders function
+  const fetchOrders = useCallback(
+    async (currentPage, isRefresh) => {
+      if (currentPage === 1) setLoading(true);
+      else setLoadingMore(true);
+      setError(null);
 
-  try {
-    const params = {
-      page: currentPage,
-      limit: 10,
-    };
-    if (filterStatus !== 'all') params.status = filterStatus;
-    if (filterType !== 'all') params.type = filterType;
-    if (debouncedSearchTerm) params.searchTerm = debouncedSearchTerm;
+      try {
+        const params = { page: currentPage, limit: 10 };
+        if (filterStatus !== 'all') params.status = filterStatus;
+        if (filterType !== 'all') params.type = filterType;
+        if (debouncedSearchTerm) params.searchTerm = debouncedSearchTerm;
 
-    // Fetch both dine-in and parcel orders in parallel
-    const [dineInRes, parcelRes] = await Promise.all([
-      api.get('/orders', {
-        params,
-        headers: { Authorization: `Bearer ${user.token}` },
-      }),
-      api.get('/parcel', {
-        params,
-        headers: { Authorization: `Bearer ${user.token}` },
-      }),
-    ]);
+        const [dineInRes, parcelRes] = await Promise.all([
+          api.get('/orders', {
+            params,
+            headers: { Authorization: `Bearer ${user.token}` },
+          }),
+          api.get('/parcel', {
+            params,
+            headers: { Authorization: `Bearer ${user.token}` },
+          }),
+        ]);
 
-    // Extract data safely
-    const dineInOrders = dineInRes.data?.orders?.map(o => ({ ...o, orderType: 'Dine-in' })) || [];
-    const parcelOrders = parcelRes.data?.orders?.map(o => ({ ...o, orderType: 'Parcel' })) || [];
+        const dineInOrders = dineInRes.data?.orders?.map(o => ({ ...o, orderType: 'Dine-in' })) || [];
+        const parcelOrders = parcelRes.data?.orders?.map(o => ({ ...o, orderType: 'Parcel' })) || [];
+        const combinedOrders = [...dineInOrders, ...parcelOrders].sort(
+          (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
+        );
 
-    // Merge both sets of orders
-    const combinedOrders = [...dineInOrders, ...parcelOrders]
-      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+        const dineStats = dineInRes.data?.stats || {};
+        const parcelStats = parcelRes.data?.stats || {};
+        const mergedStats = {
+          total: (dineStats.total || 0) + (parcelStats.total || 0),
+          placed: (dineStats.placed || 0) + (parcelStats.placed || 0),
+          inKitchen: (dineStats.inKitchen || 0) + (parcelStats.inKitchen || 0),
+          ready: (dineStats.ready || 0) + (parcelStats.ready || 0),
+          served: (dineStats.served || 0) + (parcelStats.served || 0),
+          paid: (dineStats.paid || 0) + (parcelStats.paid || 0),
+          totalRevenue: (dineStats.totalRevenue || 0) + (parcelStats.totalRevenue || 0),
+        };
 
-    // Merge stats (optional, simple total sum logic)
-    const dineStats = dineInRes.data?.stats || {};
-    const parcelStats = parcelRes.data?.stats || {};
-    const mergedStats = {
-      total: (dineStats.total || 0) + (parcelStats.total || 0),
-      placed: (dineStats.placed || 0) + (parcelStats.placed || 0),
-      inKitchen: (dineStats.inKitchen || 0) + (parcelStats.inKitchen || 0),
-      ready: (dineStats.ready || 0) + (parcelStats.ready || 0),
-      served: (dineStats.served || 0) + (parcelStats.served || 0),
-      paid: (dineStats.paid || 0) + (parcelStats.paid || 0),
-      totalRevenue: (dineStats.totalRevenue || 0) + (parcelStats.totalRevenue || 0),
-    };
+        const dinePage = dineInRes.data?.currentPage || 1;
+        const dineTotalPages = dineInRes.data?.totalPages || 1;
+        const parcelPage = parcelRes.data?.currentPage || 1;
+        const parcelTotalPages = parcelRes.data?.totalPages || 1;
+        const hasMorePages = (dinePage < dineTotalPages) || (parcelPage < parcelTotalPages);
 
-    // Pagination handling (optional, merge logic)
-    const dinePage = dineInRes.data?.currentPage || 1;
-    const dineTotalPages = dineInRes.data?.totalPages || 1;
-    const parcelPage = parcelRes.data?.currentPage || 1;
-    const parcelTotalPages = parcelRes.data?.totalPages || 1;
+        setOrders(prev => currentPage === 1 || isRefresh ? combinedOrders : [...prev, ...combinedOrders]);
+        setStats(mergedStats);
+        setHasMore(hasMorePages);
+      } catch (err) {
+        console.error(err);
+        setError(err.response?.data?.message || 'Failed to fetch orders');
+      } finally {
+        if (currentPage === 1) setLoading(false);
+        else setLoadingMore(false);
+      }
+    },
+    [user?.token, filterStatus, filterType, debouncedSearchTerm]
+  );
 
-    const hasMorePages =
-      (dinePage < dineTotalPages) || (parcelPage < parcelTotalPages);
-
-    // Update state
-    setOrders(prev =>
-      currentPage === 1 || isRefresh
-        ? combinedOrders
-        : [...prev, ...combinedOrders]
-    );
-    setStats(mergedStats);
-    setHasMore(hasMorePages);
-  } catch (err) {
-    console.error(err);
-    setError(err.response?.data?.message || 'Failed to fetch orders');
-  } finally {
-    if (currentPage === 1) setLoading(false);
-    else setLoadingMore(false);
-  }
-}, [user?.token, filterStatus, filterType, debouncedSearchTerm]);
-
-
+  // Initial and filter refresh
   useEffect(() => {
     setPage(1);
     fetchOrders(1, true);
   }, [filterStatus, filterType, debouncedSearchTerm, fetchOrders]);
 
+  // WebSocket updates
   useEffect(() => {
-    if (socket) {
-      const handleOrderUpdated = (updatedOrder) => {
-        setOrders((prevOrders) =>
-          prevOrders.map((order) =>
-            order._id === updatedOrder._id ? updatedOrder : order
-          )
-        );
-        // If the updated order is the one currently selected in the modal, update it too
-        setSelectedOrder((prevSelectedOrder) =>
-          prevSelectedOrder?._id === updatedOrder._id ? updatedOrder : prevSelectedOrder
-        );
-      };
-
-      socket.on('orderUpdated', handleOrderUpdated);
-
-      return () => {
-        socket.off('orderUpdated', handleOrderUpdated);
-      };
-    }
+    if (!socket) return;
+    const handleOrderUpdated = (updatedOrder) => {
+      setOrders((prevOrders) =>
+        prevOrders.map((order) =>
+          order._id === updatedOrder._id ? updatedOrder : order
+        )
+      );
+      setSelectedOrder((prev) =>
+        prev?._id === updatedOrder._id ? updatedOrder : prev
+      );
+    };
+    socket.on('orderUpdated', handleOrderUpdated);
+    return () => socket.off('orderUpdated', handleOrderUpdated);
   }, [socket]);
 
-  const handleLoadMore = () => {
-    const nextPage = page + 1;
-    setPage(nextPage);
-    fetchOrders(nextPage, false);
-  };
+  // Infinite scroll observer
+  const observer = useRef();
+  const lastOrderRef = useCallback(
+    (node) => {
+      if (loadingMore) return;
+      if (observer.current) observer.current.disconnect();
+
+      observer.current = new IntersectionObserver((entries) => {
+        if (entries[0].isIntersecting && hasMore) {
+          const nextPage = page + 1;
+          setPage(nextPage);
+          fetchOrders(nextPage, false);
+        }
+      });
+
+      if (node) observer.current.observe(node);
+    },
+    [loadingMore, hasMore, page, fetchOrders]
+  );
 
   const refreshData = () => {
     setPage(1);
@@ -182,20 +174,22 @@ const AllOrders = () => {
     setShowModal(true);
   };
 
-  // Function to aggregate items by name and sum quantities
+  const closeModal = () => {
+    setShowModal(false);
+    setSelectedOrder(null);
+  };
+
   const aggregateItems = (items) => {
     const aggregated = {};
-    
     items.forEach(item => {
-      const itemName = item.menuItem?.name;
-      if (!itemName) return;
-      
-      if (aggregated[itemName]) {
-        aggregated[itemName].quantity += item.quantity;
-        aggregated[itemName].totalPrice += (item.menuItem?.price || 0) * item.quantity;
+      const name = item.menuItem?.name;
+      if (!name) return;
+      if (aggregated[name]) {
+        aggregated[name].quantity += item.quantity;
+        aggregated[name].totalPrice += (item.menuItem?.price || 0) * item.quantity;
       } else {
-        aggregated[itemName] = {
-          name: itemName,
+        aggregated[name] = {
+          name,
           quantity: item.quantity,
           price: item.menuItem?.price || 0,
           totalPrice: (item.menuItem?.price || 0) * item.quantity,
@@ -203,24 +197,13 @@ const AllOrders = () => {
         };
       }
     });
-    
     return Object.values(aggregated);
-  };
-
-  const closeModal = () => {
-    setShowModal(false);
-    setSelectedOrder(null);
   };
 
   const updateOrderStatus = async (orderId, newStatus) => {
     try {
       await api.patch(`/orders/${orderId}/all-items/status`, { newStatus }, { headers: { Authorization: `Bearer ${user.token}` } });
-      // refresh list and selected order if open
       await fetchOrders(1, true);
-      if (selectedOrder?._id === orderId) {
-        const { data } = await api.get(`/orders/${orderId}`, { headers: { Authorization: `Bearer ${user.token}` } });
-        setSelectedOrder(data.order);
-      }
     } catch (err) {
       alert(`Error: ${err.response?.data?.message || err.message}`);
     }
@@ -241,8 +224,6 @@ const AllOrders = () => {
     try {
       await api.patch(`/orders/${orderId}/mark-as-paid`, {}, { headers: { Authorization: `Bearer ${user.token}` } });
       await fetchOrders(1, true);
-      const { data } = await api.get(`/orders/${orderId}`, { headers: { Authorization: `Bearer ${user.token}` } });
-      setSelectedOrder(data.order);
     } catch (err) {
       alert(`Error: ${err.response?.data?.message || err.message}`);
     }
@@ -272,17 +253,14 @@ const AllOrders = () => {
         </button>
       </div>
 
-      {/* stats */}
+      {/* STATS */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 gap-4">
         <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-100">
           <p className="text-sm text-gray-600 mb-1">Total Orders</p>
           <p className="text-3xl font-bold text-gray-900">{stats.total}</p>
         </div>
         <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-100">
-          <div className="flex items-center justify-between mb-1">
-            <p className="text-sm text-blue-600 font-medium">Placed</p>
-            <span className="text-xs text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">New</span>
-          </div>
+          <p className="text-sm text-blue-600 font-medium mb-1">Placed</p>
           <p className="text-3xl font-bold text-blue-700">{stats.placed}</p>
         </div>
         <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-100">
@@ -303,14 +281,13 @@ const AllOrders = () => {
         </div>
         <div className="bg-gradient-to-br from-orange-500 to-orange-600 p-5 rounded-xl shadow-sm text-white">
           <p className="text-sm opacity-90 mb-1 flex items-center gap-1">
-            <DollarSign className="w-4 h-4" />
-            Revenue
+            <DollarSign className="w-4 h-4" /> Revenue
           </p>
           <p className="text-3xl font-bold">₹{(stats.totalRevenue ?? 0).toFixed(2)}</p>
         </div>
       </div>
 
-      {/* filters */}
+      {/* FILTERS */}
       <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-100">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="relative">
@@ -328,7 +305,7 @@ const AllOrders = () => {
             <select
               value={filterStatus}
               onChange={(e) => setFilterStatus(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 appearance-none transition cursor-pointer"
+              className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition cursor-pointer"
             >
               <option value="all">All Statuses</option>
               <option value="placed">Placed</option>
@@ -344,7 +321,7 @@ const AllOrders = () => {
             <select
               value={filterType}
               onChange={(e) => setFilterType(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 appearance-none transition cursor-pointer"
+              className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition cursor-pointer"
             >
               <option value="all">All Types</option>
               <option value="dine-in">Dine-in</option>
@@ -354,8 +331,11 @@ const AllOrders = () => {
         </div>
       </div>
 
-      {error && <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl">{error}</div>}
+      {error && (
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl">{error}</div>
+      )}
 
+      {/* TABLE with Infinite Scroll */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
@@ -373,7 +353,7 @@ const AllOrders = () => {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-100">
-              {orders.length === 0 && !loading ? (
+              {orders.length === 0 ? (
                 <tr>
                   <td colSpan="9" className="px-6 py-12 text-center text-gray-500">
                     <Search className="w-12 h-12 mx-auto text-gray-300" />
@@ -381,28 +361,33 @@ const AllOrders = () => {
                   </td>
                 </tr>
               ) : (
-                orders.map((order) => (
-                  <tr 
-                    key={order._id} 
+                orders.map((order, index) => (
+                  <tr
+                    key={order._id}
+                    ref={index === orders.length - 1 ? lastOrderRef : null}
                     className="hover:bg-gray-50 transition cursor-pointer"
                     onClick={() => viewOrderDetails(order)}
                   >
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{order.customerName}</td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="text-sm font-medium text-gray-900">{order.customerName}</span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-3 py-1 text-xs font-semibold rounded-full ${order.type === 'dine-in' ? 'bg-blue-50 text-blue-700 border border-blue-200' : 'bg-orange-50 text-orange-700 border border-orange-200'}`}>
+                      <span
+                        className={`px-3 py-1 text-xs font-semibold rounded-full ${
+                          order.type === 'dine-in'
+                            ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                            : 'bg-orange-50 text-orange-700 border border-orange-200'
+                        }`}
+                      >
                         {order.type === 'dine-in' ? 'Dine-in' : 'Parcel'}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{order.tableId?.tableNumber || 'N/A'}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{order.waiterId?.name || order.cashierId?.name || 'N/A'}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{order.items?.length || 0} items</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-900">₹{(order.totalAmount ?? 0).toFixed(2)}</td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="text-sm font-bold text-gray-900">₹{((order.totalAmount ?? 0)).toFixed(2)}</span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-3 py-1 text-xs font-semibold rounded-full ${getStatusBadge(order.payment?.status || order.status)}`}>{order.payment?.status || order.status}</span>
+                      <span className={`px-3 py-1 text-xs font-semibold rounded-full ${getStatusBadge(order.payment?.status || order.status)}`}>
+                        {order.payment?.status || order.status}
+                      </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
                       <div className="flex items-center gap-1">
@@ -411,9 +396,7 @@ const AllOrders = () => {
                       </div>
                       <div className="text-xs text-gray-500 mt-0.5">{new Date(order.createdAt).toLocaleDateString('en-IN')}</div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="font-mono text-sm font-semibold text-gray-900">{order.orderNumber}</span>
-                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap font-mono text-sm font-semibold text-gray-900">{order.orderNumber}</td>
                   </tr>
                 ))
               )}
@@ -421,35 +404,26 @@ const AllOrders = () => {
           </table>
         </div>
 
-        {hasMore && (
+        {loadingMore && (
           <div className="p-4 text-center border-t border-gray-200">
-            <button
-              onClick={handleLoadMore}
-              disabled={loadingMore}
-              className="flex items-center justify-center gap-2 w-full md:w-auto mx-auto px-6 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 disabled:opacity-50 transition"
-            >
-              {loadingMore ? <><Loader2 className="animate-spin" size={20} /> Loading...</> : 'Load More'}
-            </button>
+            <Loader2 className="animate-spin mx-auto text-gray-500" size={24} />
           </div>
         )}
       </div>
 
-      {/* Order Details Modal */}
+      {/* MODAL */}
       {showModal && selectedOrder && (
         <div className="fixed inset-0 backdrop-blur-md bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto shadow-2xl">
             <div className="p-6 border-b border-gray-200 flex items-center justify-between sticky top-0 bg-white rounded-t-xl">
               <h2 className="text-2xl font-bold text-gray-900">Order Details</h2>
-              <button
-                onClick={closeModal}
-                className="text-gray-400 hover:text-gray-600 transition"
-              >
+              <button onClick={closeModal} className="text-gray-400 hover:text-gray-600 transition">
                 <XCircle className="w-6 h-6" />
               </button>
             </div>
 
             <div className="p-6 space-y-6">
-              {/* Order Info */}
+              {/* Info */}
               <div className="grid grid-cols-2 gap-4">
                 <div className="bg-gray-50 p-4 rounded-lg">
                   <p className="text-xs text-gray-600 font-medium mb-1">Order Number</p>
@@ -461,33 +435,9 @@ const AllOrders = () => {
                     {selectedOrder.payment?.status || selectedOrder.status}
                   </span>
                 </div>
-                <div className="bg-gray-50 p-4 rounded-lg">
-                  <p className="text-xs text-gray-600 font-medium mb-1">Customer Name</p>
-                  <p className="font-semibold text-gray-900">{selectedOrder.customerName}</p>
-                </div>
-                <div className="bg-gray-50 p-4 rounded-lg">
-                  <p className="text-xs text-gray-600 font-medium mb-1">Order Type</p>
-                  <p className="font-semibold text-gray-900 capitalize">{selectedOrder.type}</p>
-                </div>
-                <div className="bg-gray-50 p-4 rounded-lg">
-                  <p className="text-xs text-gray-600 font-medium mb-1">Waiter</p>
-                  <p className="font-semibold text-gray-900">{selectedOrder.waiterId?.name || 'N/A'}</p>
-                </div>
-                <div className="bg-gray-50 p-4 rounded-lg">
-                  <p className="text-xs text-gray-600 font-medium mb-1">Table</p>
-                  <p className="font-semibold text-gray-900">{selectedOrder.tableId?.tableNumber || 'N/A'}</p>
-                </div>
-                <div className="bg-gray-50 p-4 rounded-lg">
-                  <p className="text-xs text-gray-600 font-medium mb-1">Created At</p>
-                  <p className="font-semibold text-gray-900 text-sm">{new Date(selectedOrder.createdAt).toLocaleString('en-IN')}</p>
-                </div>
-                <div className="bg-gradient-to-br from-orange-500 to-orange-600 p-4 rounded-lg text-white">
-                  <p className="text-xs opacity-90 mb-1">Total Amount</p>
-                  <p className="text-2xl font-bold">₹{((selectedOrder.totalAmount ?? 0)).toFixed(2)}</p>
-                </div>
               </div>
 
-              {/* Order Items - Aggregated */}
+              {/* Items */}
               <div>
                 <h3 className="text-lg font-bold mb-3 text-gray-900">Order Items</h3>
                 <div className="space-y-2">
@@ -505,28 +455,6 @@ const AllOrders = () => {
                   ))}
                 </div>
               </div>
-
-              {/* Actions */}
-              {selectedOrder.status !== 'cancelled' && selectedOrder.payment?.status !== 'paid' && selectedOrder.status !== 'paid' && (
-                <div>
-                  <h3 className="text-lg font-bold mb-3 text-gray-900">Update Status</h3>
-                  <div className="flex flex-wrap gap-2">
-                    {selectedOrder.status === 'placed' && (
-                      <button onClick={() => updateOrderStatus(selectedOrder._id, 'in-kitchen')} className="px-4 py-2.5 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 font-semibold transition shadow-sm">Move to Kitchen</button>
-                    )}
-                    {selectedOrder.status === 'in-kitchen' && (
-                      <button onClick={() => updateOrderStatus(selectedOrder._id, 'ready')} className="px-4 py-2.5 bg-green-500 text-white rounded-lg hover:bg-green-600 font-semibold transition shadow-sm">Mark Ready</button>
-                    )}
-                    {selectedOrder.status === 'ready' && (
-                      <button onClick={() => updateOrderStatus(selectedOrder._id, 'served')} className="px-4 py-2.5 bg-purple-500 text-white rounded-lg hover:bg-purple-600 font-semibold transition shadow-sm">Mark Served</button>
-                    )}
-                    {selectedOrder.status === 'served' && (
-                      <button onClick={() => markOrderAsPaid(selectedOrder._id)} className="px-4 py-2.5 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 font-semibold transition shadow-sm">Mark Paid</button>
-                    )}
-                    <button onClick={() => cancelOrder(selectedOrder._id)} className="px-4 py-2.5 bg-red-500 text-white rounded-lg hover:bg-red-600 font-semibold transition shadow-sm">Cancel Order</button>
-                  </div>
-                </div>
-              )}
             </div>
           </div>
         </div>
