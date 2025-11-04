@@ -222,80 +222,122 @@ const Billing = () => {
               </p>
             </div>
 
-            <div id="printable-bill" className="p-6 bg-white">
-              <div className="text-center mb-6">
-                <h1 className="text-2xl font-bold">Restaurant Name</h1>
-                <p className="text-sm text-gray-600">123 Food Street • +91 98765 43210</p>
-                <p className="text-sm">
-                  Bill #{order.orderNumber} • {new Date().toLocaleString()}
-                </p>
+            <div id="printable-bill" className="p-6 bg-white font-mono text-sm">
+              <div className="text-center mb-4">
+                <h1 className="text-xl font-bold">Restaurant Name</h1>
+                <p className="text-xs leading-tight mt-1">Branch Name</p>
+                <p className="text-xs leading-tight">123 Food Street, Area,</p>
+                <p className="text-xs leading-tight">City, State - 500001</p>
+                <p className="text-xs leading-tight mt-1">GSTIN: XXXXXXXXXXXX</p>
+                <p className="text-xs leading-tight">FSSAI: XXXXXXXXXXXX</p>
+                <p className="text-xs leading-tight">TEL: +91 98765 43210</p>
+                <div className="border-t border-dashed border-gray-400 my-2"></div>
               </div>
 
-              <div className="grid grid-cols-2 gap-2 text-sm mb-4">
-                <div><strong>Customer:</strong> {order.customerName}</div>
-                <div><strong>Table:</strong> {order.tableId?.tableNumber || 'Parcel'}</div>
-                <div><strong>Type:</strong> {order.type}</div>
-                <div><strong>Payment:</strong> {paymentMethod.toUpperCase()}</div>
+              <div className="text-xs space-y-1 mb-3">
+                <div className="flex justify-between">
+                  <span>{order.type}</span>
+                  <span></span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Bill No. {order.orderNumber}</span>
+                  <span>Time {new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })}</span>
+                </div>
+                <div>Date {new Date().toLocaleDateString('en-GB')}</div>
+                <div>Cashier: {order.customerName}</div>
+                <div className="border-t border-dashed border-gray-400 my-2"></div>
               </div>
 
-              <table className="w-full border-collapse mb-4 text-sm">
+              <table className="w-full text-xs mb-3">
                 <thead>
-                  <tr className="border-b">
-                    <th className="text-left py-1">Item</th>
-                    <th className="text-center py-1">Qty</th>
-                    <th className="text-right py-1">Amount</th>
+                  <tr>
+                    <th className="text-left pb-1">DESC</th>
+                    <th className="text-center pb-1 px-2">QTY</th>
+                    <th className="text-right pb-1 px-2">RATE</th>
+                    <th className="text-right pb-1">AMT</th>
                   </tr>
                 </thead>
                 <tbody>
+                  <tr><td colSpan={4} className="border-t border-dashed border-gray-400"></td></tr>
                   {aggregatedItems.map((it, idx) => (
-                    <tr key={idx} className="border-b">
+                    <tr key={idx}>
                       <td className="py-1">{it.menuItem.name}</td>
-                      <td className="text-center py-1">{it.quantity}</td>
+                      <td className="text-center py-1 px-2">{it.quantity}pc</td>
+                      <td className="text-right py-1 px-2">{it.menuItem.price.toFixed(2)}</td>
                       <td className="text-right py-1">
-                        ₹{(it.menuItem.price * it.quantity).toFixed(2)}
+                        {(it.menuItem.price * it.quantity).toFixed(2)}
                       </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
 
-              <div className="text-sm space-y-1">
+              <div className="border-t border-dashed border-gray-400 my-2"></div>
+
+              <div className="text-xs space-y-1">
                 <div className="flex justify-between">
-                  <span>Subtotal:</span>
-                  <span>₹{order.totalAmount.toFixed(2)}</span>
+                  <span>Round Off</span>
+                  <span>{roundOffAmount >= 0 ? '+' : ''}{roundOffAmount.toFixed(2)}</span>
                 </div>
-                {discount > 0 && (
-                  <div className="flex justify-between text-green-600">
-                    <span>
-                      Discount {discountType === 'percentage' ? `(${discount}%)` : ''}:
-                    </span>
-                    <span>-₹{discountAmt.toFixed(2)}</span>
-                  </div>
-                )}
-                <div className="flex justify-between">
-                  <span>Tax (5%):</span>
-                  <span>₹{taxAmount.toFixed(2)}</span>
+                <div className="flex justify-between font-bold text-base">
+                  <span>GRAND TOTAL</span>
+                  <span>{finalAmount.toFixed(2)}</span>
                 </div>
-                <div className="flex justify-between text-sm">
-                  <span>Round Off:</span>
-                  <span className={roundOffAmount >= 0 ? 'text-green-600' : 'text-red-600'}>
-                    {roundOffAmount >= 0 ? '+' : ''}₹{roundOffAmount.toFixed(2)}
-                  </span>
-                </div>
-                <div className="flex justify-between font-bold text-lg border-t pt-1">
-                  <span>Total Amount:</span>
-                  <span className="text-orange-600">₹{finalAmount.toFixed(2)}</span>
-                </div>
+                <div className="text-center">Paid By {paymentMethod.toUpperCase()}</div>
               </div>
 
+              <div className="border-t border-dashed border-gray-400 my-3"></div>
+
+              <div className="text-xs">
+                <div className="text-center font-semibold mb-2">Tax Details</div>
+                <table className="w-full">
+                  <thead>
+                    <tr>
+                      <th className="text-left">Tax Desc</th>
+                      <th className="text-right px-2">Sales</th>
+                      <th className="text-right">Tax Value</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td>CGST 2.5%</td>
+                      <td className="text-right px-2">{(order.totalAmount - discountAmt).toFixed(2)}</td>
+                      <td className="text-right">{(taxAmount / 2).toFixed(2)}</td>
+                    </tr>
+                    <tr>
+                      <td>SGST 2.5%</td>
+                      <td className="text-right px-2">{(order.totalAmount - discountAmt).toFixed(2)}</td>
+                      <td className="text-right">{(taxAmount / 2).toFixed(2)}</td>
+                    </tr>
+                    <tr className="border-t border-gray-400">
+                      <td className="font-semibold">Total Tax</td>
+                      <td className="text-right px-2"></td>
+                      <td className="text-right font-semibold">{taxAmount.toFixed(2)}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+
+              {discount > 0 && (
+                <div className="text-xs mt-2">
+                  <div className="flex justify-between">
+                    <span>Discount {discountType === 'percentage' ? `(${discount}%)` : ''}:</span>
+                    <span>-₹{discountAmt.toFixed(2)}</span>
+                  </div>
+                </div>
+              )}
+
               {notes && (
-                <div className="mt-4 text-sm">
+                <div className="mt-3 text-xs">
                   <strong>Notes:</strong> {notes}
                 </div>
               )}
 
-              <div className="mt-8 text-center text-xs text-gray-500">
-                <p>Thank you for dining with us!</p>
+              <div className="border-t border-dashed border-gray-400 my-3"></div>
+
+              <div className="text-center text-xs">
+                <p className="font-semibold">Thank You.</p>
+                <p>Please Visit Again</p>
               </div>
             </div>
 
