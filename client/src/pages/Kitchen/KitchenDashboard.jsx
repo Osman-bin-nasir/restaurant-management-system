@@ -174,7 +174,7 @@ const KitchenDashboard = () => {
   const getOrderTypeLabel = (orderType, tableNumber) => {
     if (orderType === 'dine-in') {
       const tableStr = String(tableNumber || '');
-      return tableStr.startsWith('5') ? 'Room Service' : 'Restaurant';
+      return tableStr.startsWith('5') ? 'Dine-in' : 'Dine-in';
     }
     return 'Takeaway';
   };
@@ -187,17 +187,40 @@ const KitchenDashboard = () => {
     return 'Takeaway';
   };
 
-  // Render items list
-  const renderItemsList = (items) => (
-    <ul className="list-disc list-inside space-y-1 text-sm text-gray-700 mb-4 ml-4">
-      {items.map((item, index) => (
-        <li key={index} className="text-gray-900">
-          {item.menuItem?.name} {item.quantity > 1 && `×${item.quantity}`}
-          {item.notes && ` - ${item.notes}`}
-        </li>
-      ))}
-    </ul>
-  );
+  // Render items list with aggregation
+  const renderItemsList = (items) => {
+    // Group identical items by name and sum quantities
+    const grouped = items.reduce((acc, item) => {
+      const name = item.menuItem?.name || 'Unknown';
+      if (!acc[name]) {
+        acc[name] = {
+          name,
+          totalQty: 0,
+          notes: new Set() // Use Set for unique notes
+        };
+      }
+      acc[name].totalQty += item.quantity || 1;
+      if (item.notes) {
+        acc[name].notes.add(item.notes);
+      }
+      return acc;
+    }, {});
+
+    return (
+      <ul className="list-disc list-inside space-y-1 text-lg text-gray-700 mb-4 ml-4">
+        {Object.values(grouped).map(({ name, totalQty, notes }) => (
+          <li key={name} className="text-gray-900">
+            {name} {totalQty > 1 && `×${totalQty}`}
+            {notes.size > 0 && (
+              <span className="block text-sm text-gray-600 mt-1">
+                Notes: {Array.from(notes).join('; ')}
+              </span>
+            )}
+          </li>
+        ))}
+      </ul>
+    );
+  };
 
   // Render order card
   const renderOrderCard = (group, section) => {
@@ -208,22 +231,22 @@ const KitchenDashboard = () => {
     const orderTypeLabel = getOrderTypeLabel(order.orderType, order.tableNumber);
     const locationLabel = getLocationLabel(order.orderType, order.tableNumber);
     const isNew = section === 'newItems';
-    const cardBg = isNew ? 'bg-yellow-50 border-yellow-200' : 'bg-blue-50 border-blue-200';
+    const cardBg = isNew ? 'bg-orange-500/10 border-orange-300' : 'bg-green-500/10 border-green-300';
 
     return (
       <div
         key={order.orderId}
-        className={`rounded-lg border-2 ${cardBg} p-4 shadow-md w-full max-w-sm`}
+        className={`rounded-lg border-2 ${cardBg} p-4 shadow-md w-full max-w-md min-h-96 flex flex-col`}
       >
         {/* Header */}
         <div className="flex flex-col mb-3">
           <div className="flex items-start justify-between mb-2">
-            <h3 className="font-bold text-lg text-gray-900">#{order.orderNumber}</h3>
+            <h3 className="font-bold text-xl text-gray-900">Table {locationLabel} </h3>
           </div>
-          <p className="text-sm text-gray-600 italic">{orderTypeLabel}</p>
-          <div className="flex items-center gap-1 text-sm text-gray-700 mt-1">
-            <MapPin size={14} />
-            {locationLabel}
+          {/* <p className="text-sm text-gray-600 italic">{orderTypeLabel}</p> */}
+          <div className="flex items-center gap-1 text-md text-gray-700 mt-1">
+            {/* <MapPin size={14} /> */}
+            #{order.orderNumber}
           </div>
         </div>
 
@@ -231,22 +254,24 @@ const KitchenDashboard = () => {
         {renderItemsList(order.items)}
 
         {/* Time */}
-        <div className="flex items-center gap-1 text-sm text-gray-600 mb-4">
+        <div className="flex items-center gap-1 text-md text-gray-600 mb-4">
           <Clock size={14} />
           {order.waitTime} mins ago
         </div>
 
         {/* Action Button */}
-        <button
-          onClick={() => isNew ? startAllCooking(order.orderId) : markAllReady(order.orderId)}
-          className={`w-full py-3 rounded-md font-semibold text-white shadow-md transition ${
-            isNew 
-              ? 'bg-black hover:bg-gray-800' 
-              : 'bg-black hover:bg-gray-800'
-          }`}
-        >
-          {isNew ? 'Start Preparing' : 'Mark Ready'}
-        </button>
+        <div className="mt-auto">
+          <button
+            onClick={() => isNew ? startAllCooking(order.orderId) : markAllReady(order.orderId)}
+            className={`w-full py-3 rounded-md font-semibold text-white shadow-md transition ${
+              isNew 
+                ? 'bg-orange-500 hover:bg-orange-600 hover:cursor-pointer' 
+                : 'bg-green-600 hover:bg-green-700 hover:cursor-pointer'
+            }`}
+          >
+            {isNew ? 'Start Preparing' : 'Mark Ready'}
+          </button>
+        </div>
       </div>
     );
   };
@@ -319,7 +344,7 @@ const KitchenDashboard = () => {
       </div>
 
       {/* Queue Sections */}
-      <div className="space-y-8">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* New Items */}
         <div>
           <div className="flex items-center gap-3 mb-4">
@@ -337,7 +362,7 @@ const KitchenDashboard = () => {
               <p className="text-gray-500 text-xl font-medium">No new orders</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6">
               {groupedNewItems.map(group => renderOrderCard(group, 'newItems'))}
             </div>
           )}
@@ -360,7 +385,7 @@ const KitchenDashboard = () => {
               <p className="text-gray-500 text-xl font-medium">No items cooking</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6">
               {groupedInProgressItems.map(group => renderOrderCard(group, 'inProgress'))}
             </div>
           )}

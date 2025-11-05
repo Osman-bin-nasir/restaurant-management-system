@@ -26,7 +26,7 @@ import {
 } from 'lucide-react';
 
 const Sidebar = () => {
-  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(true);
   const [openMenus, setOpenMenus] = useState({});
   const { user, logout } = useAuth();
   const location = useLocation();
