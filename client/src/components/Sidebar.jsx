@@ -31,6 +31,58 @@ const Sidebar = () => {
   const { user, logout } = useAuth();
   const location = useLocation();
 
+  if (!user) {
+    return (
+      <div className="flex h-screen bg-gray-50">
+        <aside className="bg-white border-r border-gray-200 w-72 flex flex-col animate-pulse">
+          {/* Header Skeleton */}
+          <div className="p-6 border-b border-gray-200">
+            <div className="flex items-center justify-between">
+              <div className="space-y-2">
+                <div className="h-8 w-32 bg-gray-300 rounded-lg"></div>
+                <div className="h-3 w-20 bg-gray-300 rounded"></div>
+              </div>
+              <div className="h-8 w-8 bg-gray-300 rounded-lg"></div>
+            </div>
+          </div>
+
+          {/* User Profile Skeleton */}
+          <div className="px-4 py-4 border-b border-gray-200">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-gray-300"></div>
+              <div className="flex-1 min-w-0 space-y-1">
+                <div className="h-4 bg-gray-300 rounded w-24"></div>
+                <div className="h-3 bg-gray-300 rounded w-20"></div>
+              </div>
+            </div>
+          </div>
+
+          {/* Navigation Skeleton */}
+          <nav className="flex-1 overflow-y-auto px-3 py-4">
+            <div className="space-y-2">
+              {[...Array(6)].map((_, i) => (
+                <div key={i} className="space-y-1">
+                  <div className="h-10 bg-gray-300 rounded-lg w-full"></div>
+                  <div className="ml-4 space-y-1">
+                    {[...Array(2)].map((_, j) => (
+                      <div key={j} className="h-6 bg-gray-300 rounded w-3/4"></div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </nav>
+
+          {/* Footer Skeleton */}
+          <div className="border-t border-gray-200 p-3 space-y-1">
+            <div className="h-10 bg-gray-300 rounded-lg w-full"></div>
+            <div className="h-10 bg-gray-300 rounded-lg w-full"></div>
+          </div>
+        </aside>
+      </div>
+    );
+  }
+
   const userRole = user?.role || 'guest';
   const userName = user?.name || 'Guest User';
   const userEmail = user?.email || 'guest@example.com';

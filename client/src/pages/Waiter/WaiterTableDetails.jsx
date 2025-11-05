@@ -4,7 +4,6 @@ import { Table2, Users, CheckCircle, Clock, ShoppingBag, ArrowLeft, Plus, Minus,
 import axios from '../../api/axios';
 import { getStatusBadge } from '../Admin/TableManagement.jsx';
 import toast, { Toaster } from 'react-hot-toast';
-
 import { useSocket } from '../../contexts/SocketContext';
 
 const WaiterTableDetails = () => {
@@ -84,7 +83,6 @@ const WaiterTableDetails = () => {
           toast.success('Order has been updated!');
         }
       };
-
       const handleTableUpdate = (updatedTable) => {
         if (table && updatedTable._id === table._id) {
           setTable(updatedTable);
@@ -93,10 +91,8 @@ const WaiterTableDetails = () => {
           }
         }
       };
-
       socket.on('orderUpdated', handleOrderUpdate);
       socket.on('tableUpdated', handleTableUpdate);
-
       return () => {
         socket.off('orderUpdated', handleOrderUpdate);
         socket.off('tableUpdated', handleTableUpdate);
@@ -140,7 +136,6 @@ const WaiterTableDetails = () => {
     if (isNewOrder) {
       setTable({ ...table, status: 'occupied', currentOrderId: order._id });
     }
-
     const itemMap = new Map();
     order.items.forEach((item) => {
       const key = item.menuItem._id;
@@ -161,7 +156,6 @@ const WaiterTableDetails = () => {
         });
       }
     });
-
     setCart(Array.from(itemMap.values()));
     setShowOrderModal(false);
     toast.success(successMessage);
@@ -172,13 +166,10 @@ const WaiterTableDetails = () => {
       const orderData = {
         items: cart.map(({ _id, quantity, notes }) => ({ menuItem: _id, quantity, notes })),
       };
-
       const res = await axios.post(`/orders/${currentOrder._id}/items`, { items: orderData.items });
       if (!res.data.success) throw new Error(res.data.message || 'Failed to update order');
-
       const updatedOrderRes = await axios.get(`/orders/${res.data.order._id}`);
       if (!updatedOrderRes.data.success) throw new Error(updatedOrderRes.data.message || 'Failed to fetch updated order');
-
       handleOrderSuccess(updatedOrderRes.data.order, 'Order updated successfully!', false);
     } catch (err) {
       const errorMessage = err.response?.data?.message || err.message || 'Failed to update order';
@@ -234,7 +225,6 @@ const WaiterTableDetails = () => {
       handleUpdateConfirmation();
       return;
     }
-
     try {
       const orderData = {
         type: 'dine-in',
@@ -242,13 +232,10 @@ const WaiterTableDetails = () => {
         customerName: customerName || 'Guest',
         items: cart.map(({ _id, quantity, notes }) => ({ menuItem: _id, quantity, notes })),
       };
-
       const res = await axios.post('/orders', orderData);
       if (!res.data.success) throw new Error(res.data.message || 'Failed to create order');
-
       const updatedOrderRes = await axios.get(`/orders/${res.data.order._id}`);
       if (!updatedOrderRes.data.success) throw new Error(updatedOrderRes.data.message || 'Failed to fetch updated order');
-
       handleOrderSuccess(updatedOrderRes.data.order, 'Order created successfully!', true);
     } catch (err) {
       const errorMessage = err.response?.data?.message || err.message || 'Failed to create order';
@@ -258,7 +245,6 @@ const WaiterTableDetails = () => {
 
   const handleUpdateStatus = async (newStatus) => {
     if (!currentOrder) return;
-
     try {
       let itemIdsToUpdate = [];
       if (newStatus === 'in-kitchen') {
@@ -270,17 +256,14 @@ const WaiterTableDetails = () => {
           .filter(item => item.status === 'ready')
           .map(item => item._id);
       }
-
       if (itemIdsToUpdate.length === 0) {
         toast.error(`No items eligible to be marked as ${newStatus}!`);
         return;
       }
-
       const res = await axios.patch(`/orders/${currentOrder._id}/items/status`, {
         itemIds: itemIdsToUpdate,
         newStatus
       });
-
       setCurrentOrder(res.data.order);
       toast.success(`Items marked as ${newStatus}!`);
     } catch (err) {
@@ -339,6 +322,7 @@ const WaiterTableDetails = () => {
           margin: 'auto',
           top: '50%',
           transform: 'translateY(-50%)',
+          maxWidth: '90vw',
         },
       }
     );
@@ -346,8 +330,88 @@ const WaiterTableDetails = () => {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-screen bg-gray-50">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-4 border-orange-500"></div>
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-6">
+        <Toaster position="top-center" />
+        <div className="mb-8">
+          <div className="flex items-center justify-between mb-6 animate-pulse">
+            <div>
+              <div className="h-10 w-80 bg-gray-300 rounded-lg mb-2 flex items-center gap-3">
+                <div className="bg-gray-400 h-10 w-10 rounded-xl"></div>
+              </div>
+              <div className="h-4 w-56 bg-gray-300 rounded"></div>
+            </div>
+            <div className="h-12 w-40 bg-gray-300 rounded-xl"></div>
+          </div>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+          {/* Table Information Skeleton */}
+          <div className="bg-white rounded-2xl shadow-md p-6 border-l-4 border-blue-500 animate-pulse">
+            <div className="h-6 w-40 bg-gray-300 rounded mb-4"></div>
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="h-4 w-24 bg-gray-300 rounded"></div>
+                <div className="h-4 w-20 bg-gray-300 rounded"></div>
+              </div>
+              <div className="flex items-center justify-between">
+                <div className="h-4 w-24 bg-gray-300 rounded"></div>
+                <div className="h-4 w-24 bg-gray-300 rounded flex items-center gap-2">
+                  <div className="h-4 w-4 bg-gray-300 rounded-full"></div>
+                </div>
+              </div>
+              <div className="flex items-center justify-between">
+                <div className="h-4 w-24 bg-gray-300 rounded"></div>
+                <div className="h-6 w-20 bg-blue-300 rounded"></div>
+              </div>
+              <div className="flex items-center justify-between">
+                <div className="h-4 w-24 bg-gray-300 rounded"></div>
+                <div className="h-4 w-28 bg-gray-300 rounded"></div>
+              </div>
+            </div>
+            <div className="h-12 w-full bg-gray-300 rounded-xl mt-4"></div>
+          </div>
+          {/* Current Order Skeleton */}
+          <div className="bg-white rounded-2xl shadow-md p-6 border-l-4 border-orange-500 animate-pulse">
+            <div className="h-6 w-32 bg-gray-300 rounded mb-4"></div>
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="h-4 w-24 bg-gray-300 rounded"></div>
+                <div className="h-4 w-20 bg-gray-300 rounded"></div>
+              </div>
+              <div className="flex items-center justify-between">
+                <div className="h-4 w-24 bg-gray-300 rounded"></div>
+                <div className="h-4 w-24 bg-gray-300 rounded"></div>
+              </div>
+              <div className="flex items-center justify-between">
+                <div className="h-4 w-24 bg-gray-300 rounded"></div>
+                <div className="h-4 w-16 bg-gray-300 rounded"></div>
+              </div>
+              <div className="flex items-center justify-between">
+                <div className="h-4 w-24 bg-gray-300 rounded"></div>
+                <div className="h-4 w-20 bg-orange-300 rounded"></div>
+              </div>
+              <div className="flex items-center justify-between">
+                <div className="h-4 w-24 bg-gray-300 rounded"></div>
+                <div className="h-4 w-40 bg-gray-300 rounded"></div>
+              </div>
+              <div className="flex items-center justify-between">
+                <div className="h-4 w-24 bg-gray-300 rounded"></div>
+                <div className="h-4 w-20 bg-gray-300 rounded"></div>
+              </div>
+              <div className="border-t pt-4">
+                <div className="h-5 w-16 bg-gray-300 rounded mb-2"></div>
+                <div className="space-y-2">
+                  <div className="h-4 w-full bg-gray-300 rounded mb-1"></div>
+                  <div className="h-4 w-3/4 bg-gray-300 rounded mb-1"></div>
+                  <div className="h-4 w-1/2 bg-gray-300 rounded"></div>
+                </div>
+                <div className="flex gap-2 mt-4">
+                  <div className="flex-1 h-10 bg-gray-300 rounded-xl"></div>
+                  <div className="flex-1 h-10 bg-gray-300 rounded-xl"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     );
   }
@@ -396,7 +460,6 @@ const WaiterTableDetails = () => {
           </button>
         </div>
       </div>
-
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
         <div className="bg-white rounded-2xl shadow-md p-6 border-l-4 border-blue-500">
           <h2 className="text-xl font-bold text-gray-900 mb-4">Table Information</h2>
@@ -432,7 +495,6 @@ const WaiterTableDetails = () => {
             </button>
           )}
         </div>
-
         {table.currentOrderId && currentOrder && (
           <div className="bg-white rounded-2xl shadow-md p-6 border-l-4 border-orange-500">
             <h2 className="text-xl font-bold text-gray-900 mb-4">Current Order</h2>
@@ -524,7 +586,6 @@ const WaiterTableDetails = () => {
           </div>
         )}
       </div>
-
       {showOrderModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-3xl shadow-2xl w-full max-w-[95vw] h-[95vh] overflow-hidden flex flex-col">
@@ -543,7 +604,6 @@ const WaiterTableDetails = () => {
                 <X size={20} />
               </button>
             </div>
-
             {/* Main Content */}
             <div className="flex-1 flex overflow-hidden">
               {/* Menu Items - Left Side */}
@@ -561,7 +621,7 @@ const WaiterTableDetails = () => {
                     />
                   </div>
                 </div>
-                
+               
                 <div className="grid grid-cols-4 gap-4">
                   {filteredMenuItems.length === 0 ? (
                     <div className="col-span-4 text-center py-12">
@@ -585,15 +645,15 @@ const WaiterTableDetails = () => {
                               {inCart.quantity}
                             </div>
                           )}
-                          
+                         
                           {/* Item Name */}
                           <h4 className="font-bold text-gray-900 text-center text-lg mb-2">{item.name}</h4>
-                          
+                         
                           {/* Price */}
                           <div className="text-center">
                             <span className="text-orange-600 font-bold text-lg">₹{item.price}</span>
                           </div>
-                          
+                         
                           {/* Hover Effect Indicator */}
                           <div className="absolute inset-0 rounded-2xl border-2 border-transparent group-hover:border-orange-500 transition-all duration-200 pointer-events-none" />
                         </div>
@@ -602,7 +662,6 @@ const WaiterTableDetails = () => {
                   )}
                 </div>
               </div>
-
               {/* Cart - Right Fixed Side */}
               <div className="w-96 bg-white border-l border-gray-200 flex flex-col">
                 <div className="p-6 border-b border-gray-200">
@@ -618,7 +677,6 @@ const WaiterTableDetails = () => {
                     disabled={currentOrder}
                   />
                 </div>
-
                 {/* Cart Items - Scrollable */}
                 <div className="flex-1 overflow-y-auto p-6 space-y-3">
                   {cart.length === 0 ? (
@@ -678,7 +736,6 @@ const WaiterTableDetails = () => {
                     ))
                   )}
                 </div>
-
                 {/* Cart Footer */}
                 <div className="p-6 border-t border-gray-200 bg-gray-50">
                   <div className="flex items-center justify-between text-lg font-bold mb-4">
