@@ -1,4 +1,5 @@
 import Order from "../models/Order.js";
+import ParcelOrder from "../models/ParcelOrder.js";
 import MenuItem from "../models/MenuItem.js";
 import CustomError from "../utils/customError.js";
 import { getIo } from "../utils/socket.js";
@@ -17,7 +18,8 @@ export const getKitchenQueue = asyncHandler(async (req, res) => {
     ["placed", "in-kitchen"].includes(s)
   );
 
-  const orders = await Order.find({
+  // Fetch Dine-in Orders
+  const dineInOrders = await Order.find({
     branchId,
     "items.status": { $in: statuses }
   })
@@ -26,18 +28,27 @@ export const getKitchenQueue = asyncHandler(async (req, res) => {
     .populate("tableId", "tableNumber")
     .sort({ createdAt: 1 });
 
-  // Flatten and categorize items with intelligent grouping
+  // Fetch Parcel Orders
+  const parcelOrders = await ParcelOrder.find({
+    branchId,
+    "items.status": { $in: statuses }
+  })
+    .populate("items.menuItem", "name cookingTime category")
+    .sort({ createdAt: 1 });
+
+
   const queue = {
-    newItems: [],      // Just placed, not started
-    inProgress: [],    // Currently cooking
-    almostReady: []    // Near completion
+    newItems: [],
+    inProgress: [],
+    almostReady: []
   };
 
   const now = new Date();
 
-  orders.forEach(order => {
+  // Process Dine-in orders
+  dineInOrders.forEach(order => {
     order.items
-      .filter(item => ['placed', 'in-kitchen'].includes(item.status))
+      .filter(item => statuses.includes(item.status))
       .filter(item => !category || item.menuItem?.category === category)
       .forEach(item => {
         const itemData = {
@@ -55,8 +66,8 @@ export const getKitchenQueue = asyncHandler(async (req, res) => {
           estimatedCompletionTime: item.kitchenStartTime 
             ? new Date(item.kitchenStartTime.getTime() + (item.menuItem?.cookingTime || 15) * 60000)
             : null,
-          waitTime: item.createdAt 
-            ? Math.floor((now - item.createdAt) / 60000) 
+          waitTime: order.createdAt 
+            ? Math.floor((now - order.createdAt) / 60000) 
             : 0,
           waiter: order.waiterId?.name,
           priority: calculatePriority(order, item)
@@ -76,6 +87,50 @@ export const getKitchenQueue = asyncHandler(async (req, res) => {
         }
       });
   });
+
+  // Process Parcel orders
+  parcelOrders.forEach(order => {
+    order.items
+      .filter(item => statuses.includes(item.status))
+      .filter(item => !category || item.menuItem?.category === category)
+      .forEach(item => {
+        const itemData = {
+          itemId: item._id,
+          orderId: order._id,
+          orderNumber: order.orderNumber,
+          orderType: 'parcel', // Hardcode order type
+          tableNumber: 'Parcel', // Hardcode table number
+          customerName: order.customerName,
+          menuItem: item.menuItem,
+          quantity: item.quantity,
+          notes: item.notes,
+          status: item.status,
+          kitchenStartTime: item.kitchenStartTime,
+          estimatedCompletionTime: item.kitchenStartTime 
+            ? new Date(item.kitchenStartTime.getTime() + (item.menuItem?.cookingTime || 15) * 60000)
+            : null,
+          waitTime: order.createdAt // Parcel order has createdAt at top level
+            ? Math.floor((now - order.createdAt) / 60000) 
+            : 0,
+          waiter: 'N/A', // No waiter for parcel orders
+          priority: calculatePriority(order, item)
+        };
+
+        if (item.status === 'placed') {
+          queue.newItems.push(itemData);
+        } else if (item.status === 'in-kitchen') {
+          const timeInKitchen = Math.floor((now - item.kitchenStartTime) / 60000);
+          const cookingTime = item.menuItem?.cookingTime || 15;
+          
+          if (timeInKitchen >= cookingTime * 0.8) {
+            queue.almostReady.push(itemData);
+          } else {
+            queue.inProgress.push(itemData);
+          }
+        }
+      });
+  });
+
 
   // Sort by priority and timing
   queue.newItems.sort((a, b) => b.priority - a.priority);
@@ -111,7 +166,12 @@ export const startCookingItems = asyncHandler(async (req, res) => {
   const now = new Date();
 
   for (const { orderId, itemIds } of items) {
-    const order = await Order.findById(orderId);
+    let order = await Order.findById(orderId);
+    let orderModelName = 'Order';
+    if (!order) {
+        order = await ParcelOrder.findById(orderId);
+        orderModelName = 'ParcelOrder';
+    }
     if (!order) continue;
 
     const itemsToStart = order.items.filter(item => 
@@ -136,7 +196,13 @@ export const startCookingItems = asyncHandler(async (req, res) => {
       await order.save();
 
       // Emit a socket event for the order update
-      const updatedOrder = await Order.findById(orderId).populate('items.menuItem', 'name price').populate('tableId', 'tableNumber').populate('waiterId', 'name');
+      let updatedOrder;
+      if (orderModelName === 'Order') {
+        updatedOrder = await Order.findById(orderId).populate('items.menuItem', 'name price').populate('tableId', 'tableNumber').populate('waiterId', 'name');
+      } else {
+        updatedOrder = await ParcelOrder.findById(orderId).populate('items.menuItem', 'name price');
+      }
+      
       getIo().emit("orderUpdated", updatedOrder);
 
       results.push({
@@ -171,7 +237,12 @@ export const markItemsReady = asyncHandler(async (req, res) => {
   const now = new Date();
 
   for (const { orderId, itemIds } of items) {
-    const order = await Order.findById(orderId);
+    let order = await Order.findById(orderId);
+    let orderModelName = 'Order';
+    if (!order) {
+        order = await ParcelOrder.findById(orderId);
+        orderModelName = 'ParcelOrder';
+    }
     if (!order) continue;
 
     const itemsToComplete = order.items.filter(item => 
@@ -201,7 +272,12 @@ export const markItemsReady = asyncHandler(async (req, res) => {
       await order.save();
 
       // Emit a socket event for the order update
-      const updatedOrder = await Order.findById(orderId).populate('items.menuItem', 'name price').populate('tableId', 'tableNumber').populate('waiterId', 'name');
+      let updatedOrder;
+      if (orderModelName === 'Order') {
+        updatedOrder = await Order.findById(orderId).populate('items.menuItem', 'name price').populate('tableId', 'tableNumber').populate('waiterId', 'name');
+      } else {
+        updatedOrder = await ParcelOrder.findById(orderId).populate('items.menuItem', 'name price');
+      }
       getIo().emit("orderUpdated", updatedOrder);
 
       results.push({

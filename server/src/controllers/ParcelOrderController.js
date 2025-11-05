@@ -2,6 +2,7 @@ import ParcelOrder from "../models/ParcelOrder.js";
 import MenuItem from "../models/MenuItem.js";
 import CustomError from "../utils/customError.js";
 import { asyncHandler } from "../middleware/asyncHandler.js";
+import { getIo } from "../utils/socket.js";
 
 // ============ CREATE PARCEL ORDER & IMMEDIATE BILLING ============
 export const createParcelOrder = asyncHandler(async (req, res) => {
@@ -88,6 +89,8 @@ export const createParcelOrder = asyncHandler(async (req, res) => {
   const populatedOrder = await ParcelOrder.findById(newOrder._id)
     .populate("items.menuItem", "name price cookingTime")
     .populate("cashierId", "name");
+
+  getIo().emit("newOrder", populatedOrder);
 
   res.status(201).json({
     success: true,

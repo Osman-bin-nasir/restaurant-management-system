@@ -231,7 +231,7 @@ const KitchenDashboard = () => {
     const orderTypeLabel = getOrderTypeLabel(order.orderType, order.tableNumber);
     const locationLabel = getLocationLabel(order.orderType, order.tableNumber);
     const isNew = section === 'newItems';
-    const cardBg = isNew ? 'bg-orange-500/10 border-orange-300' : 'bg-green-500/10 border-green-300';
+    const cardBg = isNew ? 'bg-orange-100 border-orange-200' : 'bg-green-500/10 border-green-300';
 
     return (
       <div
@@ -241,7 +241,7 @@ const KitchenDashboard = () => {
         {/* Header */}
         <div className="flex flex-col mb-3">
           <div className="flex items-start justify-between mb-2">
-            <h3 className="font-bold text-xl text-gray-900">Table {locationLabel} </h3>
+            <h3 className="font-bold text-xl text-gray-900">{order.orderType === 'parcel' ? '' : "Table "}{locationLabel} </h3>
           </div>
           {/* <p className="text-sm text-gray-600 italic">{orderTypeLabel}</p> */}
           <div className="flex items-center gap-1 text-md text-gray-700 mt-1">
