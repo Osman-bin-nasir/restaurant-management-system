@@ -39,9 +39,6 @@ import ManagerDashboard from '../pages/Manager/ManagerDashboard.jsx';
 import CashierDashboard from '../pages/Cashier/CashierDashboard.jsx';
 import Billing from '../pages/Cashier/Billing.jsx';
 import PendingBills from '../pages/Cashier/PendingBills.jsx';
-import DailySummary from '../pages/Cashier/DailySummary.jsx';
-import CashierCreateOrder from '../pages/Cashier/CashierCreateOrder.jsx';
-import CashierParcelOrder from '../pages/Cashier/CashierParcelOrder.jsx';
 
 // Kitchen Pages
 import KitchenDashboard from '../pages/Kitchen/KitchenDashboard.jsx';
@@ -143,9 +140,6 @@ const AppRouter = () => {
             <Route path="billing" element={<Billing />} />
             <Route path="parcel-billing" element={<ParcelBilling />} />
             <Route path="pending-bills" element={<PendingBills />} />
-            <Route path="daily-summary" element={<DailySummary />} />
-            <Route path="create-order" element={<CashierCreateOrder />} />
-            <Route path="parcel" element={<CashierParcelOrder />} />
           </Route>
 
           {/* Kitchen Routes */}

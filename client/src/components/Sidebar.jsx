@@ -202,23 +202,11 @@ const Sidebar = () => {
         path: '/cashier/parcel-billing'
       },
       {
-        id: 'billing',
-        label: 'Billing',
-        icon: Receipt,
-        path: '/cashier/billing'
-      },
-      {
         id: 'pending-bills',
         label: 'Pending Bills',
         icon: CreditCard,
         path: '/cashier/pending-bills'
       },
-      {
-        id: 'daily-summary',
-        label: 'Daily Summary',
-        icon: DollarSign,
-        path: '/cashier/daily-summary'
-      }
     ],
     kitchen: [
       {
