@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Search, Filter, RefreshCw, XCircle, Clock, DollarSign, Loader2, Trash2, AlertTriangle } from 'lucide-react';
+import { Search, Filter, RefreshCw, XCircle, Clock, DollarSign, Loader2, Trash2, AlertTriangle, ChefHat, CheckCircle, Utensils, IndianRupee } from 'lucide-react';
 import { toast, Toaster } from 'react-hot-toast';
-import api from '../../api/axios';
+import axios from '../../api/axios.js';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSocket } from '../../contexts/SocketContext';
 
@@ -31,6 +31,7 @@ const AllOrders = () => {
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [showModal, setShowModal] = useState(false);
   const [deletingOrder, setDeletingOrder] = useState(false);
+  const [updatingStatus, setUpdatingStatus] = useState(false);
   const { user } = useAuth();
   const socket = useSocket();
 
@@ -58,8 +59,8 @@ const AllOrders = () => {
         if (debouncedSearchTerm) params.searchTerm = debouncedSearchTerm;
 
         const [dineInRes, parcelRes] = await Promise.all([
-          api.get('/orders', { params, headers: { Authorization: `Bearer ${user.token}` } }),
-          api.get('/parcel', { params, headers: { Authorization: `Bearer ${user.token}` } }),
+          axios.get('/orders', { params }),
+          axios.get('/parcel', { params }),
         ]);
 
         const dineInOrders = dineInRes.data?.orders?.map(o => ({ ...o, orderType: 'dine-in' })) || [];
@@ -192,25 +193,19 @@ const AllOrders = () => {
   const handleDeleteOrder = async () => {
     if (!selectedOrder) return;
     setDeletingOrder(true);
-    
+
     try {
       const isParcelOrder = selectedOrder.orderType === 'parcel' || selectedOrder.type === 'parcel';
       const endpoint = isParcelOrder ? `/parcel/${selectedOrder._id}` : `/orders/${selectedOrder._id}`;
-      
-      await api.delete(endpoint, {
-        headers: { Authorization: `Bearer ${user.token}` }
-      });
-      
+
+      await axios.delete(endpoint);
+
       setOrders(prev => prev.filter(order => order._id !== selectedOrder._id));
-      toast.success(`Order ${selectedOrder.orderNumber} deleted successfully`, {
-        position: 'top-center'
-      });
+      toast.success(`Order ${selectedOrder.orderNumber} deleted successfully`);
       closeModal();
       await fetchOrders(1, true);
     } catch (err) {
-      toast.error(`Error: ${err.response?.data?.message || err.message}`, {
-        position: 'top-center'
-      });
+      toast.error(`Error: ${err.response?.data?.message || err.message}`);
     } finally {
       setDeletingOrder(false);
     }
@@ -247,7 +242,6 @@ const AllOrders = () => {
         </div>
       </div>
     ), {
-      position: 'top-center',
       duration: Infinity,
       style: {
         background: 'white',
@@ -257,6 +251,77 @@ const AllOrders = () => {
         border: '2px solid #fee',
       }
     });
+  };
+
+  const handleStatusUpdate = async (newStatus) => {
+    if (!selectedOrder) return;
+    setUpdatingStatus(true);
+
+    try {
+      const isParcelOrder = selectedOrder.orderType === 'parcel' || selectedOrder.type === 'parcel';
+      let response;
+
+      if (isParcelOrder) {
+        if (newStatus === 'in-kitchen') {
+          response = await axios.patch(`/parcel/${selectedOrder._id}/items/start`, {
+            orderId: selectedOrder._id,
+            itemIds: selectedOrder.items.map(item => item._id)
+          });
+          toast.success(`Order marked in-kitchen`);
+        } else if (newStatus === 'ready') {
+          response = await axios.patch(`/parcel/${selectedOrder._id}/items/ready`, {
+            orderId: selectedOrder._id,
+            itemIds: selectedOrder.items.map(item => item._id)
+          });
+          toast.success(`Order marked as ready`);
+        } else if (newStatus === 'completed') {
+          response = await axios.patch(`/parcel/${selectedOrder._id}/complete`);
+          toast.success(`Order marked completed`);
+        }
+      } else if (newStatus === 'in-kitchen' || newStatus === 'ready' || newStatus === 'served'  ) {
+        response = await axios.patch(`/orders/${selectedOrder._id}/items/status`, {
+          itemIds: selectedOrder.items.map(item => item._id),
+          newStatus
+        });
+        toast.success(`Order marked as ${newStatus}`);
+      } else{
+        response = await axios.patch(`/orders/${selectedOrder._id}/mark-as-paid`, {
+          itemIds: selectedOrder.items.map(item => item._id),
+          newStatus
+        })
+        toast.success(`Order marked paid`);
+      }
+
+
+      const updatedOrder = response.data.order;
+      setOrders(prev => prev.map(order =>
+        order._id === updatedOrder._id ? { ...updatedOrder, orderType: isParcelOrder ? 'parcel' : 'dine-in' } : order
+      ));
+      setSelectedOrder({ ...updatedOrder, orderType: isParcelOrder ? 'parcel' : 'dine-in' });
+      await fetchOrders(1, true);
+    } catch (err) {
+      toast.error(`Error: ${err.response?.data?.message || err.message}`);
+    } finally {
+      setUpdatingStatus(false);
+    }
+  };
+
+  const getCurrentStatus = (order) => {
+    const isParcel = order.orderType === 'parcel' || order.type === 'parcel';
+    return isParcel ? (order.orderStatus || order.status || 'placed') : (order.payment?.status || order.status || 'placed');
+  };
+
+  const canTransitionTo = (currentStatus, targetStatus) => {
+    const transitions = {
+      'placed': ['in-kitchen'],
+      'in-kitchen': ['ready'],
+      'ready': ['served', 'completed'],
+      'served': ['paid'],
+      'completed': [],
+      'paid': [],
+      'cancelled': []
+    };
+    return transitions[currentStatus]?.includes(targetStatus) || false;
   };
 
   if (loading) {
@@ -373,7 +438,7 @@ const AllOrders = () => {
                   orders.map((order, index) => {
                     const isParcel = order.orderType === 'parcel' || order.type === 'parcel';
                     const displayStatus = isParcel ? (order.orderStatus || order.status) : (order.payment?.status || order.status);
-                    
+
                     return (
                       <tr key={order._id} ref={index === orders.length - 1 ? lastOrderRef : null} className="hover:bg-gray-50 transition cursor-pointer" onClick={() => viewOrderDetails(order)}>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{order.customerName}</td>
@@ -414,8 +479,8 @@ const AllOrders = () => {
         </div>
 
         {showModal && selectedOrder && (
-          <div className="fixed inset-0 backdrop-blur-md bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={(e) => e.target === e.currentTarget && closeModal()}>
-            <div className="bg-white rounded-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto shadow-2xl">
+          <div className="fixed inset-0 backdrop-blur-md flex items-center justify-center z-50 p-4" onClick={(e) => e.target === e.currentTarget && closeModal()}>
+            <div className="bg-white border-black rounded-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto shadow-2xl">
               <div className="p-6 border-b border-gray-200 flex items-center justify-between sticky top-0 bg-white rounded-t-xl z-10">
                 <h2 className="text-2xl font-bold text-gray-900">Order Details</h2>
                 <button onClick={closeModal} className="text-gray-400 hover:text-gray-600 transition">
@@ -437,8 +502,8 @@ const AllOrders = () => {
                   </div>
                   <div className="bg-gray-50 p-4 rounded-lg">
                     <p className="text-xs text-gray-600 font-medium mb-1">Status</p>
-                    <span className={`inline-block px-3 py-1 text-sm font-semibold rounded-full ${getStatusBadge(selectedOrder.orderStatus || selectedOrder.payment?.status || selectedOrder.status)}`}>
-                      {selectedOrder.orderStatus || selectedOrder.payment?.status || selectedOrder.status}
+                    <span className={`inline-block px-3 py-1 text-sm font-semibold rounded-full ${getStatusBadge(getCurrentStatus(selectedOrder))}`}>
+                      {getCurrentStatus(selectedOrder)}
                     </span>
                   </div>
                   <div className="bg-gray-50 p-4 rounded-lg">
@@ -475,8 +540,73 @@ const AllOrders = () => {
                   </div>
                 </div>
 
+                {(() => {
+                  const currentStatus = getCurrentStatus(selectedOrder);
+                  const isParcel = selectedOrder.orderType === 'parcel' || selectedOrder.type === 'parcel';
+                  const isFinalStatus = ['paid', 'completed', 'cancelled'].includes(currentStatus);
+
+                  if (isFinalStatus) return null;
+
+                  return (
+                    <div className="border-t border-gray-200 pt-4">
+                      <h3 className="text-lg font-bold mb-3 text-gray-900">Update Status</h3>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                        {canTransitionTo(currentStatus, 'in-kitchen') && (
+                          <button
+                            onClick={() => handleStatusUpdate('in-kitchen')}
+                            disabled={updatingStatus}
+                            className="flex items-center justify-center gap-2 px-4 py-3 bg-yellow-50 text-yellow-700 rounded-lg hover:bg-yellow-100 border border-yellow-200 transition font-semibold disabled:opacity-50"
+                          >
+                            {updatingStatus ? <Loader2 className="w-5 h-5 animate-spin" /> : <><ChefHat className="w-5 h-5" />Mark In-Kitchen</>}
+                          </button>
+                        )}
+
+                        {canTransitionTo(currentStatus, 'ready') && (
+                          <button
+                            onClick={() => handleStatusUpdate('ready')}
+                            disabled={updatingStatus}
+                            className="flex items-center justify-center gap-2 px-4 py-3 bg-green-50 text-green-700 rounded-lg hover:bg-green-100 border border-green-200 transition font-semibold disabled:opacity-50"
+                          >
+                            {updatingStatus ? <Loader2 className="w-5 h-5 animate-spin" /> : <><CheckCircle className="w-5 h-5" />Mark Ready</>}
+                          </button>
+                        )}
+
+                        {canTransitionTo(currentStatus, 'served') && !isParcel && (
+                          <button
+                            onClick={() => handleStatusUpdate('served')}
+                            disabled={updatingStatus}
+                            className="flex items-center justify-center gap-2 px-4 py-3 bg-purple-50 text-purple-700 rounded-lg hover:bg-purple-100 border border-purple-200 transition font-semibold disabled:opacity-50"
+                          >
+                            {updatingStatus ? <Loader2 className="w-5 h-5 animate-spin" /> : <><Utensils className="w-5 h-5" />Mark Served</>}
+                          </button>
+                        )}
+
+                        {canTransitionTo(currentStatus, 'paid') && !isParcel && (
+                          <button
+                            onClick={() => handleStatusUpdate('paid')}
+                            disabled={updatingStatus}
+                            className="flex items-center justify-center gap-2 px-4 py-3 bg-green-50 text-green-700 rounded-lg hover:bg-green-100 border border-green-200 transition font-semibold disabled:opacity-50"
+                          >
+                            {updatingStatus ? <Loader2 className="w-5 h-5 animate-spin" /> : <><IndianRupee className="w-5 h-5" />Mark Paid</>}
+                          </button>
+                        )}
+
+                        {canTransitionTo(currentStatus, 'completed') && isParcel && (
+                          <button
+                            onClick={() => handleStatusUpdate('completed')}
+                            disabled={updatingStatus}
+                            className="flex items-center justify-center gap-2 px-4 py-3 bg-purple-50 text-purple-700 rounded-lg hover:bg-purple-100 border border-purple-200 transition font-semibold disabled:opacity-50"
+                          >
+                            {updatingStatus ? <Loader2 className="w-5 h-5 animate-spin" /> : <><CheckCircle className="w-5 h-5" />Completed</>}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })()}
+
                 <div className="pt-4 border-t border-gray-200">
-                  <button 
+                  <button
                     onClick={showDeleteConfirmation}
                     disabled={deletingOrder}
                     className="w-full flex items-center justify-center gap-2 px-5 py-3 bg-red-50 text-red-700 rounded-lg hover:bg-red-100 border border-red-200 transition font-semibold disabled:opacity-50"

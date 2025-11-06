@@ -50,6 +50,7 @@ import MyOrders from '../pages/Waiter/MyOrders.jsx';
 import CreateOrder from '../pages/Waiter/CreateOrder.jsx';
 import WaiterTableDetails from '../pages/Waiter/WaiterTableDetails.jsx';
 import ParcelBilling from '../pages/Cashier/ParcelBilling.jsx';
+import TableDashboard from '../pages/Admin/TableDashboard.jsx';
 
 const AppRouter = () => {
   const { user } = useAuth();
@@ -96,6 +97,7 @@ const AppRouter = () => {
             }
           >
             <Route path="dashboard" element={<AdminDashboard />} />
+            <Route path="table-dashboard" element={<TableDashboard />} />
             <Route path="branches" element={<BranchManagement />} />
             <Route path="menu" element={<MenuManagement />} />
             <Route path="revenue" element={<RevenueReports />} />
