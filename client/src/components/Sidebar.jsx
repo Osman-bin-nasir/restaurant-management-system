@@ -221,15 +221,17 @@ const Sidebar = () => {
     const isOpen = openMenus[item.id];
     const isActive = location.pathname === item.path;
 
-    const handleItemClick = () => {
+    const handleItemClick = (e) => {
       if (hasSubmenu) {
+        e.preventDefault(); // Prevent navigating when just toggling submenu
         toggleSubmenu(item.id);
       }
     };
 
     return (
       <div className="mb-1">
-        <div
+        <Link
+          to={item.path}
           onClick={handleItemClick}
           className={`
             w-full flex items-center justify-between px-4 py-3 rounded-lg
@@ -241,7 +243,7 @@ const Sidebar = () => {
             ${level > 0 ? 'pl-12' : ''}
           `}
         >
-          <Link to={item.path} className="flex items-center gap-3">
+          <div className="flex items-center gap-3">
             <item.icon
               size={20}
               className={`${isActive ? 'text-white' : 'text-gray-500 group-hover:text-orange-600'}`}
@@ -249,14 +251,14 @@ const Sidebar = () => {
             {!isCollapsed && (
               <span className="font-medium">{item.label}</span>
             )}
-          </Link>
+          </div>
 
           {!isCollapsed && hasSubmenu && (
             <div className="transition-transform duration-200">
               {isOpen ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
             </div>
           )}
-        </div>
+        </Link>
 
         {hasSubmenu && isOpen && !isCollapsed && (
           <div className="mt-1 ml-4 space-y-1">
