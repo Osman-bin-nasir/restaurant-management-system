@@ -172,6 +172,44 @@ const Sidebar = () => {
         path: '/waiter/orders'
       }
     ],
+    manager: [
+      {
+        id: 'dashboard',
+        label: 'Dashboard',
+        icon: LayoutDashboard,
+        path: '/manager/dashboard'
+      },
+      {
+        id: 'expenses',
+        label: 'Expense Management',
+        icon: IndianRupee,
+        path: '/manager/expenses'
+      },
+      {
+        id: 'menu',
+        label: 'Menu Management',
+        icon: UtensilsCrossed,
+        path: '/manager/menu'
+      },
+      {
+        id: 'orders',
+        label: 'Orders',
+        icon: ShoppingBag,
+        path: '/manager/orders'
+      },
+      {
+        id: 'tables',
+        label: 'Dine-in',
+        icon: Table2,
+        path: '/manager/tables'
+      },
+      {
+        id: 'table-dashboard',
+        label: 'Table Management',
+        icon: Table2,
+        path: '/manager/table-dashboard'
+      },
+    ],
     cashier: [
       {
         id: 'dashboard',

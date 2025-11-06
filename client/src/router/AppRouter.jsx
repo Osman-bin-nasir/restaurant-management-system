@@ -17,23 +17,32 @@ import NotFound from '../pages/Shared/NotFound.jsx';
 
 // Admin Pages
 import AdminDashboard from '../pages/Admin/Dashboard.jsx';
-import BranchManagement from '../pages/Admin/BranchManagement.jsx';
-import MenuManagement from '../pages/Admin/MenuManagement.jsx';
+import AdminBranchManagement from '../pages/Admin/BranchManagement.jsx';
+import AdminMenuManagement from '../pages/Admin/MenuManagement.jsx';
+import AdminAllOrders from '../pages/Admin/AllOrders.jsx';
+import AdminTableManagement from '../pages/Admin/TableManagement.jsx';
+import AdminUserManagement from '../pages/Admin/UserManagement.jsx';
+import AdminExpenseManagement from '../pages/Admin/ExpenseManagement.jsx';
+import AdminTableDetails from '../pages/Admin/TableDetails.jsx';
+import AdminTableDashboard from '../pages/Admin/TableDashboard.jsx';
 import RevenueReports from '../pages/Admin/RevenueReports.jsx';
 import RevenueDashboard from '../pages/Admin/RevenueDashboard.jsx';
 import RolePermissions from '../pages/Admin/RolePermissions.jsx';
-import AllOrders from '../pages/Admin/AllOrders.jsx';
 import PendingOrders from '../pages/Admin/PendingOrders.jsx';
 import InKitchenOrders from '../pages/Admin/InKitchenOrders.jsx';
 import ReadyOrders from '../pages/Admin/ReadyOrders.jsx';
-import TableManagement from '../pages/Admin/TableManagement.jsx';
-import UserManagement from '../pages/Admin/UserManagement.jsx';
 import DailyReports from '../pages/Admin/DailyReports.jsx';
 import MonthlyReports from '../pages/Admin/MonthlyReports.jsx';
 import YearlyReports from '../pages/Admin/YearlyReports.jsx';
-import ExpenseManagement from '../pages/Admin/ExpenseManagement.jsx';
-import TableDetails from '../pages/Admin/TableDetails.jsx';
-import ManagerDashboard from '../pages/Manager/ManagerDashboard.jsx';
+
+// Manager Pages
+import ManagerDashboard from '../pages/Manager/Dashboard.jsx';
+import ManagerMenuManagement from '../pages/Manager/MenuManagement.jsx';
+import ManagerAllOrders from '../pages/Manager/AllOrders.jsx';
+import ManagerTableManagement from '../pages/Manager/TableManagement.jsx';
+import ManagerExpenseManagement from '../pages/Manager/ExpenseManagement.jsx';
+import ManagerTableDetails from '../pages/Manager/TableDetails.jsx';
+import ManagerTableDashboard from '../pages/Manager/TableDashboard.jsx';
 
 // Cashier Pages
 import CashierDashboard from '../pages/Cashier/CashierDashboard.jsx';
@@ -97,24 +106,24 @@ const AppRouter = () => {
             }
           >
             <Route path="dashboard" element={<AdminDashboard />} />
-            <Route path="table-dashboard" element={<TableDashboard />} />
-            <Route path="branches" element={<BranchManagement />} />
-            <Route path="menu" element={<MenuManagement />} />
+            <Route path="table-dashboard" element={<AdminTableDashboard />} />
+            <Route path="branches" element={<AdminBranchManagement />} />
+            <Route path="menu" element={<AdminMenuManagement />} />
             <Route path="revenue" element={<RevenueReports />} />
             <Route path="revenue-dashboard" element={<RevenueDashboard />} />
             <Route path="roles" element={<RolePermissions />} />
-            <Route path="orders" element={<AllOrders />} />
+            <Route path="orders" element={<AdminAllOrders />} />
             <Route path="orders/create" element={<CreateOrder />} />
             <Route path="orders/pending" element={<PendingOrders />} />
             <Route path="orders/in-kitchen" element={<InKitchenOrders />} />
             <Route path="orders/ready" element={<ReadyOrders />} />
-            <Route path="tables" element={<TableManagement />} />
-            <Route path="tables/:id" element={<TableDetails />} />
-            <Route path="users" element={<UserManagement />} />
+            <Route path="tables" element={<AdminTableManagement />} />
+            <Route path="tables/:id" element={<AdminTableDetails />} />
+            <Route path="users" element={<AdminUserManagement />} />
             <Route path="revenue/daily" element={<DailyReports />} />
             <Route path="revenue/monthly" element={<MonthlyReports />} />
             <Route path="revenue/yearly" element={<YearlyReports />} />
-            <Route path="expenses" element={<ExpenseManagement />} />
+            <Route path="expenses" element={<AdminExpenseManagement />} />
           </Route>
 
           {/* Manager Routes */}
@@ -127,6 +136,12 @@ const AppRouter = () => {
             }
           >
             <Route path="dashboard" element={<ManagerDashboard />} />
+            <Route path="menu" element={<ManagerMenuManagement />} />
+            <Route path="orders" element={<ManagerAllOrders />} />
+            <Route path="tables" element={<ManagerTableManagement />} />
+            <Route path="table-dashboard" element={<ManagerTableDashboard />} />
+            <Route path="tables/:id" element={<ManagerTableDetails />} />
+            <Route path="expenses" element={<ManagerExpenseManagement />} />
           </Route>
 
           {/* Cashier Routes */}

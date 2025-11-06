@@ -167,7 +167,7 @@ const seed100Days = async () => {
         permissions: [
           'branches:view', 'branches:update',
           'users:view', 'users:create', 'users:update',
-          'orders:view', 'orders:update', 'orders:delete',
+          'orders:view', 'orders:create', 'orders:update', 'orders:delete',
           'menu:view', 'menu:create', 'menu:update', 'menu:delete',
           'inventory:view', 'inventory:update',
           'tables:view', 'tables:update', 'tables:manage',
