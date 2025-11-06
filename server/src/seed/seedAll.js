@@ -170,7 +170,7 @@ const seed100Days = async () => {
           'orders:view', 'orders:create', 'orders:update', 'orders:delete',
           'menu:view', 'menu:create', 'menu:update', 'menu:delete',
           'inventory:view', 'inventory:update',
-          'tables:view', 'tables:update', 'tables:manage',
+          'tables:view', 'tables:create', 'tables:update', 'tables:manage',
           'reports:view', 'reports:generate', 'reports:export',
           'expenses:view', 'expenses:create', 'expenses:approve',
           'attendance:view', 'attendance:mark'
