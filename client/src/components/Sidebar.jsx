@@ -124,19 +124,19 @@ const Sidebar = () => {
         id: 'orders',
         label: 'Orders',
         icon: ShoppingBag,
-        path: '/admin/orders',
-        submenu: [
-          { id: 'all-orders', label: 'All Orders', path: '/admin/orders' },
-          { id: 'pending', label: 'Pending', path: '/admin/orders/pending' },
-          { id: 'in-kitchen', label: 'In Kitchen', path: '/admin/orders/in-kitchen' },
-          { id: 'ready', label: 'Ready', path: '/admin/orders/ready' }
-        ]
+        path: '/admin/orders'
+      },
+      {
+        id: 'tables',
+        label: 'Dine-in',
+        icon: Table2,
+        path: '/admin/tables'
       },
       {
         id: 'tables',
         label: 'Table Management',
         icon: Table2,
-        path: '/admin/tables'
+        path: '/admin/table-dashboard'
       },
       {
         id: 'users',
