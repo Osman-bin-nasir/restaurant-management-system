@@ -11,7 +11,8 @@ import {
   cancelOrderItems, // ✨ NEW
   cancelOrder,
   assignCashier,
-  getOrderStats
+  getOrderStats,
+  deleteOrder
 } from "../controllers/orderController.js";
 import userAuth from "../middleware/userAuth.js";
 import { authorizePermissions } from "../middleware/authorize.js";
@@ -26,31 +27,30 @@ router.route("/")
   .post(userAuth, authorizePermissions("orders:create"), checkBranchAccess, createOrder);
 
 router.route("/:id")
-  .get(userAuth, authorizePermissions("orders:view"), getOrderById);
+  .get(userAuth, authorizePermissions("orders:view"), getOrderById)
+  .delete(userAuth, authorizePermissions("orders:delete"), deleteOrder);
 
 // ====================== ITEM-SPECIFIC ROUTES ======================
 
-// ✨ NEW: Add items to an existing order
 router.route("/:orderId/items")
   .post(userAuth, authorizePermissions("orders:update"), addItemsToOrder);
 
-// ✨ NEW: Delete an item from an order
 router.route("/:orderId/items/:itemId")
   .delete(userAuth, authorizePermissions("orders:update"), removeItemFromOrder);
 
-// ✨ NEW: Update status of multiple items in an order
+
 router.route("/:orderId/items/status")
   .patch(userAuth, authorizePermissions("orders:update", "kitchen:update"), updateItemStatus);
 
-// ✨ NEW: Update status of all items in an order (for admins)
+
 router.route("/:orderId/all-items/status")
   .patch(userAuth, authorizePermissions("orders:update"), updateAllItemsStatus);
 
-// ✨ NEW: Mark an order as paid (for admins)
+
 router.route("/:orderId/mark-as-paid")
   .patch(userAuth, authorizePermissions("billing:process"), markOrderAsPaid);
 
-// ✨ NEW: Cancel specific items in an order
+
 router.route("/:orderId/items/cancel")
   .patch(userAuth, authorizePermissions("orders:update"), cancelOrderItems);
 

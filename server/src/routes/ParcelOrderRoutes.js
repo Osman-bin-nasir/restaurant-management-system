@@ -8,7 +8,8 @@ import {
   markOrderCompleted,
   getParcelKitchenQueue,
   refundParcelOrder,
-  getParcelOrderStats
+  getParcelOrderStats,
+  deleteParcelOrder
 } from "../controllers/ParcelOrderController.js";
 import userAuth from "../middleware/userAuth.js";
 import { authorizePermissions } from "../middleware/authorize.js";
@@ -31,13 +32,10 @@ router.get(
   getAllParcelOrders
 );
 
-// ✅ GET ORDER BY ID
-router.get(
-  "/:id",
-  userAuth,
-  authorizePermissions("orders:view"),
-  getParcelOrderById
-);
+// ✅ GET/DELETE ORDER BY ID
+router.route("/:id")
+  .get(userAuth, authorizePermissions("orders:view"), getParcelOrderById)
+  .delete(userAuth, authorizePermissions("orders:delete"), deleteParcelOrder);
 
 // 👨‍🍳 KITCHEN: Start Preparing Items
 router.patch(

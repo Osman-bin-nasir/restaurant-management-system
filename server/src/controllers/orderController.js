@@ -780,6 +780,51 @@ export const cancelOrder = asyncHandler(async (req, res) => {
   });
 });
 
+// ====================== DELETE ORDER (PERMANENT) ======================
+export const deleteOrder = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { id: userId, role } = req.user;
+
+  const order = await Order.findById(id);
+  if (!order) throw new CustomError("Order not found", 404);
+
+  // Optional: Add additional checks if needed
+  // For example, only allow deletion by admin role
+  if (role !== 'admin' && role !== 'super-admin') {
+    throw new CustomError("Only admins can delete orders", 403);
+  }
+
+  // ✅ If order had a table, free it up
+  if (order.tableId) {
+    await Table.findByIdAndUpdate(order.tableId, {
+      status: "available",
+      currentOrderId: null
+    });
+  }
+
+  // Store order details for response before deletion
+  const orderDetails = {
+    orderNumber: order.orderNumber,
+    customerName: order.customerName,
+    totalAmount: order.totalAmount,
+    status: order.status,
+    deletedAt: new Date(),
+    deletedBy: userId
+  };
+
+  // Delete the order
+  await Order.findByIdAndDelete(id);
+
+  // Emit a socket event to notify clients of the deletion
+  getIo().emit("orderDeleted", { orderId: id, orderNumber: order.orderNumber });
+
+  res.status(200).json({
+    success: true,
+    message: "Order deleted successfully",
+    deletedOrder: orderDetails
+  });
+});
+
 // ====================== ASSIGN CASHIER TO ORDER ======================
 export const assignCashier = asyncHandler(async (req, res) => {
   const { id } = req.params;

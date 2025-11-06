@@ -168,6 +168,47 @@ export const getAllParcelOrders = asyncHandler(async (req, res) => {
   });
 });
 
+// ============ DELETE PARCEL ORDER (PERMANENT) ============
+export const deleteParcelOrder = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { id: userId, role } = req.user;
+
+  const order = await ParcelOrder.findById(id);
+  if (!order) throw new CustomError("Order not found", 404);
+
+  // Only allow deletion by admin role
+  if (role !== 'admin' && role !== 'super-admin') {
+    throw new CustomError("Only admins can delete orders", 403);
+  }
+
+  // Store order details for response before deletion
+  const orderDetails = {
+    orderNumber: order.orderNumber,
+    customerName: order.customerName,
+    totalAmount: order.totalAmount,
+    orderStatus: order.orderStatus,
+    paymentStatus: order.payment?.status,
+    deletedAt: new Date(),
+    deletedBy: userId
+  };
+
+  // Delete the order
+  await ParcelOrder.findByIdAndDelete(id);
+
+  // Emit a socket event to notify clients of the deletion
+  getIo().emit("orderDeleted", { 
+    orderId: id, 
+    orderNumber: order.orderNumber,
+    orderType: 'parcel'
+  });
+
+  res.status(200).json({
+    success: true,
+    message: "Parcel order deleted successfully",
+    deletedOrder: orderDetails
+  });
+});
+
 // ============ GET ORDER BY ID ============
 export const getParcelOrderById = asyncHandler(async (req, res) => {
   const { id } = req.params;
