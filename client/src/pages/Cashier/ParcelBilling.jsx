@@ -180,7 +180,7 @@ const ParcelBilling = () => {
   };
 
   const goToDashboard = () => {
-    setTimeout(() => navigate('/cashier/parcel-orders'), 1000);
+    setTimeout(() => navigate('/cashier/parcel-billing'), 1000);
   };
 
   useEffect(() => {

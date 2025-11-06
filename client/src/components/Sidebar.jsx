@@ -22,7 +22,8 @@ import {
   Table2,
   X,
   AlignLeft,
-  AreaChart
+  AreaChart,
+  IndianRupee
 } from 'lucide-react';
 
 const Sidebar = () => {
@@ -111,7 +112,7 @@ const Sidebar = () => {
       {
         id: 'expenses',
         label: 'Expense Management',
-        icon: DollarSign, // Using DollarSign as it fits expenses
+        icon: IndianRupee,
         path: '/admin/expenses'
       },
       {
@@ -133,7 +134,7 @@ const Sidebar = () => {
         path: '/admin/tables'
       },
       {
-        id: 'tables',
+        id: 'table-dashboard',
         label: 'Table Management',
         icon: Table2,
         path: '/admin/table-dashboard'
@@ -144,29 +145,12 @@ const Sidebar = () => {
         icon: Users,
         path: '/admin/users'
       },
-      {
-        id: 'branches',
-        label: 'Branch Management',
-        icon: Building2,
-        path: '/admin/branches'
-      },
-      {
-        id: 'revenue',
-        label: 'Revenue Reports',
-        icon: TrendingUp,
-        path: '/admin/revenue',
-        submenu: [
-          { id: 'daily', label: 'Daily Report', path: '/admin/revenue/daily' },
-          { id: 'monthly', label: 'Monthly Report', path: '/admin/revenue/monthly' },
-          { id: 'yearly', label: 'Yearly Report', path: '/admin/revenue/yearly' }
-        ]
-      },
-      {
-        id: 'roles',
-        label: 'Role & Permissions',
-        icon: Shield,
-        path: '/admin/roles'
-      }
+      // {
+      //   id: 'branches',
+      //   label: 'Branch Management',
+      //   icon: Building2,
+      //   path: '/admin/branches'
+      // },
     ],
     waiter: [
       {
@@ -177,7 +161,7 @@ const Sidebar = () => {
       },
       {
         id: 'tables',
-        label: 'Table Orders',
+        label: 'Dine-in',
         icon: Table2,
         path: '/waiter/tables'
       },

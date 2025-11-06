@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Clock, ChefHat, CheckCircle, AlertCircle, Timer, Users, Package, Flame, Play, Check, MapPin } from 'lucide-react';
-import axios from 'axios';
+import axios from '../../api/axios.js';
 import toast, { Toaster } from 'react-hot-toast';
 import io from 'socket.io-client';
 
@@ -119,15 +119,17 @@ const KitchenDashboard = () => {
   const inProgressOrderCount = groupedInProgressItems.length;
 
   // Start all items in order
-  const startAllCooking = async (orderId) => {
+  const startAllCooking = async (order) => {
+    const orderId = order.orderId;
+    console.log(order)
     const group = groupedNewItems.find(g => g.orderId === orderId);
     if (!group || group.items.length === 0) return;
 
     const itemIds = group.items.map(item => item.itemId);
 
     try {
-      const { data } = await axios.post(
-        'http://localhost:3000/api/kitchen/items/start-cooking',
+      if(order.orderType === 'dine-in' || order.orderType === 'parcel') {
+        const { data } = await axios.post('/kitchen/items/start-cooking',
         { 
           items: [{ orderId, itemIds }]
         },
@@ -138,22 +140,9 @@ const KitchenDashboard = () => {
         toast.success(data.message || 'Started cooking all items!');
         fetchQueue();
       }
-    } catch (error) {
-      console.error('Failed to start cooking:', error);
-      toast.error(error.response?.data?.message || 'Failed to start all cooking');
-    }
-  };
-
-  // Mark all items in order as ready
-  const markAllReady = async (orderId) => {
-    const group = groupedInProgressItems.find(g => g.orderId === orderId);
-    if (!group || group.items.length === 0) return;
-
-    const itemIds = group.items.map(item => item.itemId);
-
-    try {
-      const { data } = await axios.post(
-        'http://localhost:3000/api/kitchen/items/mark-ready',
+      }
+      else {
+        const { data } = await axios.patch(`/parcel/${orderId}/items/start`,
         { 
           items: [{ orderId, itemIds }]
         },
@@ -161,9 +150,51 @@ const KitchenDashboard = () => {
       );
 
       if (data.success) {
+        toast.success(data.message || 'Started cooking all items!');
+        fetchQueue();
+      }
+      }
+    } catch (error) {
+      console.error('Failed to start cooking:', error);
+      toast.error(error.response?.data?.message || 'Failed to start all cooking');
+    }
+  };
+
+  // Mark all items in order as ready
+  const markAllReady = async (order) => {
+    const orderId = order.orderId;
+    console.log(order.orderType)    //order.orderType
+    const group = groupedInProgressItems.find(g => g.orderId === orderId);
+    if (!group || group.items.length === 0) return;
+
+    const itemIds = group.items.map(item => item.itemId);
+
+    try {
+      if(true) {
+      const { data } = await axios.post('kitchen/items/mark-ready',
+        { 
+          items: [{ orderId, itemIds }]
+        },
+        { withCredentials: true }
+      );
+      if (data.success) {
         toast.success(data.message || 'Marked all items as ready!');
         fetchQueue();
       }
+      } else {
+        const { data } = await axios.patch(`/parcel/${orderId}/items/ready`,
+        { 
+          items: [{ orderId, itemIds }]
+        },
+        { withCredentials: true }
+      );
+      console.log("marked parcel items ready")
+      if (data.success) {
+        toast.success(data.message || 'Marked all items as ready!');
+        fetchQueue();
+      }
+      }
+      
     } catch (error) {
       console.error('Failed to mark ready:', error);
       toast.error(error.response?.data?.message || 'Failed to mark all ready');
@@ -262,7 +293,7 @@ const KitchenDashboard = () => {
         {/* Action Button */}
         <div className="mt-auto">
           <button
-            onClick={() => isNew ? startAllCooking(order.orderId) : markAllReady(order.orderId)}
+            onClick={() => isNew ? startAllCooking(order) : markAllReady(order)}
             className={`w-full py-3 rounded-md font-semibold text-white shadow-md transition ${
               isNew 
                 ? 'bg-orange-500 hover:bg-orange-600 hover:cursor-pointer' 

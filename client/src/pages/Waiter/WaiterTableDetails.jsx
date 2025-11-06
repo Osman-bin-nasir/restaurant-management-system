@@ -1,51 +1,88 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Table2, Users, CheckCircle, Clock, ShoppingBag, ArrowLeft, Plus, Minus, X, Trash2, Search } from 'lucide-react';
+import { Table2, Users, CheckCircle, ShoppingBag, ArrowLeft, Plus, Minus, X, Trash2, Search } from 'lucide-react';
 import axios from '../../api/axios';
 import { getStatusBadge } from '../Admin/TableManagement.jsx';
 import toast, { Toaster } from 'react-hot-toast';
+
 import { useSocket } from '../../contexts/SocketContext';
 
 const WaiterTableDetails = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const socket = useSocket();
+
   const [table, setTable] = useState(null);
   const [menuItems, setMenuItems] = useState([]);
   const [cart, setCart] = useState([]);
   const [customerName, setCustomerName] = useState('');
   const [currentOrder, setCurrentOrder] = useState(null);
+
   const [showOrderModal, setShowOrderModal] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
 
-  // Add ESC key handler
+  // Clear current order and set table to available
+  const clearCurrentOrder = useCallback(async () => {
+    if (!table) return;
+    try {
+      await axios.post(`/tables/${table._id}/clear`, {
+        status: 'available',
+        currentOrderId: null
+      });
+      setTable(prevTable => ({
+        ...prevTable,
+        status: 'available',
+        currentOrderId: null
+      }));
+      setCurrentOrder(null);
+      setCart([]);
+      setCustomerName('');
+      toast.success('Table is now available.');
+    } catch (err) {
+      console.error('Failed to clear order:', err);
+      toast.error('Failed to update table status.');
+      // Fallback: refetch data
+      fetchData();
+    }
+  }, [table]);
+
+  // Auto-clear if current order has no items
+  useEffect(() => {
+    if (currentOrder && currentOrder.items.length === 0) {
+      clearCurrentOrder();
+    }
+  }, [currentOrder, clearCurrentOrder]);
+
+  // Close modal with ESC
   useEffect(() => {
     const handleEsc = (event) => {
-      if (event.keyCode === 27 && showOrderModal) {
-        setShowOrderModal(false);
-      }
+      if (event.keyCode === 27 && showOrderModal) setShowOrderModal(false);
     };
     window.addEventListener('keydown', handleEsc);
-    return () => {
-      window.removeEventListener('keydown', handleEsc);
-    };
+    return () => window.removeEventListener('keydown', handleEsc);
   }, [showOrderModal]);
 
+  // Fetch table + menu + current order (NOT history here)
   const fetchData = async () => {
     try {
       setLoading(true);
+
       const [tableRes, menuRes] = await Promise.all([
         axios.get(`/tables/${id}`),
-        axios.get('/menu/')
+        axios.get('/menu/'),
       ]);
-      if (tableRes.data.success) {
-        setTable(tableRes.data.table);
-        setMenuItems(menuRes.data.MenuItems);
-        if (tableRes.data.table.currentOrderId) {
+
+      if (!tableRes.data.success) throw new Error('Failed to fetch table details');
+
+      setTable(tableRes.data.table);
+      setMenuItems(menuRes.data.MenuItems);
+
+      if (tableRes.data.table.currentOrderId) {
+        try {
           const orderRes = await axios.get(`/orders/${tableRes.data.table.currentOrderId._id}`);
-          if (orderRes.data.success) {
+          if (orderRes.data.success && orderRes.data.order.items.length > 0) {
             setCurrentOrder(orderRes.data.order);
             setCustomerName(orderRes.data.order.customerName);
             const cartItems = orderRes.data.order.items.map(item => ({
@@ -57,10 +94,16 @@ const WaiterTableDetails = () => {
               original: orderRes.data.order.status !== 'placed'
             }));
             setCart(cartItems);
+          } else {
+            await clearCurrentOrder();
           }
+        } catch (err) {
+          await clearCurrentOrder();
         }
       } else {
-        throw new Error('Failed to fetch table details');
+        setCurrentOrder(null);
+        setCart([]);
+        setCustomerName('');
       }
     } catch (err) {
       const errorMessage = err.response?.status === 404 ? 'Table or order not found' : err.message || 'Error fetching table details';
@@ -71,44 +114,52 @@ const WaiterTableDetails = () => {
     }
   };
 
+  // Initial load when table id changes
   useEffect(() => {
-    fetchData();
+    (async () => {
+      await fetchData();
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
+  // Live updates (order/table)
   useEffect(() => {
-    if (socket) {
-      const handleOrderUpdate = (updatedOrder) => {
-        if (currentOrder && updatedOrder._id === currentOrder._id) {
-          setCurrentOrder(updatedOrder);
-          toast.success('Order has been updated!');
-        }
-      };
-      const handleTableUpdate = (updatedTable) => {
-        if (table && updatedTable._id === table._id) {
-          setTable(updatedTable);
-          if (updatedTable.status === 'available') {
-            toast.success(`Table ${updatedTable.tableNumber} is now available!`);
-          }
-        }
-      };
-      socket.on('orderUpdated', handleOrderUpdate);
-      socket.on('tableUpdated', handleTableUpdate);
-      return () => {
-        socket.off('orderUpdated', handleOrderUpdate);
-        socket.off('tableUpdated', handleTableUpdate);
-      };
-    }
-  }, [socket, currentOrder, table]);
+    if (!socket) return;
 
-  // Filter menu items based on search term
+    const handleOrderUpdate = (updatedOrder) => {
+      // If current order updated
+      if (currentOrder && updatedOrder._id === currentOrder._id) {
+        setCurrentOrder(updatedOrder);
+        toast.success('Order has been updated!');
+      }
+    };
+
+    const handleTableUpdate = (updatedTable) => {
+      if (table && updatedTable._id === table._id) {
+        setTable(updatedTable);
+        if (updatedTable.status === 'available') {
+          toast.success(`Table ${updatedTable.tableNumber} is now available!`);
+        }
+      }
+    };
+
+    socket.on('orderUpdated', handleOrderUpdate);
+    socket.on('tableUpdated', handleTableUpdate);
+
+    return () => {
+      socket.off('orderUpdated', handleOrderUpdate);
+      socket.off('tableUpdated', handleTableUpdate);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [socket, currentOrder, table, id]);
+
+  // Filter menu items by search
   const filteredMenuItems = menuItems.filter(item =>
     item.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const handleOpenModal = () => {
-    if (currentOrder) {
-      setCart([]);
-    }
+    if (currentOrder) setCart([]);
     setShowOrderModal(true);
   };
 
@@ -136,15 +187,14 @@ const WaiterTableDetails = () => {
     if (isNewOrder) {
       setTable({ ...table, status: 'occupied', currentOrderId: order._id });
     }
+
     const itemMap = new Map();
     order.items.forEach((item) => {
       const key = item.menuItem._id;
       if (itemMap.has(key)) {
         const existing = itemMap.get(key);
         existing.quantity += item.quantity;
-        if (item.status === 'placed') {
-          existing.original = false;
-        }
+        if (item.status === 'placed') existing.original = false;
       } else {
         itemMap.set(key, {
           _id: item.menuItem._id,
@@ -156,6 +206,7 @@ const WaiterTableDetails = () => {
         });
       }
     });
+
     setCart(Array.from(itemMap.values()));
     setShowOrderModal(false);
     toast.success(successMessage);
@@ -166,11 +217,20 @@ const WaiterTableDetails = () => {
       const orderData = {
         items: cart.map(({ _id, quantity, notes }) => ({ menuItem: _id, quantity, notes })),
       };
+
       const res = await axios.post(`/orders/${currentOrder._id}/items`, { items: orderData.items });
       if (!res.data.success) throw new Error(res.data.message || 'Failed to update order');
+
       const updatedOrderRes = await axios.get(`/orders/${res.data.order._id}`);
       if (!updatedOrderRes.data.success) throw new Error(updatedOrderRes.data.message || 'Failed to fetch updated order');
-      handleOrderSuccess(updatedOrderRes.data.order, 'Order updated successfully!', false);
+
+      const updatedOrder = updatedOrderRes.data.order;
+      if (updatedOrder.items.length === 0) {
+        await clearCurrentOrder();
+        toast.success('Order updated, but no items left. Table is now available.');
+      } else {
+        handleOrderSuccess(updatedOrder, 'Order updated successfully!', false);
+      }
     } catch (err) {
       const errorMessage = err.response?.data?.message || err.message || 'Failed to update order';
       toast.error(errorMessage);
@@ -207,15 +267,7 @@ const WaiterTableDetails = () => {
       {
         position: 'top-center',
         duration: Infinity,
-        style: {
-          background: 'transparent',
-          boxShadow: 'none',
-          padding: 0,
-          margin: 'auto',
-          top: '50%',
-          transform: 'translateY(-50%)',
-          maxWidth: '90vw',
-        },
+        style: { background: 'transparent', boxShadow: 'none', padding: 0, margin: 'auto', top: '50%', transform: 'translateY(-50%)', maxWidth: '90vw' },
       }
     );
   };
@@ -225,6 +277,7 @@ const WaiterTableDetails = () => {
       handleUpdateConfirmation();
       return;
     }
+
     try {
       const orderData = {
         type: 'dine-in',
@@ -232,10 +285,13 @@ const WaiterTableDetails = () => {
         customerName: customerName || 'Guest',
         items: cart.map(({ _id, quantity, notes }) => ({ menuItem: _id, quantity, notes })),
       };
+
       const res = await axios.post('/orders', orderData);
       if (!res.data.success) throw new Error(res.data.message || 'Failed to create order');
+
       const updatedOrderRes = await axios.get(`/orders/${res.data.order._id}`);
       if (!updatedOrderRes.data.success) throw new Error(updatedOrderRes.data.message || 'Failed to fetch updated order');
+
       handleOrderSuccess(updatedOrderRes.data.order, 'Order created successfully!', true);
     } catch (err) {
       const errorMessage = err.response?.data?.message || err.message || 'Failed to create order';
@@ -245,6 +301,7 @@ const WaiterTableDetails = () => {
 
   const handleUpdateStatus = async (newStatus) => {
     if (!currentOrder) return;
+
     try {
       let itemIdsToUpdate = [];
       if (newStatus === 'in-kitchen') {
@@ -256,14 +313,17 @@ const WaiterTableDetails = () => {
           .filter(item => item.status === 'ready')
           .map(item => item._id);
       }
+
       if (itemIdsToUpdate.length === 0) {
         toast.error(`No items eligible to be marked as ${newStatus}!`);
         return;
       }
+
       const res = await axios.patch(`/orders/${currentOrder._id}/items/status`, {
         itemIds: itemIdsToUpdate,
         newStatus
       });
+
       setCurrentOrder(res.data.order);
       toast.success(`Items marked as ${newStatus}!`);
     } catch (err) {
@@ -296,8 +356,12 @@ const WaiterTableDetails = () => {
                 try {
                   const res = await axios.delete(`/orders/${currentOrder._id}/items/${itemId}`);
                   if (res.data.success) {
-                    toast.success('Item removed successfully!');
-                    setCurrentOrder(res.data.order);
+                    if (res.data.order.items.length === 0) {
+                      await clearCurrentOrder();
+                    } else {
+                      setCurrentOrder(res.data.order);
+                      toast.success('Item removed successfully!');
+                    }
                   } else {
                     throw new Error(res.data.message || 'Failed to remove item');
                   }
@@ -315,103 +379,15 @@ const WaiterTableDetails = () => {
       {
         position: 'top-center',
         duration: Infinity,
-        style: {
-          background: 'transparent',
-          boxShadow: 'none',
-          padding: 0,
-          margin: 'auto',
-          top: '50%',
-          transform: 'translateY(-50%)',
-          maxWidth: '90vw',
-        },
+        style: { background: 'transparent', boxShadow: 'none', padding: 0, margin: 'auto', top: '50%', transform: 'translateY(-50%)' },
       }
     );
   };
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-6">
-        <Toaster position="top-center" />
-        <div className="mb-8">
-          <div className="flex items-center justify-between mb-6 animate-pulse">
-            <div>
-              <div className="h-10 w-80 bg-gray-300 rounded-lg mb-2 flex items-center gap-3">
-                <div className="bg-gray-400 h-10 w-10 rounded-xl"></div>
-              </div>
-              <div className="h-4 w-56 bg-gray-300 rounded"></div>
-            </div>
-            <div className="h-12 w-40 bg-gray-300 rounded-xl"></div>
-          </div>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-          {/* Table Information Skeleton */}
-          <div className="bg-white rounded-2xl shadow-md p-6 border-l-4 border-blue-500 animate-pulse">
-            <div className="h-6 w-40 bg-gray-300 rounded mb-4"></div>
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="h-4 w-24 bg-gray-300 rounded"></div>
-                <div className="h-4 w-20 bg-gray-300 rounded"></div>
-              </div>
-              <div className="flex items-center justify-between">
-                <div className="h-4 w-24 bg-gray-300 rounded"></div>
-                <div className="h-4 w-24 bg-gray-300 rounded flex items-center gap-2">
-                  <div className="h-4 w-4 bg-gray-300 rounded-full"></div>
-                </div>
-              </div>
-              <div className="flex items-center justify-between">
-                <div className="h-4 w-24 bg-gray-300 rounded"></div>
-                <div className="h-6 w-20 bg-blue-300 rounded"></div>
-              </div>
-              <div className="flex items-center justify-between">
-                <div className="h-4 w-24 bg-gray-300 rounded"></div>
-                <div className="h-4 w-28 bg-gray-300 rounded"></div>
-              </div>
-            </div>
-            <div className="h-12 w-full bg-gray-300 rounded-xl mt-4"></div>
-          </div>
-          {/* Current Order Skeleton */}
-          <div className="bg-white rounded-2xl shadow-md p-6 border-l-4 border-orange-500 animate-pulse">
-            <div className="h-6 w-32 bg-gray-300 rounded mb-4"></div>
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="h-4 w-24 bg-gray-300 rounded"></div>
-                <div className="h-4 w-20 bg-gray-300 rounded"></div>
-              </div>
-              <div className="flex items-center justify-between">
-                <div className="h-4 w-24 bg-gray-300 rounded"></div>
-                <div className="h-4 w-24 bg-gray-300 rounded"></div>
-              </div>
-              <div className="flex items-center justify-between">
-                <div className="h-4 w-24 bg-gray-300 rounded"></div>
-                <div className="h-4 w-16 bg-gray-300 rounded"></div>
-              </div>
-              <div className="flex items-center justify-between">
-                <div className="h-4 w-24 bg-gray-300 rounded"></div>
-                <div className="h-4 w-20 bg-orange-300 rounded"></div>
-              </div>
-              <div className="flex items-center justify-between">
-                <div className="h-4 w-24 bg-gray-300 rounded"></div>
-                <div className="h-4 w-40 bg-gray-300 rounded"></div>
-              </div>
-              <div className="flex items-center justify-between">
-                <div className="h-4 w-24 bg-gray-300 rounded"></div>
-                <div className="h-4 w-20 bg-gray-300 rounded"></div>
-              </div>
-              <div className="border-t pt-4">
-                <div className="h-5 w-16 bg-gray-300 rounded mb-2"></div>
-                <div className="space-y-2">
-                  <div className="h-4 w-full bg-gray-300 rounded mb-1"></div>
-                  <div className="h-4 w-3/4 bg-gray-300 rounded mb-1"></div>
-                  <div className="h-4 w-1/2 bg-gray-300 rounded"></div>
-                </div>
-                <div className="flex gap-2 mt-4">
-                  <div className="flex-1 h-10 bg-gray-300 rounded-xl"></div>
-                  <div className="flex-1 h-10 bg-gray-300 rounded-xl"></div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
+      <div className="flex items-center justify-center h-screen bg-gray-50">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-4 border-orange-500"></div>
       </div>
     );
   }
@@ -433,15 +409,13 @@ const WaiterTableDetails = () => {
     );
   }
 
-  if (!table) {
-    return null;
-  }
+  if (!table) return null;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-6">
       <Toaster position="top-center" />
       <div className="mb-8">
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex items-centered justify-between mb-6">
           <div>
             <h1 className="text-4xl font-bold text-gray-900 mb-2 flex items-center gap-3">
               <div className="bg-gradient-to-br from-orange-400 to-orange-600 p-3 rounded-2xl shadow-lg">
@@ -460,6 +434,7 @@ const WaiterTableDetails = () => {
           </button>
         </div>
       </div>
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
         <div className="bg-white rounded-2xl shadow-md p-6 border-l-4 border-blue-500">
           <h2 className="text-xl font-bold text-gray-900 mb-4">Table Information</h2>
@@ -495,6 +470,7 @@ const WaiterTableDetails = () => {
             </button>
           )}
         </div>
+
         {table.currentOrderId && currentOrder && (
           <div className="bg-white rounded-2xl shadow-md p-6 border-l-4 border-orange-500">
             <h2 className="text-xl font-bold text-gray-900 mb-4">Current Order</h2>
@@ -537,12 +513,13 @@ const WaiterTableDetails = () => {
                           {item.menuItem.name} × {item.quantity}
                           {item.notes && <span className="text-xs text-gray-500"> ({item.notes})</span>}
                         </span>
-                        <span className={`ml-2 text-xs font-semibold ${item.status === 'ready' ? 'text-green-600' :
+                        <span className={`ml-2 text-xs font-semibold ${
+                          item.status === 'ready' ? 'text-green-600' :
                           item.status === 'served' ? 'text-blue-600' :
-                            item.status === 'in-kitchen' ? 'text-orange-600' :
-                              item.status === 'cancelled' ? 'text-red-600' :
-                                'text-gray-600'
-                          }`}>
+                          item.status === 'in-kitchen' ? 'text-orange-600' :
+                          item.status === 'cancelled' ? 'text-red-600' :
+                          'text-gray-600'
+                        }`}>
                           ({item.status})
                         </span>
                       </div>
@@ -586,10 +563,11 @@ const WaiterTableDetails = () => {
           </div>
         )}
       </div>
+
       {showOrderModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-3xl shadow-2xl w-full max-w-[95vw] h-[95vh] overflow-hidden flex flex-col">
-            {/* Header - Reduced height */}
+            {/* Header */}
             <div className="bg-gradient-to-r from-orange-500 to-orange-600 text-white p-4 flex items-center justify-between">
               <div>
                 <h2 className="text-xl font-bold mb-1">
@@ -604,9 +582,10 @@ const WaiterTableDetails = () => {
                 <X size={20} />
               </button>
             </div>
-            {/* Main Content */}
+
+            {/* Main */}
             <div className="flex-1 flex overflow-hidden">
-              {/* Menu Items - Left Side */}
+              {/* Menu */}
               <div className="flex-1 p-6 bg-gray-50 overflow-y-auto">
                 <div className="flex items-center justify-between mb-6">
                   <h3 className="text-lg font-bold text-gray-900">Select Items</h3>
@@ -621,7 +600,7 @@ const WaiterTableDetails = () => {
                     />
                   </div>
                 </div>
-               
+
                 <div className="grid grid-cols-4 gap-4">
                   {filteredMenuItems.length === 0 ? (
                     <div className="col-span-4 text-center py-12">
@@ -639,22 +618,15 @@ const WaiterTableDetails = () => {
                           className="bg-white rounded-2xl shadow-md p-6 hover:shadow-xl transition cursor-pointer relative group border-2 border-gray-200 hover:border-orange-500"
                           onClick={() => addToCart(item)}
                         >
-                          {/* Quantity Badge */}
                           {inCart && (
                             <div className="absolute -top-2 -right-2 bg-orange-500 text-white rounded-full w-8 h-8 flex items-center justify-center text-sm font-bold shadow-lg">
                               {inCart.quantity}
                             </div>
                           )}
-                         
-                          {/* Item Name */}
                           <h4 className="font-bold text-gray-900 text-center text-lg mb-2">{item.name}</h4>
-                         
-                          {/* Price */}
                           <div className="text-center">
                             <span className="text-orange-600 font-bold text-lg">₹{item.price}</span>
                           </div>
-                         
-                          {/* Hover Effect Indicator */}
                           <div className="absolute inset-0 rounded-2xl border-2 border-transparent group-hover:border-orange-500 transition-all duration-200 pointer-events-none" />
                         </div>
                       );
@@ -662,7 +634,8 @@ const WaiterTableDetails = () => {
                   )}
                 </div>
               </div>
-              {/* Cart - Right Fixed Side */}
+
+              {/* Cart */}
               <div className="w-96 bg-white border-l border-gray-200 flex flex-col">
                 <div className="p-6 border-b border-gray-200">
                   <h3 className="text-lg font-bold text-gray-900 mb-4">
@@ -677,7 +650,7 @@ const WaiterTableDetails = () => {
                     disabled={currentOrder}
                   />
                 </div>
-                {/* Cart Items - Scrollable */}
+
                 <div className="flex-1 overflow-y-auto p-6 space-y-3">
                   {cart.length === 0 ? (
                     <div className="text-center py-12">
@@ -736,7 +709,7 @@ const WaiterTableDetails = () => {
                     ))
                   )}
                 </div>
-                {/* Cart Footer */}
+
                 <div className="p-6 border-t border-gray-200 bg-gray-50">
                   <div className="flex items-center justify-between text-lg font-bold mb-4">
                     <span className="text-gray-900">{currentOrder ? 'New Items Total:' : 'Total:'}</span>

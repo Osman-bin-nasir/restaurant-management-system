@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Table2, Users, CheckCircle, ShoppingBag, ArrowLeft, Plus, Minus, X, Trash2, Search } from 'lucide-react';
 import axios from '../../api/axios';
@@ -36,6 +36,38 @@ const WaiterTableDetails = () => {
   const loadMoreRef = useRef(null);   // sentinel at list bottom
   const reqIdRef = useRef(0);         // guard against overlapping responses
 
+  // Clear current order and set table to available
+  const clearCurrentOrder = useCallback(async () => {
+    if (!table) return;
+    try {
+      await axios.post(`/tables/${table._id}/clear`, {
+        status: 'available',
+        currentOrderId: null
+      });
+      setTable(prevTable => ({
+        ...prevTable,
+        status: 'available',
+        currentOrderId: null
+      }));
+      setCurrentOrder(null);
+      setCart([]);
+      setCustomerName('');
+      toast.success('Table is now available.');
+    } catch (err) {
+      console.error('Failed to clear order:', err);
+      toast.error('Failed to update table status.');
+      // Fallback: refetch data
+      fetchData();
+    }
+  }, [table]);
+
+  // Auto-clear if current order has no items
+  useEffect(() => {
+    if (currentOrder && currentOrder.items.length === 0) {
+      clearCurrentOrder();
+    }
+  }, [currentOrder, clearCurrentOrder]);
+
   // Close modal with ESC
   useEffect(() => {
     const handleEsc = (event) => {
@@ -61,19 +93,25 @@ const WaiterTableDetails = () => {
       setMenuItems(menuRes.data.MenuItems);
 
       if (tableRes.data.table.currentOrderId) {
-        const orderRes = await axios.get(`/orders/${tableRes.data.table.currentOrderId._id}`);
-        if (orderRes.data.success) {
-          setCurrentOrder(orderRes.data.order);
-          setCustomerName(orderRes.data.order.customerName);
-          const cartItems = orderRes.data.order.items.map(item => ({
-            _id: item.menuItem._id,
-            name: item.menuItem.name,
-            price: item.menuItem.price,
-            quantity: item.quantity,
-            notes: item.notes,
-            original: orderRes.data.order.status !== 'placed'
-          }));
-          setCart(cartItems);
+        try {
+          const orderRes = await axios.get(`/orders/${tableRes.data.table.currentOrderId._id}`);
+          if (orderRes.data.success && orderRes.data.order.items.length > 0) {
+            setCurrentOrder(orderRes.data.order);
+            setCustomerName(orderRes.data.order.customerName);
+            const cartItems = orderRes.data.order.items.map(item => ({
+              _id: item.menuItem._id,
+              name: item.menuItem.name,
+              price: item.menuItem.price,
+              quantity: item.quantity,
+              notes: item.notes,
+              original: orderRes.data.order.status !== 'placed'
+            }));
+            setCart(cartItems);
+          } else {
+            await clearCurrentOrder();
+          }
+        } catch (err) {
+          await clearCurrentOrder();
         }
       } else {
         setCurrentOrder(null);
@@ -103,8 +141,6 @@ const WaiterTableDetails = () => {
         limit: PAGE_SIZE,
         sort: '-createdAt',
         page: apiPage,            // your backend expects 1-based "page"
-        // If your API ONLY supports "skip", use this instead:
-        // skip: (apiPage - 1) * PAGE_SIZE,
       };
 
       const res = await axios.get('/orders', { params });
@@ -290,7 +326,13 @@ const WaiterTableDetails = () => {
       const updatedOrderRes = await axios.get(`/orders/${res.data.order._id}`);
       if (!updatedOrderRes.data.success) throw new Error(updatedOrderRes.data.message || 'Failed to fetch updated order');
 
-      handleOrderSuccess(updatedOrderRes.data.order, 'Order updated successfully!', false);
+      const updatedOrder = updatedOrderRes.data.order;
+      if (updatedOrder.items.length === 0) {
+        await clearCurrentOrder();
+        toast.success('Order updated, but no items left. Table is now available.');
+      } else {
+        handleOrderSuccess(updatedOrder, 'Order updated successfully!', false);
+      }
     } catch (err) {
       const errorMessage = err.response?.data?.message || err.message || 'Failed to update order';
       toast.error(errorMessage);
@@ -422,8 +464,12 @@ const WaiterTableDetails = () => {
                 try {
                   const res = await axios.delete(`/orders/${currentOrder._id}/items/${itemId}`);
                   if (res.data.success) {
-                    toast.success('Item removed successfully!');
-                    setCurrentOrder(res.data.order);
+                    if (res.data.order.items.length === 0) {
+                      await clearCurrentOrder();
+                    } else {
+                      setCurrentOrder(res.data.order);
+                      toast.success('Item removed successfully!');
+                    }
                   } else {
                     throw new Error(res.data.message || 'Failed to remove item');
                   }

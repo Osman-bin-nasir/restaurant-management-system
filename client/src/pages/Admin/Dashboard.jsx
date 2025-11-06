@@ -47,9 +47,6 @@ const Dashboard = () => {
         axios.get('/parcel').catch(() => ({ data: { stats: null } }))
       ]);
 
-      // console.log('Orders Stats:', ordersRes.data);
-      // console.log('Tables Stats:', tablesRes.data);
-
       // ✅ Calculate stats from your existing backend response
       const statsData = ordersRes.data?.stats || {};
 
@@ -59,7 +56,6 @@ const Dashboard = () => {
       const paidOrdersCount = statsData.paid || 0;
       // Get parcel stats
       const parcelStats = parcelRes.data?.stats || {};
-      console.log(parcelStats)
       
       // Count today's orders (you can add this to backend later)
       const todayOrders = (statsData.todayOrders || 0) + (parcelStats.todayOrders || 0);
