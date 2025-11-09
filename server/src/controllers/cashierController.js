@@ -75,7 +75,6 @@ export const processPayment = asyncHandler(async (req, res) => {
       currentOrderId: null
     }, { new: true });
     getIo().emit("tableUpdated", updatedTable);
-    console.log(`✅ Table ${order.tableId.tableNumber} cleared after payment for order ${order.orderNumber}`);
   }
 
   res.status(200).json({

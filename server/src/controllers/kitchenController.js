@@ -175,7 +175,6 @@ export const startCookingItems = asyncHandler(async (req, res) => {
     if (!order) continue;
 
     if(order.type === 'parcel') {
-      console.log("it is parcel")
       order.orderStatus = 'in-kitchen'
     }
 
@@ -206,7 +205,6 @@ export const startCookingItems = asyncHandler(async (req, res) => {
         updatedOrder = await Order.findById(orderId).populate('items.menuItem', 'name price').populate('tableId', 'tableNumber').populate('waiterId', 'name');
       } else {
         updatedOrder = await ParcelOrder.findById(orderId).populate('items.menuItem', 'name price');
-        console.log(updatedOrder);
       }
       
       getIo().emit("orderUpdated", updatedOrder);
@@ -252,7 +250,6 @@ export const markItemsReady = asyncHandler(async (req, res) => {
     if (!order) continue;
 
     if(order.type === 'parcel') {
-      console.log("it is parcel")
       order.orderStatus = 'completed'
     }
 

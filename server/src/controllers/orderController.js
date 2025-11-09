@@ -294,14 +294,8 @@ export const updateAllItemsStatus = asyncHandler(async (req, res) => {
   const { newStatus } = req.body;
   const { id: userId } = req.user;
 
-  console.log('--- updateAllItemsStatus ---');
-  console.log('orderId:', orderId);
-  console.log('newStatus:', newStatus);
-
   const order = await Order.findById(orderId);
   if (!order) throw new CustomError("Order not found", 404);
-
-  console.log('order before update:', order);
 
   order.items.forEach(item => {
     item.status = newStatus;
@@ -322,8 +316,6 @@ export const updateAllItemsStatus = asyncHandler(async (req, res) => {
 
   // Emit a socket event to notify clients of the update
   getIo().emit("orderUpdated", updatedOrder);
-
-  console.log('order after update:', updatedOrder);
 
   res.status(200).json({
     success: true,
