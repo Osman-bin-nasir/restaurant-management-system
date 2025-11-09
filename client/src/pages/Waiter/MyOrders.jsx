@@ -26,8 +26,6 @@ const MyOrders = () => {
       if (filterType !== 'all') params.type = filterType;
 
       const { data } = await axios.get('/orders', { params });
-      console.log('Fetched orders:', data.orders);
-      console.log('Current user:', user);
       setOrders(data.orders || []);
     } catch (err) {
       console.error('Error fetching orders:', err);
@@ -39,7 +37,6 @@ const MyOrders = () => {
 
   useEffect(() => {
     if (user) {
-      console.log('User object:', user);
       fetchOrders();
     } else {
       setError("User not authenticated");
@@ -68,8 +65,6 @@ const MyOrders = () => {
     const orderWaiterId = order.waiterId?._id || order.waiterId;
     // Get the current user ID (handle both id and _id)
     const currentUserId = user?.id || user?._id;
-    
-    console.log('Comparing:', { orderWaiterId, currentUserId, orderNumber: order.orderNumber });
     
     const isMyOrder = orderWaiterId?.toString() === currentUserId?.toString();
     const matchesSearch = (

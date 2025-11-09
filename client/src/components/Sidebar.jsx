@@ -20,6 +20,7 @@ import {
   Utensils,
   CreditCard,
   Table2,
+  Grid3X3,
   X,
   AlignLeft,
   AreaChart,
@@ -130,7 +131,7 @@ const Sidebar = () => {
       {
         id: 'tables',
         label: 'Dine-in',
-        icon: Table2,
+        icon: Grid3X3,
         path: '/admin/tables'
       },
       {
@@ -200,7 +201,7 @@ const Sidebar = () => {
       {
         id: 'tables',
         label: 'Dine-in',
-        icon: Table2,
+        icon: Grid3X3,
         path: '/manager/tables'
       },
       {

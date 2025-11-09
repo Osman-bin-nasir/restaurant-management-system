@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Trash2, Users, Search, RefreshCw, Grid3x3, X, CheckCircle, AlertCircle, Info } from 'lucide-react';
+import { Plus, Trash2, Table2, Users, Search, RefreshCw, Grid3x3, X, CheckCircle, AlertCircle, Info } from 'lucide-react';
 import axios from '../../api/axios.js';
 
 // Toast Component
@@ -190,7 +190,7 @@ const TableManagement = () => {
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-4">
             <div className="bg-orange-500 p-3 rounded-2xl">
-              <Grid3x3 size={32} className="text-white" />
+              <Table2 size={32} className="text-white" />
             </div>
             <div>
               <h1 className="text-3xl font-bold text-gray-900">Table Management</h1>
@@ -215,7 +215,7 @@ const TableManagement = () => {
                 <div className="text-4xl font-bold text-gray-900">{stats.total}</div>
               </div>
               <div className="bg-blue-100 p-3 rounded-xl">
-                <Grid3x3 size={28} className="text-blue-600" />
+                <Table2 size={28} className="text-blue-600" />
               </div>
             </div>
           </div>
@@ -308,7 +308,7 @@ const TableManagement = () => {
                 <div className="p-6">
                   <div className="flex items-center justify-between mb-4">
                     <div className="bg-gray-100 p-3 rounded-xl">
-                      <Grid3x3 size={24} className="text-gray-700" />
+                      <Table2 size={24} className="text-gray-700" />
                     </div>
                     <span className={`px-3 py-1 text-xs font-semibold rounded-full flex items-center gap-1 ${
                       table.status === 'available' 

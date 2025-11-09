@@ -18,23 +18,19 @@ const KitchenDashboard = () => {
     });
 
     newSocket.on('connect', () => {
-      console.log('✅ Kitchen connected to socket');
       toast.success('Connected to kitchen system');
     });
 
     newSocket.on('newOrder', (order) => {
-      console.log('🔔 New order received:', order);
       toast.success(`New Order: ${order.orderNumber}`);
       fetchQueue();
     });
 
     newSocket.on('orderUpdated', (order) => {
-      console.log('🔄 Order updated:', order);
       fetchQueue();
     });
 
     newSocket.on('disconnect', () => {
-      console.log('❌ Kitchen disconnected from socket');
       toast.error('Disconnected from kitchen system');
     });
 
@@ -121,7 +117,6 @@ const KitchenDashboard = () => {
   // Start all items in order
   const startAllCooking = async (order) => {
     const orderId = order.orderId;
-    console.log(order)
     const group = groupedNewItems.find(g => g.orderId === orderId);
     if (!group || group.items.length === 0) return;
 
@@ -163,7 +158,6 @@ const KitchenDashboard = () => {
   // Mark all items in order as ready
   const markAllReady = async (order) => {
     const orderId = order.orderId;
-    console.log(order.orderType)    //order.orderType
     const group = groupedInProgressItems.find(g => g.orderId === orderId);
     if (!group || group.items.length === 0) return;
 
@@ -188,7 +182,6 @@ const KitchenDashboard = () => {
         },
         { withCredentials: true }
       );
-      console.log("marked parcel items ready")
       if (data.success) {
         toast.success(data.message || 'Marked all items as ready!');
         fetchQueue();

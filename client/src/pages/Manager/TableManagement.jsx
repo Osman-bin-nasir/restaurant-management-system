@@ -11,7 +11,8 @@ import {
   ShoppingBag,
   CheckCircle,
   Trash2,
-  Search
+  Search,
+  Grid3X3
 } from 'lucide-react';
 import axios from '../../api/axios';
 import { useSocket } from '../../contexts/SocketContext';
@@ -33,7 +34,7 @@ const TrendingUp = ({ size = 24, className = '' }) => (
   </svg>
 );
 
-const TableManagement = () => {
+const DineIn = () => {
   const [tables, setTables] = useState([]);
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -235,11 +236,11 @@ const TableManagement = () => {
           <div>
             <h1 className="text-4xl font-bold text-gray-900 mb-2 flex items-center gap-3">
               <div className="bg-gradient-to-br from-orange-400 to-orange-600 p-3 rounded-2xl shadow-lg">
-                <Table2 size={32} className="text-white" />
+                <Grid3X3 size={32} className="text-white" />
               </div>
-              Table Management
+              Dine-in Management
             </h1>
-            <p className="text-gray-600 text-lg">Manage restaurant tables and orders</p>
+            <p className="text-gray-600 text-lg">Manage restaurant Dine-in orders</p>
           </div>
           <button
             onClick={fetchData}
@@ -258,7 +259,7 @@ const TableManagement = () => {
                   <p className="text-sm text-gray-600 mb-1">Total Tables</p>
                   <p className="text-3xl font-bold text-gray-900">{stats.total}</p>
                 </div>
-                <Table2 className="text-blue-500" size={32} />
+                <Grid3X3 className="text-blue-500" size={32} />
               </div>
             </div>
             <div className="bg-white rounded-2xl shadow-md p-6 border-l-4 border-green-500">
@@ -346,7 +347,7 @@ const TableManagement = () => {
             <div className="relative z-10">
               <div className="flex items-center justify-between mb-3">
                 <div className="bg-white rounded-full p-2 shadow-lg">
-                  <Table2 size={20} className="text-gray-700" />
+                  <Grid3X3 size={20} className="text-gray-700" />
                 </div>
                 {getStatusBadge(table.status)}
               </div>
@@ -383,7 +384,7 @@ const TableManagement = () => {
   );
 };
 
-export default TableManagement;
+export default DineIn;
 
 export const getStatusBadge = (status) => {
   const badges = {

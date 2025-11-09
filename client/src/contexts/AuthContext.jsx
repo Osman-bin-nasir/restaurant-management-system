@@ -34,7 +34,6 @@ export const AuthProvider = ({ children }) => {
       // recheck user details from backend
       const authRes = await axios.get('/auth/isAuthenticated', { withCredentials: true });
       setUser(authRes.data.user);
-      console.log(authRes.data.user);
     }
   };
 
