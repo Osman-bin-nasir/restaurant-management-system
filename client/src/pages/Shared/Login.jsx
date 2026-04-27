@@ -201,12 +201,16 @@ const Login = () => {
           </div>
 
           <div className="mt-6 p-4 bg-gray-50 rounded-xl border border-gray-200">
-            <p className="text-xs font-semibold text-gray-700 mb-2">Demo Credentials:</p>
+            <p className="text-xs font-semibold text-gray-700 mb-2">Demo Credentials</p>
+            <p className="text-xs text-gray-600 mb-3">
+              <span className="font-medium">Password:</span> 123456
+            </p>
             <div className="space-y-1 text-xs text-gray-600">
-              <p><span className="font-medium">Admin:</span> admin@restaurant.com / admin123</p>
-              <p><span className="font-medium">Manager:</span> manager@restaurant.com / manager123</p>
-              <p><span className="font-medium">Chef:</span> chef@restaurant.com / chef123</p>
-              <p><span className="font-medium">Waiter:</span> waiter@restaurant.com / waiter123</p>
+              <p><span className="font-medium">Admin:</span> admin@restaurant.com</p>
+              <p><span className="font-medium">Manager:</span> manager@restaurant.com</p>
+              <p><span className="font-medium">Cashier:</span> cashier@restaurant.com</p>
+              <p><span className="font-medium">Waiter:</span> waiter@restaurant.com / waiter2@restaurant.com</p>
+              <p><span className="font-medium">Chef:</span> chef@restaurant.com / chef2@restaurant.com</p>
             </div>
           </div>
         </div>
