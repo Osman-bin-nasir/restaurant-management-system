@@ -191,12 +191,12 @@ const Login = () => {
           <div className="mt-8 text-center">
             <p className="text-gray-600 text-sm">
               Need access?{' '}
-              <button
-                onClick={() => alert('Please contact your administrator for account access')}
+              <a
+                href="mailto:osmanbinnasir18@gmail.com"
                 className="font-semibold text-cyan-600 hover:text-cyan-700 transition-colors"
               >
                 Contact Administrator
-              </button>
+              </a>
             </p>
           </div>
 
