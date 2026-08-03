@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import io from 'socket.io-client';
 import { useAuth } from './AuthContext'; // Import useAuth
+import { SOCKET_URL } from '../config/api.js';
 
 const SocketContext = createContext();
 
@@ -14,7 +15,7 @@ export const SocketProvider = ({ children }) => {
 
   useEffect(() => {
     if (user) { // Only connect if user is authenticated
-      const newSocket = io('http://localhost:3000', {
+      const newSocket = io(SOCKET_URL, {
         withCredentials: true,
         query: { userId: user.id }, // Pass userId in query
       });

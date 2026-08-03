@@ -3,6 +3,7 @@ import { Clock, ChefHat, CheckCircle, AlertCircle, Timer, Users, Package, Flame,
 import axios from '../../api/axios.js';
 import toast, { Toaster } from 'react-hot-toast';
 import io from 'socket.io-client';
+import { API_URL, SOCKET_URL } from '../../config/api.js';
 
 const KitchenDashboard = () => {
   const [queue, setQueue] = useState({ newItems: [], inProgress: [] });
@@ -12,7 +13,7 @@ const KitchenDashboard = () => {
 
   // Connect to socket
   useEffect(() => {
-    const newSocket = io('http://localhost:3000', {
+    const newSocket = io(SOCKET_URL, {
       withCredentials: true,
       transports: ['websocket', 'polling']
     });
@@ -45,7 +46,7 @@ const KitchenDashboard = () => {
   const fetchQueue = async () => {
     try {
       setLoading(true);
-      const { data } = await axios.get('http://localhost:3000/api/kitchen/queue', {
+      const { data } = await axios.get(`${API_URL}/kitchen/queue`, {
         withCredentials: true
       });
       
