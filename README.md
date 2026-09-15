@@ -5,7 +5,6 @@
 [![React](https://img.shields.io/badge/React-19.1.1-61DAFB?logo=react)](https://reactjs.org/)
 [![Node.js](https://img.shields.io/badge/Node.js-Express%205-339933?logo=node.js)](https://nodejs.org/)
 [![MongoDB](https://img.shields.io/badge/MongoDB-8.19.1-47A248?logo=mongodb)](https://www.mongodb.com/)
-[![TypeScript](https://img.shields.io/badge/TypeScript-Ready-3178C6?logo=typescript)](https://www.typescriptlang.org/)
 [![License](https://img.shields.io/badge/License-ISC-blue.svg)](LICENSE)
 
 ---
@@ -358,9 +357,8 @@ Looking for a custom restaurant management solution or need help implementing th
 - 📊 Analytics and reporting enhancements
 
 **Contact me:**
-- 📧 Email: arrazzaq7860@gmail.com
-- 💼 LinkedIn: https://www.linkedin.com/in/abdulrazzaq27/
-- 🌐 Portfolio: -
+- 📧 Email: osmanbinnasir18@gmail.com
+- 💼 LinkedIn: https://www.linkedin.com/in/osman-bin-nasir/
 - 💬 Let's discuss your project requirements!
 
 ---
