@@ -1,17 +1,8 @@
-import React, { useState, useEffect, Suspense, lazy } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
+import { Table2, ShoppingBag, Clock, CheckCircle, AlertCircle, Plus, ChevronRight } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import axios from '../../api/axios';
-
-// ---- Lazy icons so text paints immediately (LCP) ----
-const Lucide = () => import('lucide-react');
-const Table2 = lazy(() => Lucide().then(m => ({ default: m.Table2 })));
-const ShoppingBag = lazy(() => Lucide().then(m => ({ default: m.ShoppingBag })));
-const Clock = lazy(() => Lucide().then(m => ({ default: m.Clock })));
-const CheckCircle = lazy(() => Lucide().then(m => ({ default: m.CheckCircle })));
-const AlertCircle = lazy(() => Lucide().then(m => ({ default: m.AlertCircle })));
-const Plus = lazy(() => Lucide().then(m => ({ default: m.Plus })));
-const ChevronRight = lazy(() => Lucide().then(m => ({ default: m.ChevronRight })));
 
 // Fixed-size visual placeholder to prevent layout shift while icons load
 const IconShell = ({ size = 32, rounded = 'rounded-xl', className = '' }) => (

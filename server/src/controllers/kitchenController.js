@@ -18,23 +18,27 @@ export const getKitchenQueue = asyncHandler(async (req, res) => {
     ["placed", "in-kitchen"].includes(s)
   );
 
-  // Fetch Dine-in Orders
-  const dineInOrders = await Order.find({
+  // Both independent queues are fetched concurrently to reduce endpoint latency.
+  const dineInQuery = Order.find({
     branchId,
     "items.status": { $in: statuses }
   })
     .populate("items.menuItem", "name cookingTime category")
     .populate("waiterId", "name")
     .populate("tableId", "tableNumber")
-    .sort({ createdAt: 1 });
+    .sort({ createdAt: 1 })
+    .lean();
 
   // Fetch Parcel Orders
-  const parcelOrders = await ParcelOrder.find({
+  const parcelQuery = ParcelOrder.find({
     branchId,
     "items.status": { $in: statuses }
   })
     .populate("items.menuItem", "name cookingTime category")
-    .sort({ createdAt: 1 });
+    .sort({ createdAt: 1 })
+    .lean();
+
+  const [dineInOrders, parcelOrders] = await Promise.all([dineInQuery, parcelQuery]);
 
 
   const queue = {
@@ -249,10 +253,6 @@ export const markItemsReady = asyncHandler(async (req, res) => {
     }
     if (!order) continue;
 
-    if(order.type === 'parcel') {
-      order.orderStatus = 'completed'
-    }
-
     const itemsToComplete = order.items.filter(item => 
       itemIds.includes(item._id.toString()) && item.status === 'in-kitchen'
     );
@@ -274,7 +274,12 @@ export const markItemsReady = asyncHandler(async (req, res) => {
         .every(i => i.status === 'ready');
       
       if (allItemsReady) {
-        order.status = 'ready';
+        if (orderModelName === 'ParcelOrder') {
+          order.orderStatus = 'ready';
+          order.actualReadyTime = now;
+        } else {
+          order.status = 'ready';
+        }
       }
 
       await order.save();

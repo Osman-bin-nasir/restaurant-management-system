@@ -1,71 +1,61 @@
-import React from 'react';
+import React, { lazy, Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import AppLayout from '../layouts/AppLayout.jsx';
-import AdminLayout from '../layouts/AdminLayout.jsx';
-import AuthLayout from '../layouts/AuthLayout.jsx';
-import CashierLayout from '../layouts/CashierLayout.jsx';
-import KitchenLayout from '../layouts/KitchenLayout.jsx';
-import WaiterLayout from '../layouts/WaiterLayout.jsx';
-import ManagerLayout from '../layouts/ManagerLayout.jsx';
 import ProtectedRoute from '../components/ProtectedRoute.jsx';
+import Loader from '../components/Loader.jsx';
 import { useAuth } from '../contexts/AuthContext.jsx';
 
-// Auth Pages
-import Login from '../pages/Shared/Login.jsx';
-import Register from '../pages/Shared/Register.jsx';
-import NotFound from '../pages/Shared/NotFound.jsx';
-
-// Admin Pages
-import AdminDashboard from '../pages/Admin/Dashboard.jsx';
-import AdminBranchManagement from '../pages/Admin/BranchManagement.jsx';
-import AdminMenuManagement from '../pages/Admin/MenuManagement.jsx';
-import AdminAllOrders from '../pages/Admin/AllOrders.jsx';
-import AdminTableManagement from '../pages/Admin/TableManagement.jsx';
-import AdminUserManagement from '../pages/Admin/UserManagement.jsx';
-import AdminExpenseManagement from '../pages/Admin/ExpenseManagement.jsx';
-import AdminTableDetails from '../pages/Admin/TableDetails.jsx';
-import AdminTableDashboard from '../pages/Admin/TableDashboard.jsx';
-import RevenueReports from '../pages/Admin/RevenueReports.jsx';
-import RevenueDashboard from '../pages/Admin/RevenueDashboard.jsx';
-import RolePermissions from '../pages/Admin/RolePermissions.jsx';
-import PendingOrders from '../pages/Admin/PendingOrders.jsx';
-import InKitchenOrders from '../pages/Admin/InKitchenOrders.jsx';
-import ReadyOrders from '../pages/Admin/ReadyOrders.jsx';
-import DailyReports from '../pages/Admin/DailyReports.jsx';
-import MonthlyReports from '../pages/Admin/MonthlyReports.jsx';
-import YearlyReports from '../pages/Admin/YearlyReports.jsx';
-
-// Manager Pages
-import ManagerDashboard from '../pages/Manager/Dashboard.jsx';
-import ManagerMenuManagement from '../pages/Manager/MenuManagement.jsx';
-import ManagerAllOrders from '../pages/Manager/AllOrders.jsx';
-import ManagerTableManagement from '../pages/Manager/TableManagement.jsx';
-import ManagerExpenseManagement from '../pages/Manager/ExpenseManagement.jsx';
-import ManagerTableDetails from '../pages/Manager/TableDetails.jsx';
-import ManagerTableDashboard from '../pages/Manager/TableDashboard.jsx';
-
-// Cashier Pages
-import CashierDashboard from '../pages/Cashier/CashierDashboard.jsx';
-import Billing from '../pages/Cashier/Billing.jsx';
-import PendingBills from '../pages/Cashier/PendingBills.jsx';
-
-// Kitchen Pages
-import KitchenDashboard from '../pages/Kitchen/KitchenDashboard.jsx';
-
-// Waiter Pages
-import WaiterDashboard from '../pages/Waiter/WaiterDashboard.jsx';
-import TableOrders from '../pages/Waiter/TableOrders.jsx';
-import MyOrders from '../pages/Waiter/MyOrders.jsx';
-import CreateOrder from '../pages/Waiter/CreateOrder.jsx';
-import WaiterTableDetails from '../pages/Waiter/WaiterTableDetails.jsx';
-import ParcelBilling from '../pages/Cashier/ParcelBilling.jsx';
-import TableDashboard from '../pages/Admin/TableDashboard.jsx';
+const AppLayout = lazy(() => import('../layouts/AppLayout.jsx'));
+const AdminLayout = lazy(() => import('../layouts/AdminLayout.jsx'));
+const AuthLayout = lazy(() => import('../layouts/AuthLayout.jsx'));
+const CashierLayout = lazy(() => import('../layouts/CashierLayout.jsx'));
+const KitchenLayout = lazy(() => import('../layouts/KitchenLayout.jsx'));
+const WaiterLayout = lazy(() => import('../layouts/WaiterLayout.jsx'));
+const ManagerLayout = lazy(() => import('../layouts/ManagerLayout.jsx'));
+const Login = lazy(() => import('../pages/Shared/Login.jsx'));
+const Register = lazy(() => import('../pages/Shared/Register.jsx'));
+const NotFound = lazy(() => import('../pages/Shared/NotFound.jsx'));
+const AdminDashboard = lazy(() => import('../pages/Admin/Dashboard.jsx'));
+const AdminBranchManagement = lazy(() => import('../pages/Admin/BranchManagement.jsx'));
+const AdminMenuManagement = lazy(() => import('../pages/Admin/MenuManagement.jsx'));
+const AdminAllOrders = lazy(() => import('../pages/Admin/AllOrders.jsx'));
+const AdminTableManagement = lazy(() => import('../pages/Admin/TableManagement.jsx'));
+const AdminUserManagement = lazy(() => import('../pages/Admin/UserManagement.jsx'));
+const AdminExpenseManagement = lazy(() => import('../pages/Admin/ExpenseManagement.jsx'));
+const AdminTableDetails = lazy(() => import('../pages/Admin/TableDetails.jsx'));
+const AdminTableDashboard = lazy(() => import('../pages/Admin/TableDashboard.jsx'));
+const RevenueReports = lazy(() => import('../pages/Admin/RevenueReports.jsx'));
+const RevenueDashboard = lazy(() => import('../pages/Admin/RevenueDashboard.jsx'));
+const RolePermissions = lazy(() => import('../pages/Admin/RolePermissions.jsx'));
+const PendingOrders = lazy(() => import('../pages/Admin/PendingOrders.jsx'));
+const InKitchenOrders = lazy(() => import('../pages/Admin/InKitchenOrders.jsx'));
+const ReadyOrders = lazy(() => import('../pages/Admin/ReadyOrders.jsx'));
+const DailyReports = lazy(() => import('../pages/Admin/DailyReports.jsx'));
+const MonthlyReports = lazy(() => import('../pages/Admin/MonthlyReports.jsx'));
+const YearlyReports = lazy(() => import('../pages/Admin/YearlyReports.jsx'));
+const ManagerDashboard = lazy(() => import('../pages/Manager/Dashboard.jsx'));
+const ManagerMenuManagement = lazy(() => import('../pages/Manager/MenuManagement.jsx'));
+const ManagerAllOrders = lazy(() => import('../pages/Manager/AllOrders.jsx'));
+const ManagerTableManagement = lazy(() => import('../pages/Manager/TableManagement.jsx'));
+const ManagerExpenseManagement = lazy(() => import('../pages/Manager/ExpenseManagement.jsx'));
+const ManagerTableDetails = lazy(() => import('../pages/Manager/TableDetails.jsx'));
+const ManagerTableDashboard = lazy(() => import('../pages/Manager/TableDashboard.jsx'));
+const CashierDashboard = lazy(() => import('../pages/Cashier/CashierDashboard.jsx'));
+const Billing = lazy(() => import('../pages/Cashier/Billing.jsx'));
+const PendingBills = lazy(() => import('../pages/Cashier/PendingBills.jsx'));
+const ParcelBilling = lazy(() => import('../pages/Cashier/ParcelBilling.jsx'));
+const KitchenDashboard = lazy(() => import('../pages/Kitchen/KitchenDashboard.jsx'));
+const WaiterDashboard = lazy(() => import('../pages/Waiter/WaiterDashboard.jsx'));
+const TableOrders = lazy(() => import('../pages/Waiter/TableOrders.jsx'));
+const MyOrders = lazy(() => import('../pages/Waiter/MyOrders.jsx'));
+const CreateOrder = lazy(() => import('../pages/Waiter/CreateOrder.jsx'));
+const WaiterTableDetails = lazy(() => import('../pages/Waiter/WaiterTableDetails.jsx'));
 
 const AppRouter = () => {
   const { user } = useAuth();
 
   return (
     <Router>
+      <Suspense fallback={<Loader />}>
       <Routes>
         {/* Redirect root to login */}
         <Route path="/" element={<Navigate to="/auth/login" replace />} />
@@ -191,6 +181,7 @@ const AppRouter = () => {
         {/* Not Found */}
         <Route path="*" element={<NotFound />} />
       </Routes>
+      </Suspense>
     </Router>
   );
 };

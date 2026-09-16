@@ -34,6 +34,13 @@ export const createOrder = asyncHandler(async (req, res) => {
     }
   }
 
+  // Fetch menu items in one query instead of one round trip per order item.
+  const menuItemIds = [...new Set(items.map((item) => item.menuItem).filter(Boolean))];
+  const menuItems = await MenuItem.find({ _id: { $in: menuItemIds } })
+    .select('name price availability')
+    .lean();
+  const menuItemsById = new Map(menuItems.map((item) => [item._id.toString(), item]));
+
   // ✅ Validate all menu items exist and calculate total
   let totalAmount = 0;
   const validatedItems = [];
@@ -43,7 +50,7 @@ export const createOrder = asyncHandler(async (req, res) => {
       throw new CustomError("Invalid menu item or quantity", 400);
     }
 
-    const menuItem = await MenuItem.findById(item.menuItem);
+    const menuItem = menuItemsById.get(item.menuItem.toString());
     if (!menuItem) throw new CustomError(`Menu item not found: ${item.menuItem}`, 404);
 
     if (!menuItem.availability) {
@@ -125,7 +132,7 @@ export const getAllOrders = asyncHandler(async (req, res) => {
     ];
   }
 
-  const orders = await Order.find(filter)
+  const ordersQuery = Order.find(filter)
     .populate("items.menuItem", "name price")
     .populate("waiterId", "name email")
     .populate("cashierId", "name email")
@@ -133,17 +140,20 @@ export const getAllOrders = asyncHandler(async (req, res) => {
     .populate("branchId", "name")
     .sort({ createdAt: -1 })
     .skip((page - 1) * limit)
-    .limit(parseInt(limit));
-
-  const total = await Order.countDocuments(filter);
+    .limit(parseInt(limit))
+    .lean();
 
   // Get today's date at midnight
   const startOfToday = new Date();
   startOfToday.setHours(0, 0, 0, 0);
 
   // Get stats based on the same filter
-  const stats = await Order.aggregate([
-    { $match: filter },
+  const aggregateFilter = {
+    ...filter,
+    branchId: new mongoose.Types.ObjectId(filter.branchId),
+  };
+  const statsQuery = Order.aggregate([
+    { $match: aggregateFilter },
     {
       $group: {
         _id: null,
@@ -158,6 +168,12 @@ export const getAllOrders = asyncHandler(async (req, res) => {
       }
     },
     { $project: { _id: 0 } }
+  ]);
+
+  const [orders, total, stats] = await Promise.all([
+    ordersQuery,
+    Order.countDocuments(filter),
+    statsQuery,
   ]);
 
   res.status(200).json({

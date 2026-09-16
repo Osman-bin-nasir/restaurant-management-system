@@ -2,7 +2,6 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Search, Filter, RefreshCw, XCircle, Clock, DollarSign, Loader2, Trash2, AlertTriangle, ChefHat, CheckCircle, Utensils, IndianRupee } from 'lucide-react';
 import { toast, Toaster } from 'react-hot-toast';
 import axios from '../../api/axios.js';
-import { useAuth } from '../../contexts/AuthContext';
 import { useSocket } from '../../contexts/SocketContext';
 
 const useDebounce = (value, delay) => {
@@ -32,7 +31,6 @@ const AllOrders = () => {
   const [showModal, setShowModal] = useState(false);
   const [deletingOrder, setDeletingOrder] = useState(false);
   const [updatingStatus, setUpdatingStatus] = useState(false);
-  const { user } = useAuth();
   const socket = useSocket();
 
   useEffect(() => {
@@ -98,7 +96,7 @@ const AllOrders = () => {
         else setLoadingMore(false);
       }
     },
-    [user?.token, filterStatus, filterType, debouncedSearchTerm]
+    [filterStatus, filterType, debouncedSearchTerm]
   );
 
   useEffect(() => {

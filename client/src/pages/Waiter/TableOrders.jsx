@@ -1,15 +1,7 @@
-import React, { useState, useEffect, Suspense, lazy } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
+import { Table2, Users, CheckCircle, Clock, RefreshCw, Search } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import axios from '../../api/axios';
-
-// Lazy-load icons so the H1 text can paint immediately.
-const Lucide = () => import('lucide-react');
-const Table2 = lazy(() => Lucide().then(m => ({ default: m.Table2 })));
-const Users = lazy(() => Lucide().then(m => ({ default: m.Users })));
-const CheckCircle = lazy(() => Lucide().then(m => ({ default: m.CheckCircle })));
-const Clock = lazy(() => Lucide().then(m => ({ default: m.Clock })));
-const RefreshCw = lazy(() => Lucide().then(m => ({ default: m.RefreshCw })));
-const Search = lazy(() => Lucide().then(m => ({ default: m.Search })));
 
 // Fixed-size icon fallback so layout doesn't shift when icons load.
 const IconShell = ({ size = 32, className = '' }) => (

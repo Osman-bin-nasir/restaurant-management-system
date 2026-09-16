@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import api from '../../api/axios';
-import { useAuth } from '../../contexts/AuthContext';
 import { Plus, Trash2, Edit, Loader2 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
@@ -106,7 +105,6 @@ const ExpenseManagement = () => {
   const [hasMore, setHasMore] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedExpense, setSelectedExpense] = useState(null);
-  const { user } = useAuth();
 
   const fetchExpenses = useCallback(
     async (currentPage) => {
@@ -114,9 +112,7 @@ const ExpenseManagement = () => {
       else setLoadingMore(true);
 
       try {
-        const { data } = await api.get(`/expenses?page=${currentPage}&limit=10`, {
-          headers: { Authorization: `Bearer ${user.token}` },
-        });
+        const { data } = await api.get(`/expenses?page=${currentPage}&limit=10`);
         setExpenses(prev => (currentPage === 1 ? data.data : [...prev, ...data.data]));
         setHasMore(data.currentPage < data.totalPages);
       } catch (error) {
@@ -127,7 +123,7 @@ const ExpenseManagement = () => {
         else setLoadingMore(false);
       }
     },
-    [user.token]
+    []
   );
 
   useEffect(() => {
@@ -157,14 +153,10 @@ const ExpenseManagement = () => {
   const handleSave = async (expenseData) => {
     try {
       if (expenseData._id) {
-        await api.put(`/expenses/${expenseData._id}`, expenseData, {
-          headers: { Authorization: `Bearer ${user.token}` },
-        });
+        await api.put(`/expenses/${expenseData._id}`, expenseData);
         toast.success('Expense updated successfully!');
       } else {
-        await api.post('/expenses', expenseData, {
-          headers: { Authorization: `Bearer ${user.token}` },
-        });
+        await api.post('/expenses', expenseData);
         toast.success('Expense added successfully!');
       }
       setPage(1);
@@ -178,9 +170,7 @@ const ExpenseManagement = () => {
   const handleDelete = async (id) => {
     if (window.confirm('Are you sure you want to delete this expense?')) {
       try {
-        await api.delete(`/expenses/${id}`, {
-          headers: { Authorization: `Bearer ${user.token}` },
-        });
+        await api.delete(`/expenses/${id}`);
         toast.success('Expense deleted successfully!');
         setPage(1);
         fetchExpenses(1);

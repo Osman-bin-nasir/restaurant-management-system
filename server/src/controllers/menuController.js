@@ -29,7 +29,8 @@ export const createMenuItem = async (req, res, next) => {
 
 export const getAllMenuItems = async (req, res, next) => {
   try {
-    const menu = await Menu.find().populate("branchId", "name location");
+    res.set('Cache-Control', 'private, max-age=0, must-revalidate');
+    const menu = await Menu.find().populate("branchId", "name location").lean();
     res.json({ success: true, MenuItems: menu });
   } catch (error) {
     next(error);
