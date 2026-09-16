@@ -6,6 +6,7 @@ import Order from '../src/models/Order.js';
 import ParcelOrder from '../src/models/ParcelOrder.js';
 import Table from '../src/models/Table.js';
 
+/** Returns whether a model declares an exact ordered compound index. */
 const hasIndex = (model, expected) => {
   const expectedEntries = Object.entries(expected);
 

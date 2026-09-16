@@ -1,6 +1,7 @@
 const CACHE_VERSION = 'v1';
 const DEFAULT_PREFIX = `resto:${CACHE_VERSION}:`;
 
+/** Returns session storage when the runtime permits access to it. */
 const getDefaultStorage = () => {
   try {
     return globalThis.sessionStorage;

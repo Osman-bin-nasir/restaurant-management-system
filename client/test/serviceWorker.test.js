@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import vm from 'node:vm';
 
+/** Loads the service worker in an isolated context and returns its fetch hook. */
 const loadFetchHandler = async ({ match, networkFetch }) => {
   const listeners = new Map();
   const source = await readFile(new URL('../public/sw.js', import.meta.url), 'utf8');

@@ -6,6 +6,7 @@ import {
   createCachedFetcher,
 } from '../src/utils/sessionCache.js';
 
+/** Creates a deterministic in-memory Web Storage stand-in for cache tests. */
 const createStorage = () => {
   const values = new Map();
   return {

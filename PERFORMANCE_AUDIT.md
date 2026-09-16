@@ -31,7 +31,7 @@ Audit date: 2026-09-16. Baseline commit: `6de1306` after pulling `origin/main`.
 
 ## Verification
 
-- Client cache tests: 3 passing.
+- Client cache and service-worker tests: 7 passing.
 - Backend index tests: 3 passing.
 - Production build: passing with no oversized-chunk warning.
 - Changed backend modules: syntax checks passing.
