@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import axios from '../../api/axios';
 import { useSocket } from '../../contexts/SocketContext';
+import { withOccupancyRate } from '../../utils/tableStats.js';
 
 const TrendingUp = ({ size = 24, className = '' }) => (
   <svg
@@ -69,7 +70,7 @@ const DineIn = () => {
       }
 
       setTables(nextTables);
-      setStats(tablesRes.data.stats);
+      setStats(withOccupancyRate(tablesRes.data.stats));
     } catch (error) {
       console.error('Error fetching data:', error);
       setErrorMessage('Unable to load Dine-in data. Please try again.');
