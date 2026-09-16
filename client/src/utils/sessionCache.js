@@ -9,6 +9,10 @@ const getDefaultStorage = () => {
   }
 };
 
+/**
+ * Creates a versioned, expiring cache backed by Web Storage. All storage
+ * failures are treated as cache misses so restricted storage cannot break UI.
+ */
 export const createSessionCache = ({
   storage = getDefaultStorage(),
   now = Date.now,
@@ -16,7 +20,13 @@ export const createSessionCache = ({
 } = {}) => {
   const fullKey = (key) => `${prefix}${key}`;
 
-  const remove = (key) => storage?.removeItem(fullKey(key));
+  const remove = (key) => {
+    try {
+      storage?.removeItem(fullKey(key));
+    } catch {
+      // Cache invalidation must never break authentication or requests.
+    }
+  };
 
   return {
     get(key) {
@@ -49,24 +59,37 @@ export const createSessionCache = ({
     remove,
     removeByPrefix(keyPrefix) {
       if (!storage) return;
-      const matchingKeys = [];
-      for (let index = 0; index < storage.length; index += 1) {
-        const key = storage.key(index);
-        if (key?.startsWith(fullKey(keyPrefix))) matchingKeys.push(key);
+      try {
+        const matchingKeys = [];
+        for (let index = 0; index < storage.length; index += 1) {
+          const key = storage.key(index);
+          if (key?.startsWith(fullKey(keyPrefix))) matchingKeys.push(key);
+        }
+        matchingKeys.forEach((key) => storage.removeItem(key));
+      } catch {
+        // Storage access can fail in privacy modes or restricted contexts.
       }
-      matchingKeys.forEach((key) => storage.removeItem(key));
     },
   };
 };
 
+/**
+ * Wraps an asynchronous fetch function with expiring cache reads and optional
+ * in-flight request deduplication.
+ */
 export const createCachedFetcher = ({ cache, fetch }) => {
   const inFlight = new Map();
 
-  return async (resource, { ttl = 0, key = resource, ...options } = {}) => {
+  return async (resource, {
+    ttl = 0,
+    key = resource,
+    dedupeInFlight = true,
+    ...options
+  } = {}) => {
     const cachedValue = ttl > 0 ? cache.get(key) : null;
     if (cachedValue) return { ...cachedValue, fromCache: true };
 
-    if (inFlight.has(key)) return inFlight.get(key);
+    if (dedupeInFlight && inFlight.has(key)) return inFlight.get(key);
 
     const request = Promise.resolve(fetch(resource, options))
       .then((response) => {
@@ -80,9 +103,11 @@ export const createCachedFetcher = ({ cache, fetch }) => {
         }
         return response;
       })
-      .finally(() => inFlight.delete(key));
+      .finally(() => {
+        if (inFlight.get(key) === request) inFlight.delete(key);
+      });
 
-    inFlight.set(key, request);
+    if (dedupeInFlight) inFlight.set(key, request);
     return request;
   };
 };

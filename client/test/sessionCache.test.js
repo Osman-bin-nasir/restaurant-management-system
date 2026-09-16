@@ -67,3 +67,38 @@ test('supports prefix invalidation after a mutation', () => {
   assert.equal(cache.get('http:/menu?category=mains'), null);
   assert.deepEqual(cache.get('auth:user'), { id: '1' });
 });
+
+test('does not share in-flight promises for independently abortable requests', async () => {
+  const cache = createSessionCache({ storage: createStorage(), now: () => 1_000 });
+  let requests = 0;
+  const fetcher = createCachedFetcher({
+    cache,
+    fetch: async () => {
+      requests += 1;
+      return { data: { request: requests }, status: 200 };
+    },
+  });
+
+  await Promise.all([
+    fetcher('/orders', { key: 'orders', dedupeInFlight: false }),
+    fetcher('/orders', { key: 'orders', dedupeInFlight: false }),
+  ]);
+
+  assert.equal(requests, 2);
+});
+
+test('storage failures never escape cache reads or invalidation', () => {
+  const storage = {
+    getItem: () => { throw new Error('unavailable'); },
+    setItem: () => { throw new Error('unavailable'); },
+    removeItem: () => { throw new Error('unavailable'); },
+    key: () => { throw new Error('unavailable'); },
+    get length() { throw new Error('unavailable'); },
+  };
+  const cache = createSessionCache({ storage });
+
+  assert.doesNotThrow(() => cache.get('auth:user'));
+  assert.doesNotThrow(() => cache.set('auth:user', { id: '1' }, 1_000));
+  assert.doesNotThrow(() => cache.remove('auth:user'));
+  assert.doesNotThrow(() => cache.removeByPrefix('http:'));
+});

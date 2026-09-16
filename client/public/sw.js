@@ -23,16 +23,21 @@ self.addEventListener('fetch', (event) => {
 
   if (request.mode === 'navigate') {
     event.respondWith(
-      caches.match('/index.html').then((cached) => {
+      caches.match('/index.html').catch(() => undefined).then((cached) => {
         const refresh = fetch(request)
           .then((response) => {
             if (response.ok) {
               const copy = response.clone();
-              caches.open(CACHE_NAME).then((cache) => cache.put('/index.html', copy));
+              caches.open(CACHE_NAME)
+                .then((cache) => cache.put('/index.html', copy))
+                .catch(() => undefined);
             }
             return response;
           })
-          .catch(() => cached);
+          .catch(() => cached || new Response('Offline', {
+            status: 503,
+            headers: { 'Content-Type': 'text/plain' },
+          }));
         return cached || refresh;
       }),
     );

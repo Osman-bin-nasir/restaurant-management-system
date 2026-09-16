@@ -1,3 +1,7 @@
+/**
+ * Registers the production service worker after initial rendering so service
+ * worker setup never delays the application's critical path.
+ */
 export const registerServiceWorker = () => {
   if (!('serviceWorker' in navigator) || import.meta.env.DEV) return;
 

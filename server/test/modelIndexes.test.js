@@ -6,9 +6,17 @@ import Order from '../src/models/Order.js';
 import ParcelOrder from '../src/models/ParcelOrder.js';
 import Table from '../src/models/Table.js';
 
-const hasIndex = (model, expected) => model.schema.indexes().some(([fields]) =>
-  Object.entries(expected).every(([field, direction]) => fields[field] === direction),
-);
+const hasIndex = (model, expected) => {
+  const expectedEntries = Object.entries(expected);
+
+  return model.schema.indexes().some(([fields]) => {
+    const actualEntries = Object.entries(fields);
+    return actualEntries.length === expectedEntries.length &&
+      actualEntries.every(([field, direction], index) =>
+        field === expectedEntries[index][0] && direction === expectedEntries[index][1],
+      );
+  });
+};
 
 test('order listings and kitchen queues have compound indexes', () => {
   assert.equal(hasIndex(Order, { branchId: 1, status: 1, createdAt: -1 }), true);

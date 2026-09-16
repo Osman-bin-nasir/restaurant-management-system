@@ -12,12 +12,15 @@ const axiosInstance = axios.create({
 });
 
 const rawGet = axiosInstance.get.bind(axiosInstance);
+
+/** Returns the safe session-cache lifetime for stable reference endpoints. */
 const cacheTtlFor = (url) => {
   if (/^\/menu\/?(?:\?|$)/.test(url)) return 5 * 60 * 1000;
   if (/^\/(roles|permissions|branches)\/?(?:\?|$)/.test(url)) return 2 * 60 * 1000;
   return 0;
 };
 
+/** Creates a deterministic query-string fragment for request cache keys. */
 const stableParams = (params = {}) => Object.entries(params)
   .filter(([, value]) => value !== undefined && value !== null && value !== '')
   .sort(([left], [right]) => left.localeCompare(right))
@@ -33,7 +36,12 @@ axiosInstance.get = (url, config = {}) => {
   const { cacheTtl = cacheTtlFor(url), ...requestConfig } = config;
   const params = stableParams(requestConfig.params);
   const key = `http:${url}${params ? `?${params}` : ''}`;
-  return cachedGet(url, { ...requestConfig, ttl: cacheTtl, key });
+  return cachedGet(url, {
+    ...requestConfig,
+    ttl: cacheTtl,
+    key,
+    dedupeInFlight: !requestConfig.signal,
+  });
 };
 
 axiosInstance.interceptors.response.use(
