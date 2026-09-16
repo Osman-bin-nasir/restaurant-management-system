@@ -1,4 +1,10 @@
-const configuredApiUrl = import.meta.env.VITE_API_URL;
+import { resolveApiConfig } from './resolveApiConfig.js';
 
-export const API_URL = configuredApiUrl || 'https://restaurant-management-system-5gwu.onrender.com/api';
-export const SOCKET_URL = API_URL.replace(/\/api\/?$/, '');
+const config = resolveApiConfig({
+  configuredApiUrl: import.meta.env.VITE_API_URL,
+  configuredSocketUrl: import.meta.env.VITE_SOCKET_URL,
+  isProduction: import.meta.env.PROD,
+});
+
+export const API_URL = config.apiUrl;
+export const SOCKET_URL = config.socketUrl;
