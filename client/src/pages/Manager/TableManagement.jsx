@@ -1,16 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Table2,
-  Plus,
   Users,
-  Minus,
   Clock,
   RefreshCw,
-  X,
-  ShoppingBag,
   CheckCircle,
-  Trash2,
   Search,
   Grid3X3
 } from 'lucide-react';
@@ -38,17 +32,9 @@ const DineIn = () => {
   const [tables, setTables] = useState([]);
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [selectedTable, setSelectedTable] = useState(null);
-  const [showOrderModal, setShowOrderModal] = useState(false);
-  const [menuItems, setMenuItems] = useState([]);
-  const [cart, setCart] = useState([]);
-  const [customerName, setCustomerName] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
-  const [orders, setOrders] = useState({});
   const [errorMessage, setErrorMessage] = useState('');
-  const [currentOrder, setCurrentOrder] = useState(null);
-  const [isOrderDirty, setIsOrderDirty] = useState(false);
   const navigate = useNavigate();
   const socket = useSocket();
 
@@ -76,23 +62,14 @@ const DineIn = () => {
     try {
       setLoading(true);
       setErrorMessage('');
-      const [tablesRes, menuRes, ordersRes] = await Promise.all([
-        axios.get('/tables/'),
-        axios.get('/menu/'),
-        axios.get('/orders/')
-      ]);
-
+      const tablesRes = await axios.get('/tables');
       const nextTables = tablesRes.data?.tables;
-      const nextMenuItems = menuRes.data?.MenuItems;
-      const nextOrders = ordersRes.data?.orders;
-      if (![nextTables, nextMenuItems, nextOrders].every(Array.isArray)) {
+      if (!Array.isArray(nextTables)) {
         throw new Error('The server returned an invalid Dine-in response');
       }
 
       setTables(nextTables);
       setStats(tablesRes.data.stats);
-      setMenuItems(nextMenuItems);
-      setOrders(nextOrders.reduce((acc, o) => ({ ...acc, [o.orderNumber]: o }), {}));
     } catch (error) {
       console.error('Error fetching data:', error);
       setErrorMessage('Unable to load Dine-in data. Please try again.');
@@ -130,107 +107,11 @@ const DineIn = () => {
     navigate(`/manager/tables/${table._id}`);
   };
 
-  const addToCart = (item) => {
-    setIsOrderDirty(true);
-    const existing = cart.find(c => c._id === item._id);
-    if (existing) {
-      setCart(cart.map(c => (c._id === item._id ? { ...c, quantity: c.quantity + 1 } : c)));
-    } else {
-      setCart([...cart, { ...item, quantity: 1, notes: '' }]);
-    }
-  };
-
-  const updateQuantity = (itemId, newQuantity) => {
-    if (currentOrder) {
-      const originalItem = currentOrder.items.find(item => item._id === itemId);
-      const originalQuantity = originalItem ? originalItem.quantity : 0;
-      if (newQuantity < originalQuantity) {
-        return;
-      }
-    }
-
-    const currentItem = cart.find(c => c._id === itemId);
-    const currentQuantity = currentItem ? currentItem.quantity : 0;
-    if (newQuantity === currentQuantity) {
-      return;
-    }
-
-    setIsOrderDirty(true);
-
-    if (newQuantity === 0) {
-      setCart(cart.filter(c => c._id !== itemId));
-    } else {
-      setCart(cart.map(c => (c._id === itemId ? { ...c, quantity: newQuantity } : c)));
-    }
-  };
-
-  const getTotalAmount = () => cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
-
-  const handleSubmitOrder = () => {
-    const total = getTotalAmount();
-    if (!currentOrder) {
-      const newOrderNumber = `ORD-${String(Object.keys(orders).length + 3).padStart(3, '0')}`;
-      const newOrder = {
-        _id: `o${Object.keys(orders).length + 3}`,
-        orderNumber: newOrderNumber,
-        tableId: selectedTable._id,
-        customerName,
-        status: 'unpaid',
-        items: cart.map(({ notes, ...item }) => item),
-        totalAmount: total
-      };
-      setOrders({ ...orders, [newOrderNumber]: newOrder });
-      setTables(tables.map(t => 
-        t._id === selectedTable._id ? { ...t, status: 'occupied', currentOrderId: { orderNumber: newOrderNumber, totalAmount: total } } : t
-      ));
-      setStats({
-        ...stats,
-        available: stats.available - 1,
-        occupied: stats.occupied + 1,
-        occupancyRate: ((stats.occupied + 1) / stats.total * 100).toFixed(2)
-      });
-    } else {
-      const updatedOrder = {
-        ...currentOrder,
-        customerName,
-        items: cart.map(({ notes, ...item }) => item),
-        totalAmount: total
-      };
-      setOrders({ ...orders, [currentOrder.orderNumber]: updatedOrder });
-      setTables(tables.map(t => 
-        t._id === selectedTable._id ? { ...t, currentOrderId: { ...t.currentOrderId, totalAmount: total } } : t
-      ));
-    }
-    setShowOrderModal(false);
-    setSelectedTable(null);
-  };
-
-  const handleCompletePayment = () => {
-    if (currentOrder) {
-      setOrders({ ...orders, [currentOrder.orderNumber]: { ...currentOrder, status: 'paid' } });
-      setTables(tables.map(t => 
-        t._id === selectedTable._id ? { ...t, status: 'available', currentOrderId: null } : t
-      ));
-      setStats({
-        ...stats,
-        available: stats.available + 1,
-        occupied: stats.occupied - 1,
-        occupancyRate: ((stats.occupied - 1) / stats.total * 100).toFixed(2)
-      });
-      setShowOrderModal(false);
-      setSelectedTable(null);
-    }
-  };
-
   const filteredTables = tables.filter((table) => {
     const matchesSearch = table.tableNumber.toString().includes(searchTerm);
     const matchesFilter = filterStatus === 'all' || table.status === filterStatus;
     return matchesSearch && matchesFilter;
   });
-
-  const previousOrders = selectedTable 
-    ? Object.values(orders).filter(o => o.tableId === selectedTable._id && o.status === 'paid') 
-    : [];
 
   if (loading) {
     return (
@@ -345,7 +226,11 @@ const DineIn = () => {
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-        {filteredTables.map((table) => (
+        {filteredTables.length === 0 ? (
+          <div className="col-span-full rounded-2xl border border-dashed border-gray-300 bg-white p-10 text-center text-gray-600">
+            No tables found for the selected filters.
+          </div>
+        ) : filteredTables.map((table) => (
           <div
             key={table._id}
             onClick={() => handleTableClick(table)}
@@ -402,19 +287,3 @@ const DineIn = () => {
 };
 
 export default DineIn;
-
-export const getStatusBadge = (status) => {
-  const badges = {
-    available: { bg: 'bg-green-100', text: 'text-green-700', label: 'Available', icon: CheckCircle },
-    occupied: { bg: 'bg-orange-100', text: 'text-orange-700', label: 'Occupied', icon: Users },
-    reserved: { bg: 'bg-blue-100', text: 'text-blue-700', label: 'Reserved', icon: Clock }
-  };
-  const badge = badges[status] || badges.available;
-  const Icon = badge.icon;
-  return (
-    <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold ${badge.bg} ${badge.text}`}>
-      <Icon size={12} />
-      {badge.label}
-    </span>
-  );
-};
