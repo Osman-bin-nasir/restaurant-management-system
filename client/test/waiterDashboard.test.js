@@ -26,4 +26,5 @@ test('waiter dashboard requests only five recent orders and exposes an error sta
 
   assert.match(source, /waiterId:\s*user\.id,\s*limit:\s*5/);
   assert.match(source, /role="alert"/);
+  assert.match(source, /!error\s*&&\s*recentOrders\.length\s*===\s*0/);
 });

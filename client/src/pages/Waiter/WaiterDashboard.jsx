@@ -238,7 +238,7 @@ const WaiterDashboard = () => {
                 <div className="h-4 w-56 bg-gray-200 rounded animate-pulse" />
               </div>
             ))
-          ) : recentOrders.length === 0 ? (
+          ) : !error && recentOrders.length === 0 ? (
             <div className="text-center py-8">
               <Suspense fallback={<IconShell size={48} rounded="rounded-full" className="mx-auto mb-3" />}>
                 <AlertCircle size={48} className="text-gray-400 mx-auto mb-3" />
