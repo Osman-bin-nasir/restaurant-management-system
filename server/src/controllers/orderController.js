@@ -1,5 +1,6 @@
 import { getIo } from "../utils/socket.js";
 import mongoose from "mongoose";
+import { buildOrderFilter } from "../services/orderService.js";
 import Order from "../models/Order.js";
 import MenuItem from "../models/MenuItem.js";
 import Table from "../models/Table.js";
@@ -116,21 +117,8 @@ export const createOrder = asyncHandler(async (req, res) => {
 
 // ====================== GET ALL ORDERS ======================
 export const getAllOrders = asyncHandler(async (req, res) => {
-  const { status, type, branchId, page = 1, limit = 10, searchTerm } = req.query;
-  const userBranchId = req.user.branchId;
-
-  // Build filter
-  const filter = { branchId: branchId || userBranchId };
-  if (status) filter.status = status;
-  if (type) filter.type = type;
-
-  if (searchTerm) {
-    const searchRegex = new RegExp(searchTerm, 'i');
-    filter.$or = [
-      { orderNumber: searchRegex },
-      { customerName: searchRegex },
-    ];
-  }
+  const { page = 1, limit = 10 } = req.query;
+  const filter = buildOrderFilter({ query: req.query, user: req.user });
 
   const ordersQuery = Order.find(filter)
     .populate("items.menuItem", "name price")
@@ -152,6 +140,9 @@ export const getAllOrders = asyncHandler(async (req, res) => {
     ...filter,
     branchId: new mongoose.Types.ObjectId(filter.branchId),
   };
+  if (aggregateFilter.waiterId) {
+    aggregateFilter.waiterId = new mongoose.Types.ObjectId(aggregateFilter.waiterId);
+  }
   const statsQuery = Order.aggregate([
     { $match: aggregateFilter },
     {
@@ -163,6 +154,15 @@ export const getAllOrders = asyncHandler(async (req, res) => {
         ready: { $sum: { $cond: [{ $eq: ["$status", "ready"] }, 1, 0] } },
         served: { $sum: { $cond: [{ $eq: ["$status", "served"] }, 1, 0] } },
         paid: { $sum: { $cond: [{ $eq: ["$status", "paid"] }, 1, 0] } },
+        paidToday: {
+          $sum: {
+            $cond: [
+              { $and: [{ $eq: ["$status", "paid"] }, { $gte: ["$createdAt", startOfToday] }] },
+              1,
+              0,
+            ],
+          },
+        },
         totalRevenue: { $sum: { $cond: [{ $eq: ["$status", "paid"] }, { $ifNull: ["$payment.amount", "$totalAmount"] }, 0] } },
         todayOrders: { $sum: { $cond: [{ $gte: ["$createdAt", startOfToday] }, 1, 0] } },
       }
@@ -183,7 +183,7 @@ export const getAllOrders = asyncHandler(async (req, res) => {
     totalPages: Math.ceil(total / limit),
     currentPage: parseInt(page),
     orders,
-    stats: stats[0] || { total: 0, placed: 0, inKitchen: 0, ready: 0, served: 0, paid: 0, totalRevenue: 0, todayOrders: 0 },
+    stats: stats[0] || { total: 0, placed: 0, inKitchen: 0, ready: 0, served: 0, paid: 0, paidToday: 0, totalRevenue: 0, todayOrders: 0 },
   });
 });
 

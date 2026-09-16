@@ -22,6 +22,7 @@ const hasIndex = (model, expected) => {
 test('order listings and kitchen queues have compound indexes', () => {
   assert.equal(hasIndex(Order, { branchId: 1, status: 1, createdAt: -1 }), true);
   assert.equal(hasIndex(Order, { branchId: 1, 'items.status': 1, createdAt: 1 }), true);
+  assert.equal(hasIndex(Order, { branchId: 1, waiterId: 1, createdAt: -1 }), true);
 });
 
 test('parcel listings and kitchen queues have compound indexes', () => {

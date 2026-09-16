@@ -3,6 +3,7 @@ import { Table2, ShoppingBag, Clock, CheckCircle, AlertCircle, Plus, ChevronRigh
 import { useAuth } from '../../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import axios from '../../api/axios';
+import { toWaiterDashboardStats } from '../../utils/waiterDashboard.js';
 
 // Fixed-size visual placeholder to prevent layout shift while icons load
 const IconShell = ({ size = 32, rounded = 'rounded-xl', className = '' }) => (
@@ -23,6 +24,7 @@ const WaiterDashboard = () => {
   const [stats, setStats] = useState({ myOrders: 0, activeOrders: 0, completedToday: 0 });
   const [recentOrders, setRecentOrders] = useState([]);
   const [isFetching, setIsFetching] = useState(true);
+  const [error, setError] = useState(null);
 
   // --- Helpers ---
   const getStatusColor = (status) => {
@@ -36,8 +38,6 @@ const WaiterDashboard = () => {
     return colors[status] || 'bg-gray-100 text-gray-700';
   };
 
-  const sameLocalDay = (a, b) => new Date(a).toDateString() === new Date(b).toDateString();
-
   // --- Data fetch (deferred to allow first paint = better LCP) ---
   useEffect(() => {
     if (!user?.id) return;
@@ -47,25 +47,21 @@ const WaiterDashboard = () => {
     const fetchWaiterData = async () => {
       try {
         setIsFetching(true);
+        setError(null);
         const { data } = await axios.get('/orders', {
-          params: { waiterId: user.id },
+          params: { waiterId: user.id, limit: 5 },
           signal: controller.signal,
         });
 
-        const allOrders = data?.orders || [];
-        const activeOrders = allOrders.filter((o) => ['placed', 'in-kitchen', 'ready'].includes(o.status));
-        const completedToday = allOrders.filter((o) => o.status === 'paid' && sameLocalDay(o.createdAt, Date.now()));
-
-        setStats({
-          myOrders: allOrders.length,
-          activeOrders: activeOrders.length,
-          completedToday: completedToday.length,
-        });
-
-        setRecentOrders(allOrders.slice(0, 5));
+        if (!Array.isArray(data?.orders) || !data?.stats) {
+          throw new Error('Waiter dashboard response was invalid');
+        }
+        setStats(toWaiterDashboardStats(data.stats));
+        setRecentOrders(data.orders);
       } catch (error) {
         if (error.name !== 'CanceledError' && error.message !== 'canceled') {
           console.error('Failed to fetch waiter data:', error);
+          setError('Unable to load your orders. Please try again.');
         }
       } finally {
         setIsFetching(false);
@@ -82,15 +78,17 @@ const WaiterDashboard = () => {
   const refresh = async () => {
     if (!user?.id) return;
     setIsFetching(true);
+    setError(null);
     try {
-      const { data } = await axios.get('/orders', { params: { waiterId: user.id } });
-      const allOrders = data?.orders || [];
-      const activeOrders = allOrders.filter((o) => ['placed', 'in-kitchen', 'ready'].includes(o.status));
-      const completedToday = allOrders.filter((o) => o.status === 'paid' && sameLocalDay(o.createdAt, Date.now()));
-      setStats({ myOrders: allOrders.length, activeOrders: activeOrders.length, completedToday: completedToday.length });
-      setRecentOrders(allOrders.slice(0, 5));
+      const { data } = await axios.get('/orders', { params: { waiterId: user.id, limit: 5 } });
+      if (!Array.isArray(data?.orders) || !data?.stats) {
+        throw new Error('Waiter dashboard response was invalid');
+      }
+      setStats(toWaiterDashboardStats(data.stats));
+      setRecentOrders(data.orders);
     } catch (e) {
       console.error(e);
+      setError('Unable to load your orders. Please try again.');
     } finally {
       setIsFetching(false);
     }
@@ -118,6 +116,12 @@ const WaiterDashboard = () => {
           </button>
         </div>
       </div>
+
+      {error && (
+        <div className="mb-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-red-700" role="alert">
+          {error}
+        </div>
+      )}
 
       {/* Quick Stats (skeletons while fetching) */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
