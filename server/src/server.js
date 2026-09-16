@@ -5,6 +5,7 @@ import connectDB from './config/db.js';
 import 'dotenv/config'
 import cookieParser from 'cookie-parser';
 import cors from 'cors';
+import compression from 'compression';
 
 // All Routes
 import authRouter from './routes/authRoutes.js';
@@ -42,6 +43,7 @@ const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
 const allowedOrigins = [frontendUrl];
 app.use(cors({ origin: allowedOrigins, credentials: true }))
 
+app.use(compression({ threshold: 1024 }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());

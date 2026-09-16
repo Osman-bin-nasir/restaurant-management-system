@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { useAuth } from '../../contexts/AuthContext';
 import {
   TrendingUp,
   ShoppingBag,
@@ -15,7 +14,6 @@ import {
 import axios from '../../api/axios';
 
 const Dashboard = () => {
-  const { user } = useAuth();
   const [stats, setStats] = useState({
     totalOrders: 0,
     totalRevenue: 0,
@@ -29,7 +27,6 @@ const Dashboard = () => {
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [recentActivity, setRecentActivity] = useState([]);
 
   useEffect(() => {
     fetchDashboardStats();
@@ -42,7 +39,7 @@ const Dashboard = () => {
 
       // Fetch multiple stats in parallel
       const [ordersRes, tablesRes, parcelRes] = await Promise.all([
-        axios.get('/orders').catch(() => ({ data: { stats: null } })),
+        axios.get('/orders', { params: { limit: 1 } }).catch(() => ({ data: { stats: null } })),
         axios.get('/tables/stats').catch(() => ({ data: { stats: null } })),
         axios.get('/parcel').catch(() => ({ data: { stats: null } }))
       ]);
@@ -79,22 +76,6 @@ const Dashboard = () => {
         totalTables: tableStats.total || 0,
         occupancyRate: parseFloat(tableStats.occupancyRate) || 0
       });
-
-      // Fetch recent orders for activity
-      const recentOrdersRes = await axios.get('/orders?limit=5');
-      const orders = recentOrdersRes.data?.orders || [];
-
-      setRecentActivity(orders.slice(0, 3).map(order => ({
-        type: 'order',
-        title: 'New order placed',
-        description: `${order.tableId?.tableNumber ? `Table #${order.tableId.tableNumber}` : 'Parcel'} - ₹${order.totalAmount}`,
-        time: new Date(order.createdAt).toLocaleTimeString('en-IN', {
-          hour: '2-digit',
-          minute: '2-digit'
-        }),
-        icon: ShoppingBag,
-        color: 'blue'
-      })));
 
     } catch (error) {
       console.error('Failed to fetch stats:', error);

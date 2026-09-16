@@ -151,5 +151,8 @@ orderSchema.methods.getActiveItems = function() {
 // ✨ NEW: Indexes for efficient queries
 orderSchema.index({ 'items.status': 1, branchId: 1 });
 orderSchema.index({ 'items._id': 1 }); // For direct item lookups
+orderSchema.index({ branchId: 1, status: 1, createdAt: -1 });
+orderSchema.index({ branchId: 1, 'items.status': 1, createdAt: 1 });
+orderSchema.index({ tableId: 1, createdAt: -1 });
 
 export default mongoose.model('Order', orderSchema);

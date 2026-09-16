@@ -10,5 +10,6 @@ const tableSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 tableSchema.index({ tableNumber: 1, branchId: 1 }, { unique: true });
+tableSchema.index({ branchId: 1, status: 1, tableNumber: 1 });
 
 export default mongoose.model('Table', tableSchema);
