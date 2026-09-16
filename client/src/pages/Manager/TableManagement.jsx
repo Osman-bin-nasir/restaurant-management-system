@@ -226,7 +226,7 @@ const DineIn = () => {
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-        {filteredTables.length === 0 ? (
+        {!errorMessage && filteredTables.length === 0 ? (
           <div className="col-span-full rounded-2xl border border-dashed border-gray-300 bg-white p-10 text-center text-gray-600">
             No tables found for the selected filters.
           </div>
