@@ -1,5 +1,11 @@
 const numberOrZero = (value) => (Number.isFinite(Number(value)) ? Number(value) : 0);
 
+/** Prevents authenticated branch metrics from being retained or reused. */
+export const preventDashboardCaching = (_req, res, next) => {
+  res.set('Cache-Control', 'no-store');
+  next();
+};
+
 /**
  * Keeps the existing dashboard card semantics while combining the three
  * collection summaries returned by the database.

@@ -1,7 +1,23 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { combineDashboardStats } from '../src/services/dashboardService.js';
+import {
+  combineDashboardStats,
+  preventDashboardCaching,
+} from '../src/services/dashboardService.js';
+
+test('dashboard responses cannot be stored by browser or intermediary caches', () => {
+  const headers = new Map();
+  let continued = false;
+  const response = { set: (name, value) => headers.set(name, value) };
+
+  preventDashboardCaching({}, response, () => {
+    continued = true;
+  });
+
+  assert.equal(headers.get('Cache-Control'), 'no-store');
+  assert.equal(continued, true);
+});
 
 test('combines dashboard totals without changing existing card semantics', () => {
   const result = combineDashboardStats({
