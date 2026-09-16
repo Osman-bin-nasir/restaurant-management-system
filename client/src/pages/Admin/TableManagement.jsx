@@ -45,6 +45,7 @@ const DineIn = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
   const [orders, setOrders] = useState({});
+  const [errorMessage, setErrorMessage] = useState('');
   const [currentOrder, setCurrentOrder] = useState(null);
   const [isOrderDirty, setIsOrderDirty] = useState(false);
   const navigate = useNavigate();
@@ -73,17 +74,27 @@ const DineIn = () => {
   const fetchData = async () => {
     try {
       setLoading(true);
+      setErrorMessage('');
       const [tablesRes, menuRes, ordersRes] = await Promise.all([
         axios.get('/tables/'),
         axios.get('/menu/'),
         axios.get('/orders/')
       ]);
-      setTables(tablesRes.data.tables);
+
+      const nextTables = tablesRes.data?.tables;
+      const nextMenuItems = menuRes.data?.MenuItems;
+      const nextOrders = ordersRes.data?.orders;
+      if (![nextTables, nextMenuItems, nextOrders].every(Array.isArray)) {
+        throw new Error('The server returned an invalid Dine-in response');
+      }
+
+      setTables(nextTables);
       setStats(tablesRes.data.stats);
-      setMenuItems(menuRes.data.MenuItems);
-      setOrders(ordersRes.data.orders.reduce((acc, o) => ({ ...acc, [o.orderNumber]: o }), {}));
+      setMenuItems(nextMenuItems);
+      setOrders(nextOrders.reduce((acc, o) => ({ ...acc, [o.orderNumber]: o }), {}));
     } catch (error) {
       console.error('Error fetching data:', error);
+      setErrorMessage('Unable to load Dine-in data. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -249,6 +260,12 @@ const DineIn = () => {
             Refresh
           </button>
         </div>
+
+        {errorMessage && (
+          <div className="mb-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-red-700" role="alert">
+            {errorMessage}
+          </div>
+        )}
 
         {stats && (
           <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
