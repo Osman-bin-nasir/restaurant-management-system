@@ -112,7 +112,7 @@ const Login = () => {
             </div>
           )}
 
-          <div className="space-y-6">
+          <form className="space-y-6" onSubmit={handleSubmit}>
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-2">
                 Email
@@ -124,11 +124,9 @@ const Login = () => {
                   name="email"
                   value={formData.email}
                   onChange={handleChange}
+                  autoComplete="email"
                   placeholder="Enter your email"
                   className="w-full pl-12 pr-4 py-3.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-all"
-                  onKeyPress={(e) => {
-                    if (e.key === 'Enter') handleSubmit(e);
-                  }}
                 />
               </div>
             </div>
@@ -144,11 +142,9 @@ const Login = () => {
                   name="password"
                   value={formData.password}
                   onChange={handleChange}
+                  autoComplete="current-password"
                   placeholder="Enter your password"
                   className="w-full pl-12 pr-12 py-3.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-all"
-                  onKeyPress={(e) => {
-                    if (e.key === 'Enter') handleSubmit(e);
-                  }}
                 />
                 <button
                   type="button"
@@ -162,6 +158,7 @@ const Login = () => {
 
             <div className="flex items-center justify-end">
               <button
+                type="button"
                 onClick={() => alert('Please contact administrator for password reset')}
                 className="text-sm font-medium text-cyan-600 hover:text-cyan-700 transition-colors"
               >
@@ -170,7 +167,7 @@ const Login = () => {
             </div>
 
             <button
-              onClick={handleSubmit}
+              type="submit"
               disabled={loading}
               className="w-full bg-gradient-to-r from-cyan-500 to-blue-600 text-white py-3.5 rounded-xl font-semibold hover:from-cyan-600 hover:to-blue-700 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:ring-offset-2 transition-all shadow-lg shadow-cyan-500/30 disabled:opacity-50 disabled:cursor-not-allowed"
             >
@@ -186,7 +183,7 @@ const Login = () => {
                 'Sign in →'
               )}
             </button>
-          </div>
+          </form>
 
           <div className="mt-8 text-center">
             <p className="text-gray-600 text-sm">
