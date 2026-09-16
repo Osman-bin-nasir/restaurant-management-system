@@ -37,45 +37,11 @@ const Dashboard = () => {
       setLoading(true);
       setError(null);
 
-      // Fetch multiple stats in parallel
-      const [ordersRes, tablesRes, parcelRes] = await Promise.all([
-        axios.get('/orders', { params: { limit: 1 } }).catch(() => ({ data: { stats: null } })),
-        axios.get('/tables/stats').catch(() => ({ data: { stats: null } })),
-        axios.get('/parcel').catch(() => ({ data: { stats: null } }))
-      ]);
-
-      // ✅ Calculate stats from your existing backend response
-      const statsData = ordersRes.data?.stats || {};
-
-      // Total orders (all statuses)
-      const totalOrders = statsData.total || 0;
-
-      const paidOrdersCount = statsData.paid || 0;
-      // Get parcel stats
-      const parcelStats = parcelRes.data?.stats || {};
-      
-      // Count today's orders (you can add this to backend later)
-      const todayOrders = (statsData.todayOrders || 0) + (parcelStats.todayOrders || 0);
-      
-      
-      // Get table stats
-      const tableStats = tablesRes.data?.stats || {};
-      
-      
-      // Revenue from PAID orders - use totalAmount from your backend
-      const totalRevenue = (statsData.totalRevenue || 0) + (parcelStats.totalRevenue || 0);
-
-      setStats({
-        totalOrders: totalOrders,
-        totalRevenue: totalRevenue,
-        paidOrdersCount: paidOrdersCount,
-        todayOrders: todayOrders,
-        availableTables: tableStats.available || 0,
-        occupiedTables: tableStats.occupied || 0,
-        reservedTables: tableStats.reserved || 0,
-        totalTables: tableStats.total || 0,
-        occupancyRate: parseFloat(tableStats.occupancyRate) || 0
-      });
+      const response = await axios.get('/dashboard/summary');
+      if (!response.data?.success || !response.data?.stats) {
+        throw new Error('Dashboard summary response was invalid');
+      }
+      setStats(response.data.stats);
 
     } catch (error) {
       console.error('Failed to fetch stats:', error);
