@@ -1,6 +1,7 @@
 import axios from 'axios';
 import { API_URL } from '../config/api.js';
 import { createCachedFetcher, sessionCache } from '../utils/sessionCache.js';
+import { normalizeApiPath } from './normalizeApiPath.js';
 
 const axiosInstance = axios.create({
   baseURL: API_URL,
@@ -10,6 +11,11 @@ const axiosInstance = axios.create({
   },
   withCredentials: true,
 });
+
+axiosInstance.interceptors.request.use((config) => ({
+  ...config,
+  url: normalizeApiPath(config.url),
+}));
 
 const rawGet = axiosInstance.get.bind(axiosInstance);
 
@@ -33,10 +39,11 @@ const cachedGet = createCachedFetcher({
 });
 
 axiosInstance.get = (url, config = {}) => {
-  const { cacheTtl = cacheTtlFor(url), ...requestConfig } = config;
+  const normalizedUrl = normalizeApiPath(url);
+  const { cacheTtl = cacheTtlFor(normalizedUrl), ...requestConfig } = config;
   const params = stableParams(requestConfig.params);
-  const key = `http:${url}${params ? `?${params}` : ''}`;
-  return cachedGet(url, {
+  const key = `http:${normalizedUrl}${params ? `?${params}` : ''}`;
+  return cachedGet(normalizedUrl, {
     ...requestConfig,
     ttl: cacheTtl,
     key,
