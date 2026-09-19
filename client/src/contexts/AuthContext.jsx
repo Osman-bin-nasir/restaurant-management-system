@@ -53,8 +53,7 @@ export const AuthProvider = ({ children }) => {
   const register = async (name, email, password) => {
     const res = await axios.post('/auth/register', { name, email, password }, { withCredentials: true });
     if (res.data.success) {
-      const authRes = await axios.get('/auth/isAuthenticated', { withCredentials: true });
-      setUser(authRes.data.user);
+      setUser(res.data.user);
     }
   };
 
