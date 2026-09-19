@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Trash2, Table2, Users, Search, RefreshCw, Grid3x3, X, CheckCircle, AlertCircle, Info } from 'lucide-react';
+import { Plus, Trash2, Table2, Users, Search, RefreshCw, X, CheckCircle, AlertCircle, Info, Percent } from 'lucide-react';
 import axios from '../../api/axios.js';
 
 // Toast Component
@@ -208,7 +208,7 @@ const TableManagement = () => {
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-          <div className="bg-white p-6 rounded-2xl shadow-md border-l-4 border-blue-500">
+          <div className="bg-white p-6 rounded-2xl shadow-md border-r-4 border-blue-500">
             <div className="flex items-center justify-between">
               <div>
                 <div className="text-gray-600 text-sm">Total Tables</div>
@@ -220,7 +220,7 @@ const TableManagement = () => {
             </div>
           </div>
 
-          <div className="bg-white p-6 rounded-2xl shadow-md border-l-4 border-green-500">
+          <div className="bg-white p-6 rounded-2xl shadow-md border-r-4 border-green-500">
             <div className="flex items-center justify-between">
               <div>
                 <div className="text-gray-600 text-sm">Available</div>
@@ -234,7 +234,7 @@ const TableManagement = () => {
             </div>
           </div>
 
-          <div className="bg-white p-6 rounded-2xl shadow-md border-l-4 border-orange-500">
+          <div className="bg-white p-6 rounded-2xl shadow-md border-r-4 border-orange-500">
             <div className="flex items-center justify-between">
               <div>
                 <div className="text-gray-600 text-sm">Occupied</div>
@@ -246,16 +246,14 @@ const TableManagement = () => {
             </div>
           </div>
 
-          <div className="bg-gradient-to-br from-orange-500 to-orange-600 p-6 rounded-2xl shadow-lg">
+          <div className="bg-white p-6 rounded-2xl shadow-md border-r-4 border-orange-500">
             <div className="flex items-center justify-between">
-              <div className="text-white">
-                <div className="text-orange-100 text-sm">Occupancy</div>
-                <div className="text-4xl font-bold">{stats.occupancy}%</div>
+              <div>
+                <div className="text-gray-600 text-sm">Occupancy</div>
+                <div className="text-4xl font-bold text-orange-600">{stats.occupancy}%</div>
               </div>
-              <div className="bg-white bg-opacity-20 p-3 rounded-xl">
-                <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
-                </svg>
+              <div className="bg-orange-100 p-3 rounded-xl">
+                <Percent size={28} className="text-orange-600" />
               </div>
             </div>
           </div>
