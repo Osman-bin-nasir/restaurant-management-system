@@ -38,6 +38,14 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  const register = async (name, email, password) => {
+    const res = await axios.post('/auth/register', { name, email, password }, { withCredentials: true });
+    if (res.data.success) {
+      const authRes = await axios.get('/auth/isAuthenticated', { withCredentials: true });
+      setUser(authRes.data.user);
+    }
+  };
+
   // ✅ Logout
   const logout = async () => {
     await axios.post('/auth/logout', {}, { withCredentials: true });
@@ -45,7 +53,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, setUser, login, logout, loading }}>
+    <AuthContext.Provider value={{ user, setUser, login, register, logout, loading }}>
       {children}
     </AuthContext.Provider>
   );
