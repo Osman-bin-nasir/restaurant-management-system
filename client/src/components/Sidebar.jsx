@@ -20,6 +20,7 @@ import {
   Utensils,
   CreditCard,
   Table2,
+  Grid3X3,
   X,
   AlignLeft,
   AreaChart,
@@ -29,6 +30,7 @@ import {
 const Sidebar = () => {
   const [isCollapsed, setIsCollapsed] = useState(true);
   const [openMenus, setOpenMenus] = useState({});
+  const [activeItem, setActiveItem] = useState(null);
   const { user, logout } = useAuth();
   const location = useLocation();
 
@@ -130,7 +132,7 @@ const Sidebar = () => {
       {
         id: 'tables',
         label: 'Dine-in',
-        icon: Table2,
+        icon: Grid3X3,
         path: '/admin/tables'
       },
       {
@@ -200,7 +202,7 @@ const Sidebar = () => {
       {
         id: 'tables',
         label: 'Dine-in',
-        icon: Table2,
+        icon: Grid3X3,
         path: '/manager/tables'
       },
       {
@@ -373,7 +375,7 @@ const Sidebar = () => {
 
         <div className="border-t border-gray-200 p-3 space-y-1">
           <button
-            className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors ${activeItem === 'settings' ? 'bg-gray-100' : ''}`}
             onClick={() => setActiveItem('settings')}
           >
             <Settings size={20} className="text-gray-500" />

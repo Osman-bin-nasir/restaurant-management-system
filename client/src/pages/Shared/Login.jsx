@@ -203,15 +203,28 @@ const Login = () => {
                   Sign up
                 </Link>
               </p>
+              <p className="mt-2 text-sm text-gray-600">
+                Need access?{' '}
+                <a
+                  href="mailto:osmanbinnasir18@gmail.com"
+                  className="font-semibold text-cyan-600 transition-colors hover:text-cyan-700"
+                >
+                  Contact Administrator
+                </a>
+              </p>
             </div>
 
             <div className="mt-6 rounded-xl border border-gray-200 bg-gray-50 p-4">
-              <p className="mb-2 text-xs font-semibold text-gray-700">Demo Credentials:</p>
+              <p className="mb-2 text-xs font-semibold text-gray-700">Demo Credentials</p>
+              <p className="mb-3 text-xs text-gray-600">
+                <span className="font-medium">Password:</span> 123456
+              </p>
               <div className="space-y-1 break-words text-xs text-gray-600">
-                <p><span className="font-medium">Admin:</span> admin@restaurant.com / admin123</p>
-                <p><span className="font-medium">Manager:</span> manager@restaurant.com / manager123</p>
-                <p><span className="font-medium">Chef:</span> chef@restaurant.com / chef123</p>
-                <p><span className="font-medium">Waiter:</span> waiter@restaurant.com / waiter123</p>
+                <p><span className="font-medium">Admin:</span> admin@restaurant.com</p>
+                <p><span className="font-medium">Manager:</span> manager@restaurant.com</p>
+                <p><span className="font-medium">Cashier:</span> cashier@restaurant.com</p>
+                <p><span className="font-medium">Waiter:</span> waiter@restaurant.com / waiter2@restaurant.com</p>
+                <p><span className="font-medium">Chef:</span> chef@restaurant.com / chef2@restaurant.com</p>
               </div>
             </div>
           </div>

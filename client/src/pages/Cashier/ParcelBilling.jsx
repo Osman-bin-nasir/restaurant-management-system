@@ -43,7 +43,6 @@ const ParcelBilling = () => {
   const fetchMenuItems = async () => {
     try {
       const { data } = await axios.get('/menu');
-      console.log(data)
       const items = data.MenuItems;
       setMenuItems(items.filter(item => item.availability));
     } catch (err) {

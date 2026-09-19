@@ -4,6 +4,7 @@ import './index.css'
 import App from './App.jsx'
 import { AuthProvider } from './contexts/AuthContext.jsx'
 import { SocketProvider } from './contexts/SocketContext.jsx'
+import { registerServiceWorker } from './registerServiceWorker.js'
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
@@ -14,3 +15,5 @@ createRoot(document.getElementById('root')).render(
     </AuthProvider>
   </StrictMode>,
 )
+
+registerServiceWorker()

@@ -41,11 +41,9 @@ const RevenueDashboard = () => {
 
       const [summaryRes, parcelRevenueRes] = await Promise.all([
         api.get('/revenue/summary', {
-          headers: { Authorization: `Bearer ${user.token}` },
           params,
         }),
         api.get('/parcel-revenue/summary', { // Changed endpoint
-          headers: { Authorization: `Bearer ${user.token}` },
           params, // No need to limit, we need all data for the date range
         }),
       ]);
@@ -94,13 +92,13 @@ const RevenueDashboard = () => {
     } finally {
       setLoading(false);
     }
-  }, [user?.token, dateRange]);
+  }, [dateRange]);
 
   useEffect(() => {
-    if (user?.token) {
+    if (user?.id) {
       fetchData();
     }
-  }, [fetchData, user?.token]);
+  }, [fetchData, user?.id]);
 
   const kpiData = [
     { title: 'Total Revenue', value: data?.kpis.totalRevenue, icon: DollarSign, color: 'text-green-500' },

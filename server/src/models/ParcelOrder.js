@@ -148,4 +148,8 @@ parcelOrderSchema.pre('save', function(next) {
   next();
 });
 
+parcelOrderSchema.index({ branchId: 1, orderStatus: 1, createdAt: -1 });
+parcelOrderSchema.index({ branchId: 1, 'items.status': 1, createdAt: 1 });
+parcelOrderSchema.index({ branchId: 1, 'payment.status': 1, createdAt: -1 });
+
 export default mongoose.model('ParcelOrder', parcelOrderSchema);

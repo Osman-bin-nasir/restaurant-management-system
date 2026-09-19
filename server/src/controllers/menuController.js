@@ -6,7 +6,7 @@ export const createMenuItem = async (req, res, next) => {
     const { name, category, price, description, branchId } = req.body;
 
     // Cloudinary upload result automatically attached by multer
-    const imageUrl = req.file ? req.file.path : null;
+    const imageUrl = req.file?.path || null;
 
     const newItem = await Menu.create({
       name,
@@ -29,7 +29,8 @@ export const createMenuItem = async (req, res, next) => {
 
 export const getAllMenuItems = async (req, res, next) => {
   try {
-    const menu = await Menu.find().populate("branchId", "name location");
+    res.set('Cache-Control', 'private, max-age=0, must-revalidate');
+    const menu = await Menu.find().populate("branchId", "name location").lean();
     res.json({ success: true, MenuItems: menu });
   } catch (error) {
     next(error);
@@ -52,7 +53,7 @@ export const updateMenuItem = async (req, res, next) => {
 
     const updateData = { name, category, price, description, branchId };
 
-    if (req.file) {
+    if (req.file?.path) {
       updateData.image = req.file.path; // new image uploaded
     }
 

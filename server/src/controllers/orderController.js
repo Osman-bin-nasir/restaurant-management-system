@@ -1,5 +1,6 @@
 import { getIo } from "../utils/socket.js";
 import mongoose from "mongoose";
+import { buildOrderFilter } from "../services/orderService.js";
 import Order from "../models/Order.js";
 import MenuItem from "../models/MenuItem.js";
 import Table from "../models/Table.js";
@@ -34,6 +35,13 @@ export const createOrder = asyncHandler(async (req, res) => {
     }
   }
 
+  // Fetch menu items in one query instead of one round trip per order item.
+  const menuItemIds = [...new Set(items.map((item) => item.menuItem).filter(Boolean))];
+  const menuItems = await MenuItem.find({ _id: { $in: menuItemIds } })
+    .select('name price availability')
+    .lean();
+  const menuItemsById = new Map(menuItems.map((item) => [item._id.toString(), item]));
+
   // ✅ Validate all menu items exist and calculate total
   let totalAmount = 0;
   const validatedItems = [];
@@ -43,7 +51,7 @@ export const createOrder = asyncHandler(async (req, res) => {
       throw new CustomError("Invalid menu item or quantity", 400);
     }
 
-    const menuItem = await MenuItem.findById(item.menuItem);
+    const menuItem = menuItemsById.get(item.menuItem.toString());
     if (!menuItem) throw new CustomError(`Menu item not found: ${item.menuItem}`, 404);
 
     if (!menuItem.availability) {
@@ -109,23 +117,10 @@ export const createOrder = asyncHandler(async (req, res) => {
 
 // ====================== GET ALL ORDERS ======================
 export const getAllOrders = asyncHandler(async (req, res) => {
-  const { status, type, branchId, page = 1, limit = 10, searchTerm } = req.query;
-  const userBranchId = req.user.branchId;
+  const { page = 1, limit = 10 } = req.query;
+  const filter = buildOrderFilter({ query: req.query, user: req.user });
 
-  // Build filter
-  const filter = { branchId: branchId || userBranchId };
-  if (status) filter.status = status;
-  if (type) filter.type = type;
-
-  if (searchTerm) {
-    const searchRegex = new RegExp(searchTerm, 'i');
-    filter.$or = [
-      { orderNumber: searchRegex },
-      { customerName: searchRegex },
-    ];
-  }
-
-  const orders = await Order.find(filter)
+  const ordersQuery = Order.find(filter)
     .populate("items.menuItem", "name price")
     .populate("waiterId", "name email")
     .populate("cashierId", "name email")
@@ -133,17 +128,23 @@ export const getAllOrders = asyncHandler(async (req, res) => {
     .populate("branchId", "name")
     .sort({ createdAt: -1 })
     .skip((page - 1) * limit)
-    .limit(parseInt(limit));
-
-  const total = await Order.countDocuments(filter);
+    .limit(parseInt(limit))
+    .lean();
 
   // Get today's date at midnight
   const startOfToday = new Date();
   startOfToday.setHours(0, 0, 0, 0);
 
   // Get stats based on the same filter
-  const stats = await Order.aggregate([
-    { $match: filter },
+  const aggregateFilter = {
+    ...filter,
+    branchId: new mongoose.Types.ObjectId(filter.branchId),
+  };
+  if (aggregateFilter.waiterId) {
+    aggregateFilter.waiterId = new mongoose.Types.ObjectId(aggregateFilter.waiterId);
+  }
+  const statsQuery = Order.aggregate([
+    { $match: aggregateFilter },
     {
       $group: {
         _id: null,
@@ -153,11 +154,26 @@ export const getAllOrders = asyncHandler(async (req, res) => {
         ready: { $sum: { $cond: [{ $eq: ["$status", "ready"] }, 1, 0] } },
         served: { $sum: { $cond: [{ $eq: ["$status", "served"] }, 1, 0] } },
         paid: { $sum: { $cond: [{ $eq: ["$status", "paid"] }, 1, 0] } },
+        paidToday: {
+          $sum: {
+            $cond: [
+              { $and: [{ $eq: ["$status", "paid"] }, { $gte: ["$createdAt", startOfToday] }] },
+              1,
+              0,
+            ],
+          },
+        },
         totalRevenue: { $sum: { $cond: [{ $eq: ["$status", "paid"] }, { $ifNull: ["$payment.amount", "$totalAmount"] }, 0] } },
         todayOrders: { $sum: { $cond: [{ $gte: ["$createdAt", startOfToday] }, 1, 0] } },
       }
     },
     { $project: { _id: 0 } }
+  ]);
+
+  const [orders, total, stats] = await Promise.all([
+    ordersQuery,
+    Order.countDocuments(filter),
+    statsQuery,
   ]);
 
   res.status(200).json({
@@ -167,7 +183,7 @@ export const getAllOrders = asyncHandler(async (req, res) => {
     totalPages: Math.ceil(total / limit),
     currentPage: parseInt(page),
     orders,
-    stats: stats[0] || { total: 0, placed: 0, inKitchen: 0, ready: 0, served: 0, paid: 0, totalRevenue: 0, todayOrders: 0 },
+    stats: stats[0] || { total: 0, placed: 0, inKitchen: 0, ready: 0, served: 0, paid: 0, paidToday: 0, totalRevenue: 0, todayOrders: 0 },
   });
 });
 
@@ -294,14 +310,8 @@ export const updateAllItemsStatus = asyncHandler(async (req, res) => {
   const { newStatus } = req.body;
   const { id: userId } = req.user;
 
-  console.log('--- updateAllItemsStatus ---');
-  console.log('orderId:', orderId);
-  console.log('newStatus:', newStatus);
-
   const order = await Order.findById(orderId);
   if (!order) throw new CustomError("Order not found", 404);
-
-  console.log('order before update:', order);
 
   order.items.forEach(item => {
     item.status = newStatus;
@@ -322,8 +332,6 @@ export const updateAllItemsStatus = asyncHandler(async (req, res) => {
 
   // Emit a socket event to notify clients of the update
   getIo().emit("orderUpdated", updatedOrder);
-
-  console.log('order after update:', updatedOrder);
 
   res.status(200).json({
     success: true,

@@ -2,54 +2,48 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Clock, ChefHat, CheckCircle, AlertCircle, Timer, Users, Package, Flame, Play, Check, MapPin } from 'lucide-react';
 import axios from '../../api/axios.js';
 import toast, { Toaster } from 'react-hot-toast';
-import io from 'socket.io-client';
+import { useSocket } from '../../contexts/SocketContext.jsx';
 
 const KitchenDashboard = () => {
   const [queue, setQueue] = useState({ newItems: [], inProgress: [] });
   const [stats, setStats] = useState({ newItems: 0, inProgress: 0, total: 0 });
   const [loading, setLoading] = useState(true);
-  const [socket, setSocket] = useState(null);
+  const socket = useSocket();
 
-  // Connect to socket
   useEffect(() => {
-    const newSocket = io('http://localhost:3000', {
-      withCredentials: true,
-      transports: ['websocket', 'polling']
-    });
-
-    newSocket.on('connect', () => {
-      console.log('✅ Kitchen connected to socket');
+    if (!socket) return undefined;
+    const handleConnect = () => {
       toast.success('Connected to kitchen system');
-    });
-
-    newSocket.on('newOrder', (order) => {
-      console.log('🔔 New order received:', order);
+    };
+    const handleNewOrder = (order) => {
       toast.success(`New Order: ${order.orderNumber}`);
       fetchQueue();
-    });
-
-    newSocket.on('orderUpdated', (order) => {
-      console.log('🔄 Order updated:', order);
+    };
+    const handleOrderUpdated = () => {
       fetchQueue();
-    });
-
-    newSocket.on('disconnect', () => {
-      console.log('❌ Kitchen disconnected from socket');
+    };
+    const handleDisconnect = () => {
       toast.error('Disconnected from kitchen system');
-    });
+    };
 
-    setSocket(newSocket);
+    socket.on('connect', handleConnect);
+    socket.on('newOrder', handleNewOrder);
+    socket.on('orderUpdated', handleOrderUpdated);
+    socket.on('disconnect', handleDisconnect);
 
     return () => {
-      newSocket.disconnect();
+      socket.off('connect', handleConnect);
+      socket.off('newOrder', handleNewOrder);
+      socket.off('orderUpdated', handleOrderUpdated);
+      socket.off('disconnect', handleDisconnect);
     };
-  }, []);
+  }, [socket]);
 
   // Fetch kitchen queue
   const fetchQueue = async () => {
     try {
       setLoading(true);
-      const { data } = await axios.get('http://localhost:3000/api/kitchen/queue', {
+      const { data } = await axios.get('/kitchen/queue', {
         withCredentials: true
       });
       
@@ -121,7 +115,6 @@ const KitchenDashboard = () => {
   // Start all items in order
   const startAllCooking = async (order) => {
     const orderId = order.orderId;
-    console.log(order)
     const group = groupedNewItems.find(g => g.orderId === orderId);
     if (!group || group.items.length === 0) return;
 
@@ -163,14 +156,12 @@ const KitchenDashboard = () => {
   // Mark all items in order as ready
   const markAllReady = async (order) => {
     const orderId = order.orderId;
-    console.log(order.orderType)    //order.orderType
     const group = groupedInProgressItems.find(g => g.orderId === orderId);
     if (!group || group.items.length === 0) return;
 
     const itemIds = group.items.map(item => item.itemId);
 
     try {
-      if(true) {
       const { data } = await axios.post('kitchen/items/mark-ready',
         { 
           items: [{ orderId, itemIds }]
@@ -181,33 +172,11 @@ const KitchenDashboard = () => {
         toast.success(data.message || 'Marked all items as ready!');
         fetchQueue();
       }
-      } else {
-        const { data } = await axios.patch(`/parcel/${orderId}/items/ready`,
-        { 
-          items: [{ orderId, itemIds }]
-        },
-        { withCredentials: true }
-      );
-      console.log("marked parcel items ready")
-      if (data.success) {
-        toast.success(data.message || 'Marked all items as ready!');
-        fetchQueue();
-      }
-      }
       
     } catch (error) {
       console.error('Failed to mark ready:', error);
       toast.error(error.response?.data?.message || 'Failed to mark all ready');
     }
-  };
-
-  // Get order type label
-  const getOrderTypeLabel = (orderType, tableNumber) => {
-    if (orderType === 'dine-in') {
-      const tableStr = String(tableNumber || '');
-      return tableStr.startsWith('5') ? 'Dine-in' : 'Dine-in';
-    }
-    return 'Takeaway';
   };
 
   // Get location label
@@ -259,7 +228,6 @@ const KitchenDashboard = () => {
     const order = items.find(g => g.orderId === group.orderId);
     if (!order) return null;
 
-    const orderTypeLabel = getOrderTypeLabel(order.orderType, order.tableNumber);
     const locationLabel = getLocationLabel(order.orderType, order.tableNumber);
     const isNew = section === 'newItems';
     const cardBg = isNew ? 'bg-orange-100 border-orange-200' : 'bg-green-500/10 border-green-300';

@@ -1,1 +1,15 @@
 @import "tailwindcss";
+
+.boot-shell {
+  width: 3rem;
+  height: 3rem;
+  margin: calc(50vh - 1.5rem) auto 0;
+  border: 4px solid #fed7aa;
+  border-top-color: #f97316;
+  border-radius: 9999px;
+  animation: boot-spin 0.7s linear infinite;
+}
+
+@keyframes boot-spin {
+  to { transform: rotate(360deg); }
+}

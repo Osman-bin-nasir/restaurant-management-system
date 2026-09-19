@@ -3,6 +3,7 @@ import MenuItem from "../models/MenuItem.js";
 import CustomError from "../utils/customError.js";
 import { asyncHandler } from "../middleware/asyncHandler.js";
 import { getIo } from "../utils/socket.js";
+import mongoose from "mongoose";
 
 // ============ CREATE PARCEL ORDER & IMMEDIATE BILLING ============
 export const createParcelOrder = asyncHandler(async (req, res) => {
@@ -22,10 +23,17 @@ export const createParcelOrder = asyncHandler(async (req, res) => {
     throw new CustomError("Payment method is required", 400);
   }
 
+  // Fetch menu data once; this avoids two database queries per item.
+  const menuItemIds = [...new Set(items.map((item) => item.menuItem).filter(Boolean))];
+  const menuItems = await MenuItem.find({ _id: { $in: menuItemIds } })
+    .select('name price availability cookingTime')
+    .lean();
+  const menuItemsById = new Map(menuItems.map((item) => [item._id.toString(), item]));
+
   // Validate menu items and build order items
   const validatedItems = [];
   for (const item of items) {
-    const menuItem = await MenuItem.findById(item.menuItem);
+    const menuItem = item.menuItem && menuItemsById.get(item.menuItem.toString());
     if (!menuItem) {
       throw new CustomError(`Menu item not found: ${item.menuItem}`, 404);
     }
@@ -52,11 +60,8 @@ export const createParcelOrder = asyncHandler(async (req, res) => {
   const orderNumber = `PCL-${Date.now()}-${Math.random().toString(36).substr(2, 6).toUpperCase()}`;
 
   // Calculate estimated ready time (sum of cooking times)
-  const totalCookingTime = await Promise.all(
-    validatedItems.map(async item => {
-      const menuItem = await MenuItem.findById(item.menuItem);
-      return menuItem.cookingTime || 15;
-    })
+  const totalCookingTime = validatedItems.map((item) =>
+    menuItemsById.get(item.menuItem.toString())?.cookingTime || 15,
   );
   const maxCookingTime = Math.max(...totalCookingTime);
   const estimatedReadyTime = new Date(Date.now() + maxCookingTime * 60000);
@@ -124,21 +129,20 @@ export const getAllParcelOrders = asyncHandler(async (req, res) => {
     ];
   }
 
-  const orders = await ParcelOrder.find(filter)
+  const ordersQuery = ParcelOrder.find(filter)
     .populate("items.menuItem", "name price")
     .populate("cashierId", "name")
     .sort({ createdAt: -1 })
     .skip((page - 1) * limit)
-    .limit(parseInt(limit));
-
-  const total = await ParcelOrder.countDocuments(filter);
+    .limit(parseInt(limit))
+    .lean();
 
   const startOfToday = new Date();
   startOfToday.setHours(0, 0, 0, 0);
 
   // Stats are calculated on all orders of the branch, not just the filtered ones.
-  const statsAggr = await ParcelOrder.aggregate([
-    { $match: { branchId } },
+  const statsQuery = ParcelOrder.aggregate([
+    { $match: { branchId: new mongoose.Types.ObjectId(branchId) } },
     {
       $group: {
         _id: null,
@@ -153,6 +157,12 @@ export const getAllParcelOrders = asyncHandler(async (req, res) => {
       }
     },
     { $project: { _id: 0 } }
+  ]);
+
+  const [orders, total, statsAggr] = await Promise.all([
+    ordersQuery,
+    ParcelOrder.countDocuments(filter),
+    statsQuery,
   ]);
 
   const stats = statsAggr[0] || { total: 0, placed: 0, inKitchen: 0, ready: 0, served: 0, todayOrders: 0, paid: 0, totalRevenue: 0 };

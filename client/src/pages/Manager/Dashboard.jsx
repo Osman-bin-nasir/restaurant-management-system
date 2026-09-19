@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { useAuth } from '../../contexts/AuthContext';
 import {
   TrendingUp,
   ShoppingBag,
@@ -13,7 +12,6 @@ import {
 import axios from '../../api/axios';
 
 const Dashboard = () => {
-  const { user } = useAuth();
   const [stats, setStats] = useState({
     totalOrders: 0,
     paidOrdersCount: 0,
@@ -26,7 +24,6 @@ const Dashboard = () => {
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [recentActivity, setRecentActivity] = useState([]);
 
   useEffect(() => {
     fetchDashboardStats();
@@ -37,56 +34,11 @@ const Dashboard = () => {
       setLoading(true);
       setError(null);
 
-      // Fetch multiple stats in parallel
-      const [ordersRes, tablesRes, parcelRes] = await Promise.all([
-        axios.get('/orders').catch(() => ({ data: { stats: null } })),
-        axios.get('/tables/stats').catch(() => ({ data: { stats: null } })),
-        axios.get('/parcel').catch(() => ({ data: { stats: null } }))
-      ]);
-
-      // ✅ Calculate stats from your existing backend response
-      const statsData = ordersRes.data?.stats || {};
-
-      // Total orders (all statuses)
-      const totalOrders = statsData.total || 0;
-
-      const paidOrdersCount = statsData.paid || 0;
-      // Get parcel stats
-      const parcelStats = parcelRes.data?.stats || {};
-      
-      // Count today's orders (you can add this to backend later)
-      const todayOrders = (statsData.todayOrders || 0) + (parcelStats.todayOrders || 0);
-      
-      
-      // Get table stats
-      const tableStats = tablesRes.data?.stats || {};
-      
-      setStats({
-        totalOrders: totalOrders,
-        paidOrdersCount: paidOrdersCount,
-        todayOrders: todayOrders,
-        availableTables: tableStats.available || 0,
-        occupiedTables: tableStats.occupied || 0,
-        reservedTables: tableStats.reserved || 0,
-        totalTables: tableStats.total || 0,
-        occupancyRate: parseFloat(tableStats.occupancyRate) || 0
-      });
-
-      // Fetch recent orders for activity
-      const recentOrdersRes = await axios.get('/orders?limit=5');
-      const orders = recentOrdersRes.data?.orders || [];
-
-      setRecentActivity(orders.slice(0, 3).map(order => ({
-        type: 'order',
-        title: 'New order placed',
-        description: `${order.tableId?.tableNumber ? `Table #${order.tableId.tableNumber}` : 'Parcel'} - ₹${order.totalAmount}`,
-        time: new Date(order.createdAt).toLocaleTimeString('en-IN', {
-          hour: '2-digit',
-          minute: '2-digit'
-        }),
-        icon: ShoppingBag,
-        color: 'blue'
-      })));
+      const response = await axios.get('/dashboard/summary');
+      if (!response.data?.success || !response.data?.stats) {
+        throw new Error('Dashboard summary response was invalid');
+      }
+      setStats(response.data.stats);
 
     } catch (error) {
       console.error('Failed to fetch stats:', error);

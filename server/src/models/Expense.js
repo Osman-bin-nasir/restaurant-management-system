@@ -9,4 +9,7 @@ const expenseSchema = new mongoose.Schema({
   branchId: { type: mongoose.Schema.Types.ObjectId, ref: 'Branch', required: true }
 }, { timestamps: true });
 
+expenseSchema.index({ branchId: 1, date: -1 });
+expenseSchema.index({ branchId: 1, category: 1, date: -1 });
+
 export default mongoose.model('Expense', expenseSchema);

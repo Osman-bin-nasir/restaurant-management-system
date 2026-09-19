@@ -109,7 +109,6 @@ export const getRevenueForecast = asyncHandler(async (req, res) => {
 
 // ====================== GET DAILY REVENUE ======================
 export const getDailyRevenue = asyncHandler(async (req, res) => {
-  console.log("getDailyRevenue function called");
   const { branchId } = req.user;
   const { date } = req.query; // Optional: specific date (YYYY-MM-DD)
 

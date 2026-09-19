@@ -1,20 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Table2,
-  Plus,
+  Grid3X3,
   Users,
-  Minus,
   Clock,
   RefreshCw,
-  X,
-  ShoppingBag,
   CheckCircle,
-  Trash2,
   Search
 } from 'lucide-react';
 import axios from '../../api/axios';
 import { useSocket } from '../../contexts/SocketContext';
+import { withOccupancyRate } from '../../utils/tableStats.js';
 
 const TrendingUp = ({ size = 24, className = '' }) => (
   <svg
@@ -33,20 +29,13 @@ const TrendingUp = ({ size = 24, className = '' }) => (
   </svg>
 );
 
-const TableManagementSystem = () => {
+const DineIn = () => {
   const [tables, setTables] = useState([]);
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [selectedTable, setSelectedTable] = useState(null);
-  const [showOrderModal, setShowOrderModal] = useState(false);
-  const [menuItems, setMenuItems] = useState([]);
-  const [cart, setCart] = useState([]);
-  const [customerName, setCustomerName] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
-  const [orders, setOrders] = useState({});
-  const [currentOrder, setCurrentOrder] = useState(null);
-  const [isOrderDirty, setIsOrderDirty] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
   const navigate = useNavigate();
   const socket = useSocket();
 
@@ -73,17 +62,18 @@ const TableManagementSystem = () => {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [tablesRes, menuRes, ordersRes] = await Promise.all([
-        axios.get('/tables/'),
-        axios.get('/menu/'),
-        axios.get('/orders/')
-      ]);
-      setTables(tablesRes.data.tables);
-      setStats(tablesRes.data.stats);
-      setMenuItems(menuRes.data.MenuItems);
-      setOrders(ordersRes.data.orders.reduce((acc, o) => ({ ...acc, [o.orderNumber]: o }), {}));
+      setErrorMessage('');
+      const tablesRes = await axios.get('/tables');
+      const nextTables = tablesRes.data?.tables;
+      if (!Array.isArray(nextTables)) {
+        throw new Error('The server returned an invalid Dine-in response');
+      }
+
+      setTables(nextTables);
+      setStats(withOccupancyRate(tablesRes.data.stats));
     } catch (error) {
       console.error('Error fetching data:', error);
+      setErrorMessage('Unable to load Dine-in data. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -118,107 +108,11 @@ const TableManagementSystem = () => {
     navigate(`/admin/tables/${table._id}`);
   };
 
-  const addToCart = (item) => {
-    setIsOrderDirty(true);
-    const existing = cart.find(c => c._id === item._id);
-    if (existing) {
-      setCart(cart.map(c => (c._id === item._id ? { ...c, quantity: c.quantity + 1 } : c)));
-    } else {
-      setCart([...cart, { ...item, quantity: 1, notes: '' }]);
-    }
-  };
-
-  const updateQuantity = (itemId, newQuantity) => {
-    if (currentOrder) {
-      const originalItem = currentOrder.items.find(item => item._id === itemId);
-      const originalQuantity = originalItem ? originalItem.quantity : 0;
-      if (newQuantity < originalQuantity) {
-        return;
-      }
-    }
-
-    const currentItem = cart.find(c => c._id === itemId);
-    const currentQuantity = currentItem ? currentItem.quantity : 0;
-    if (newQuantity === currentQuantity) {
-      return;
-    }
-
-    setIsOrderDirty(true);
-
-    if (newQuantity === 0) {
-      setCart(cart.filter(c => c._id !== itemId));
-    } else {
-      setCart(cart.map(c => (c._id === itemId ? { ...c, quantity: newQuantity } : c)));
-    }
-  };
-
-  const getTotalAmount = () => cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
-
-  const handleSubmitOrder = () => {
-    const total = getTotalAmount();
-    if (!currentOrder) {
-      const newOrderNumber = `ORD-${String(Object.keys(orders).length + 3).padStart(3, '0')}`;
-      const newOrder = {
-        _id: `o${Object.keys(orders).length + 3}`,
-        orderNumber: newOrderNumber,
-        tableId: selectedTable._id,
-        customerName,
-        status: 'unpaid',
-        items: cart.map(({ notes, ...item }) => item),
-        totalAmount: total
-      };
-      setOrders({ ...orders, [newOrderNumber]: newOrder });
-      setTables(tables.map(t => 
-        t._id === selectedTable._id ? { ...t, status: 'occupied', currentOrderId: { orderNumber: newOrderNumber, totalAmount: total } } : t
-      ));
-      setStats({
-        ...stats,
-        available: stats.available - 1,
-        occupied: stats.occupied + 1,
-        occupancyRate: ((stats.occupied + 1) / stats.total * 100).toFixed(2)
-      });
-    } else {
-      const updatedOrder = {
-        ...currentOrder,
-        customerName,
-        items: cart.map(({ notes, ...item }) => item),
-        totalAmount: total
-      };
-      setOrders({ ...orders, [currentOrder.orderNumber]: updatedOrder });
-      setTables(tables.map(t => 
-        t._id === selectedTable._id ? { ...t, currentOrderId: { ...t.currentOrderId, totalAmount: total } } : t
-      ));
-    }
-    setShowOrderModal(false);
-    setSelectedTable(null);
-  };
-
-  const handleCompletePayment = () => {
-    if (currentOrder) {
-      setOrders({ ...orders, [currentOrder.orderNumber]: { ...currentOrder, status: 'paid' } });
-      setTables(tables.map(t => 
-        t._id === selectedTable._id ? { ...t, status: 'available', currentOrderId: null } : t
-      ));
-      setStats({
-        ...stats,
-        available: stats.available + 1,
-        occupied: stats.occupied - 1,
-        occupancyRate: ((stats.occupied - 1) / stats.total * 100).toFixed(2)
-      });
-      setShowOrderModal(false);
-      setSelectedTable(null);
-    }
-  };
-
   const filteredTables = tables.filter((table) => {
     const matchesSearch = table.tableNumber.toString().includes(searchTerm);
     const matchesFilter = filterStatus === 'all' || table.status === filterStatus;
     return matchesSearch && matchesFilter;
   });
-
-  const previousOrders = selectedTable 
-    ? Object.values(orders).filter(o => o.tableId === selectedTable._id && o.status === 'paid') 
-    : [];
 
   if (loading) {
     return (
@@ -235,11 +129,11 @@ const TableManagementSystem = () => {
           <div>
             <h1 className="text-4xl font-bold text-gray-900 mb-2 flex items-center gap-3">
               <div className="bg-gradient-to-br from-orange-400 to-orange-600 p-3 rounded-2xl shadow-lg">
-                <Table2 size={32} className="text-white" />
+                <Grid3X3 size={32} className="text-white" />
               </div>
-              Table Management
+              Dine-in Management
             </h1>
-            <p className="text-gray-600 text-lg">Manage restaurant tables and orders</p>
+            <p className="text-gray-600 text-lg">Manage restaurant Dine-in orders</p>
           </div>
           <button
             onClick={fetchData}
@@ -250,6 +144,12 @@ const TableManagementSystem = () => {
           </button>
         </div>
 
+        {errorMessage && (
+          <div className="mb-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-red-700" role="alert">
+            {errorMessage}
+          </div>
+        )}
+
         {stats && (
           <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
             <div className="bg-white rounded-2xl shadow-md p-6 border-l-4 border-blue-500">
@@ -258,7 +158,7 @@ const TableManagementSystem = () => {
                   <p className="text-sm text-gray-600 mb-1">Total Tables</p>
                   <p className="text-3xl font-bold text-gray-900">{stats.total}</p>
                 </div>
-                <Table2 className="text-blue-500" size={32} />
+                <Grid3X3 className="text-blue-500" size={32} />
               </div>
             </div>
             <div className="bg-white rounded-2xl shadow-md p-6 border-l-4 border-green-500">
@@ -327,7 +227,11 @@ const TableManagementSystem = () => {
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-        {filteredTables.map((table) => (
+        {!errorMessage && filteredTables.length === 0 ? (
+          <div className="col-span-full rounded-2xl border border-dashed border-gray-300 bg-white p-10 text-center text-gray-600">
+            No tables found for the selected filters.
+          </div>
+        ) : filteredTables.map((table) => (
           <div
             key={table._id}
             onClick={() => handleTableClick(table)}
@@ -346,7 +250,7 @@ const TableManagementSystem = () => {
             <div className="relative z-10">
               <div className="flex items-center justify-between mb-3">
                 <div className="bg-white rounded-full p-2 shadow-lg">
-                  <Table2 size={20} className="text-gray-700" />
+                  <Grid3X3 size={20} className="text-gray-700" />
                 </div>
                 {getStatusBadge(table.status)}
               </div>
@@ -387,8 +291,10 @@ const TableManagementSystem = () => {
   );
 };
 
-export default TableManagementSystem;
+export default DineIn;
 
+// Kept for the table-detail pages that share the same visual status badge.
+// eslint-disable-next-line react-refresh/only-export-components
 export const getStatusBadge = (status) => {
   const badges = {
     available: { bg: 'bg-green-100', text: 'text-green-700', label: 'Available', icon: CheckCircle },

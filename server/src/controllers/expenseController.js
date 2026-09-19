@@ -20,13 +20,17 @@ export const getAllExpenses = asyncHandler(async (req, res) => {
     filter.date = { $gte: new Date(startDate), $lte: new Date(endDate) };
   }
 
-  const expenses = await Expense.find(filter)
+  const expensesQuery = Expense.find(filter)
     .sort({ [sortBy]: sortOrder })
     .skip((page - 1) * limit)
     .limit(parseInt(limit))
-    .populate('approvedBy', 'name');
+    .populate('approvedBy', 'name')
+    .lean();
 
-  const total = await Expense.countDocuments(filter);
+  const [expenses, total] = await Promise.all([
+    expensesQuery,
+    Expense.countDocuments(filter),
+  ]);
 
   res.status(200).json({
     success: true,
